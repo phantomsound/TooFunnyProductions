@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+input, textarea, select {
+  color: #000;
+  background-color: #fff;
+}
+
+label {
+  color: #111;
+}

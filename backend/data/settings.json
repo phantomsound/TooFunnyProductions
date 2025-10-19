@@ -1,0 +1,79 @@
+{
+  "homepage": {
+    "heroTagline": "Comedy that’s Too Funny",
+    "heroSubtext": "Original sketch, live shows, and shamelessly fun chaos. Catch us on stage or online.",
+    "featuredVideo": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+  },
+  "events": [
+    {
+      "date": "Oct 12",
+      "city": "St. Louis",
+      "venue": "The Improv Shop",
+      "buyUrl": "https://example.com/tickets/oct12"
+    },
+    {
+      "date": "Nov 2",
+      "city": "St. Louis",
+      "venue": "City Museum Theater",
+      "buyUrl": "https://example.com/tickets/nov2"
+    },
+    {
+      "date": "Dec 7",
+      "city": "Springfield",
+      "venue": "The Blue Room Comedy Club",
+      "buyUrl": "https://example.com/tickets/dec7"
+    }
+  ],
+  "merch": [
+    {
+      "name": "Too Funny T-Shirt",
+      "price": "$25",
+      "image": "https://via.placeholder.com/300x300.png?text=T-Shirt",
+      "link": "https://example.com/shop/tshirt"
+    },
+    {
+      "name": "Laugh Hat",
+      "price": "$20",
+      "image": "https://via.placeholder.com/300x300.png?text=Hat",
+      "link": "https://example.com/shop/hat"
+    },
+    {
+      "name": "Sticker Pack",
+      "price": "$8",
+      "image": "https://via.placeholder.com/300x300.png?text=Stickers",
+      "link": "https://example.com/shop/stickers"
+    }
+  ],
+  "media": [
+    {
+      "title": "Too Funny Live Clip",
+      "videoUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ"
+    },
+    {
+      "title": "Behind the Scenes",
+      "videoUrl": "https://www.youtube.com/embed/ysz5S6PUM-U"
+    }
+  ],
+  "about": {
+    "team": [
+      {
+        "name": "Jane Doe",
+        "role": "Director",
+        "bio": "Jane is the creative force behind Too Funny Productions, bringing improv and sketches to life.",
+        "headshot": "https://via.placeholder.com/150x150.png?text=Jane"
+      },
+      {
+        "name": "John Smith",
+        "role": "Comedian",
+        "bio": "John’s high-energy style keeps audiences laughing night after night.",
+        "headshot": "https://via.placeholder.com/150x150.png?text=John"
+      },
+      {
+        "name": "Sam Lee",
+        "role": "Editor",
+        "bio": "Sam polishes every sketch with crisp edits and a keen sense of timing.",
+        "headshot": "https://via.placeholder.com/150x150.png?text=Sam"
+      }
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+﻿# dependencies
+node_modules/
+.env
+.env.*
+dist/
+build/
+
+# editors/OS
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# logs
+logs/
+*.log
+*.out
+*.pid
