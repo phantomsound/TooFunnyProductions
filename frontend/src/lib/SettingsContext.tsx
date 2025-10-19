@@ -16,7 +16,7 @@ type Ctx = {
   setField: (k: string, v: any) => void; // mutate local working copy
   isDirty: boolean;
   saving: boolean;
-  save: () => Promise<void>;         // saves draft only (no-op if stage=live)
+  save: (payload?: Partial<Settings>) => Promise<void>; // saves draft only (no-op if stage=live)
   pullLive: () => Promise<void>;     // copies live -> draft and loads it
   publish: () => Promise<void>;      // copies draft -> live and reloads live
   reload: () => Promise<void>;       // reload current stage from server
@@ -48,24 +48,42 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setSettings((prev) => ({ ...(prev || {}), [k]: v }));
   };
 
-  const save = useCallback(async () => {
-    if (stage !== "draft" || !settings) return;
-    setSaving(true);
-    try {
-      const r = await fetch(api("/api/settings?stage=draft"), {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+  const save = useCallback(
+    async (payload?: Partial<Settings>) => {
+      if (stage !== "draft") return;
+
+      setSettings((prev) => {
+        if (!prev && !payload) return prev;
+        if (!prev) return { ...(payload || {}) };
+        if (!payload) return prev;
+        return { ...prev, ...payload };
       });
-      const out = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(out?.error || "Failed to save draft");
-      setSettings(out.data || settings);
-      setInitial(out.data || settings);
-    } finally {
-      setSaving(false);
-    }
-  }, [settings, stage]);
+
+      const next = (() => {
+        const base = settings || {};
+        return payload ? { ...base, ...payload } : base;
+      })();
+
+      if (!next || Object.keys(next).length === 0) return;
+      setSaving(true);
+      try {
+        const r = await fetch(api("/api/settings?stage=draft"), {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(next),
+        });
+        const out = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(out?.error || "Failed to save draft");
+        const data = out.data || next;
+        setSettings(data);
+        setInitial(data);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [settings, stage]
+  );
 
   const pullLive = useCallback(async () => {
     const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });

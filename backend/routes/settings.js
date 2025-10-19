@@ -48,6 +48,11 @@ const ALLOWED = new Set([
   "maintenance_timezone",
 
   "theme_accent",
+  "theme_bg",
+  "header_bg",
+  "footer_bg",
+
+  "session_timeout_minutes",
 
   "published_at",       // only on live; harmless to filter
   "updated_at"          // we set this on writes
