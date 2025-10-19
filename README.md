@@ -16,6 +16,9 @@ This repo contains the Too Funny Productions admin dashboard (React + Vite + Tai
    ```
    The backend listens on <http://localhost:5000> and proxies `/api/*`, while Vite serves the admin UI on <http://localhost:5173>.
 
+> **Having trouble?** Run `npm run doctor` to confirm your checkout has the latest scripts and environment files. For detailed
+> recovery steps when scripts appear to be missing, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+
 To build and serve everything from Express in one process:
 ```bash
 npm run build      # builds frontend/dist
