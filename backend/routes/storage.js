@@ -6,6 +6,7 @@
    ========================================================================= */
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import multer from "multer";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
 
@@ -14,15 +15,26 @@ const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_KEY ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) : null;
 
+const upload = multer({ storage: multer.memoryStorage() });
+
 const BUCKET = "media";
 
 // Build public URL from path
+function ensureSupabase(res) {
+  if (!supabase) {
+    res.status(500).json({ error: "Supabase not configured." });
+    return false;
+  }
+  return true;
+}
+
 function publicUrl(path) {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 // Replace any occurrences of oldUrl with newUrl in a settings table row
 async function replaceUrlInTable(table, oldUrl, newUrl) {
+  if (!supabase) return;
   const sel = await supabase.from(table).select("*").limit(1).maybeSingle();
   if (sel.error) throw sel.error;
   const row = sel.data;
@@ -44,6 +56,7 @@ async function replaceUrlInTable(table, oldUrl, newUrl) {
 
 // --- LIST --------------------------------------------------------------
 router.get("/list", requireAdmin, async (req, res) => {
+  if (!ensureSupabase(res)) return;
   try {
     const { prefix = "", limit = 1000 } = req.query;
     const { data, error } = await supabase.storage.from(BUCKET).list(prefix || "", {
@@ -74,15 +87,14 @@ router.get("/list", requireAdmin, async (req, res) => {
 });
 
 // --- UPLOAD ------------------------------------------------------------
-router.post("/upload", requireAdmin, async (req, res) => {
+router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => {
+  if (!ensureSupabase(res)) return;
   try {
-    // Expecting multipart/form-data; ensure your server.js has a body-parser for it or use raw buffer.
-    // Here we assume you've already attached something like express-fileupload or multer.
-    const file = req.files?.file; // if using express-fileupload
+    const file = req.file;
     if (!file) return res.status(400).json({ error: "No file" });
 
-    const filePath = `${Date.now()}_${file.name}`; // root of bucket
-    const { data, error } = await supabase.storage.from(BUCKET).upload(filePath, file.data, {
+    const filePath = `${Date.now()}_${file.originalname}`;
+    const { data, error } = await supabase.storage.from(BUCKET).upload(filePath, file.buffer, {
       contentType: file.mimetype,
       upsert: false,
     });
@@ -99,6 +111,7 @@ router.post("/upload", requireAdmin, async (req, res) => {
 
 // --- DELETE ------------------------------------------------------------
 router.post("/delete", requireAdmin, async (req, res) => {
+  if (!ensureSupabase(res)) return;
   try {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: "path required" });
@@ -118,6 +131,7 @@ router.post("/delete", requireAdmin, async (req, res) => {
 
 // --- RENAME (move) -----------------------------------------------------
 router.post("/rename", requireAdmin, async (req, res) => {
+  if (!ensureSupabase(res)) return;
   try {
     const { fromPath, toName } = req.body;
     if (!fromPath || !toName) return res.status(400).json({ error: "fromPath and toName required" });
