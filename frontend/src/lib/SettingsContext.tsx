@@ -16,35 +16,35 @@ const isEventLike = (value: unknown): value is { nativeEvent?: unknown; preventD
   return false;
 };
 
-const toSerializable = (value: any, seen = new WeakSet<object>()): any => {
+const sanitizeValue = (value: any, seen: WeakSet<object>): any => {
   if (value === null || value === undefined) return value;
   const type = typeof value;
   if (type === "string" || type === "number" || type === "boolean") return value;
   if (value instanceof Date) return value.toISOString();
   if (type === "function") return undefined;
-  if (isEventLike(value)) return undefined;
   if (typeof File !== "undefined" && value instanceof File) return undefined;
   if (typeof Element !== "undefined" && value instanceof Element) return undefined;
+  if (isEventLike(value)) return undefined;
 
   if (type === "object") {
-    if (seen.has(value as object)) return undefined;
-    seen.add(value as object);
+    if (seen.has(value)) return undefined;
+    seen.add(value);
 
     if (Array.isArray(value)) {
-      const arr: any[] = [];
+      const next: any[] = [];
       for (const entry of value) {
-        const serial = toSerializable(entry, seen);
-        if (serial !== undefined) arr.push(serial);
+        const sanitized = sanitizeValue(entry, seen);
+        if (sanitized !== undefined) next.push(sanitized);
       }
-      return arr;
+      return next;
     }
 
-    const obj: Record<string, any> = {};
+    const next: Record<string, any> = {};
     for (const [key, entry] of Object.entries(value)) {
-      const serial = toSerializable(entry, seen);
-      if (serial !== undefined) obj[key] = serial;
+      const sanitized = sanitizeValue(entry, seen);
+      if (sanitized !== undefined) next[key] = sanitized;
     }
-    return obj;
+    return next;
   }
 
   return undefined;
@@ -52,9 +52,24 @@ const toSerializable = (value: any, seen = new WeakSet<object>()): any => {
 
 const sanitizeSettings = (value: Settings | null | undefined): Settings => {
   if (!value || typeof value !== "object") return {};
-  const sanitized = toSerializable(value);
+  const sanitized = sanitizeValue(value, new WeakSet<object>());
   if (!sanitized || typeof sanitized !== "object" || Array.isArray(sanitized)) return {};
   return sanitized as Settings;
+};
+
+const jsonSafeStringify = (value: unknown): string => {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(value, (_key, val) => {
+    if (typeof val === "function") return undefined;
+    if (val && typeof val === "object") {
+      if (isEventLike(val)) return undefined;
+      if (typeof File !== "undefined" && val instanceof File) return undefined;
+      if (typeof Element !== "undefined" && val instanceof Element) return undefined;
+      if (seen.has(val)) return undefined;
+      seen.add(val);
+    }
+    return val;
+  });
 };
 
 type Stage = "live" | "draft";
@@ -99,43 +114,40 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setField = (k: string, v: any) => {
     setSettings((prev) => {
       const base = sanitizeSettings(prev || {});
-      const nextValue = toSerializable(v);
-      if (nextValue === undefined) {
-        const { [k]: _omit, ...rest } = base;
-        return rest;
-      }
-      return { ...base, [k]: nextValue };
+      return { ...base, [k]: sanitizeValue(v, new WeakSet<object>()) };
     });
   };
 
   const save = useCallback(
-    async (incoming?: Partial<Settings>) => {
+    async (payload?: Partial<Settings>) => {
       if (stage !== "draft") return;
 
-      const payload = isEventLike(incoming) ? undefined : incoming;
-      const base = sanitizeSettings(settings);
-      const next = payload ? { ...base, ...sanitizeSettings(payload as Settings) } : base;
+      setSettings((prev) => {
+        if (!prev && !payload) return prev;
+        if (!prev) return { ...(payload || {}) };
+        if (!payload) return prev;
+        return { ...prev, ...payload };
+      });
+
+      const next = (() => {
+        const base = settings || {};
+        return payload ? { ...base, ...payload } : base;
+      })();
 
       if (!next || Object.keys(next).length === 0) return;
-
-      // Optimistically update local state so forms stay in sync.
-      const safe = sanitizeSettings(next);
-      setSettings(safe);
-
       setSaving(true);
       try {
         const r = await fetch(api("/api/settings?stage=draft"), {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(safe),
+          body: JSON.stringify(next),
         });
         const out = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(out?.error || "Failed to save draft");
-        const data = out.data && typeof out.data === "object" ? out.data : safe;
-        const clean = sanitizeSettings(data);
-        setSettings(clean);
-        setInitial(clean);
+        const data = out.data || next;
+        setSettings(data);
+        setInitial(data);
       } finally {
         setSaving(false);
       }
@@ -144,22 +156,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   );
 
   const pullLive = useCallback(async () => {
-    const previousStage = stage;
-    try {
-      const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });
-      const out = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
-      const data = out.data && typeof out.data === "object" ? out.data : {};
-      const clean = sanitizeSettings(data);
-      setSettings(clean);
-      setInitial(clean);
-      setStage("draft");
-      await load("draft");
-    } catch (error) {
-      setStage(previousStage);
-      throw error;
-    }
-  }, [load, stage]);
+    const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
+    setStage("draft");
+    setSettings(out.data || {});
+    setInitial(out.data || {});
+  }, []);
 
   const publish = useCallback(async () => {
     const r = await fetch(api("/api/settings/publish"), { method: "POST", credentials: "include" });
