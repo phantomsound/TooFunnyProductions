@@ -22,6 +22,7 @@ const sanitizeValue = (value: any, seen: WeakSet<object>): any => {
   if (type === "string" || type === "number" || type === "boolean") return value;
   if (value instanceof Date) return value.toISOString();
   if (type === "function") return undefined;
+  if (typeof File !== "undefined" && value instanceof File) return undefined;
   if (typeof Element !== "undefined" && value instanceof Element) return undefined;
   if (isEventLike(value)) return undefined;
 
@@ -54,6 +55,21 @@ const sanitizeSettings = (value: Settings | null | undefined): Settings => {
   const sanitized = sanitizeValue(value, new WeakSet<object>());
   if (!sanitized || typeof sanitized !== "object" || Array.isArray(sanitized)) return {};
   return sanitized as Settings;
+};
+
+const jsonSafeStringify = (value: unknown): string => {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(value, (_key, val) => {
+    if (typeof val === "function") return undefined;
+    if (val && typeof val === "object") {
+      if (isEventLike(val)) return undefined;
+      if (typeof File !== "undefined" && val instanceof File) return undefined;
+      if (typeof Element !== "undefined" && val instanceof Element) return undefined;
+      if (seen.has(val)) return undefined;
+      seen.add(val);
+    }
+    return val;
+  });
 };
 
 type Stage = "live" | "draft";
@@ -122,7 +138,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(safe),
+          body: jsonSafeStringify(safe),
         });
         const out = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(out?.error || "Failed to save draft");

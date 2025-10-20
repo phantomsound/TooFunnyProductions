@@ -7,6 +7,7 @@ interface Props {
   onChange: (url: string) => void;
   accept?: string;
   buttonLabel?: string;
+  disabled?: boolean;
 }
 
 const SettingsUploader: React.FC<Props> = ({
@@ -15,6 +16,7 @@ const SettingsUploader: React.FC<Props> = ({
   onChange,
   accept = "*",
   buttonLabel = "Upload",
+  disabled = false,
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -41,6 +43,7 @@ const SettingsUploader: React.FC<Props> = ({
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     setError(null);
     const next = event.target.files?.[0] || null;
     if (!next) {
@@ -51,6 +54,7 @@ const SettingsUploader: React.FC<Props> = ({
   };
 
   const handleUpload = async () => {
+    if (disabled) return;
     if (!file) {
       setError("Select a file before uploading.");
       return;
@@ -88,6 +92,7 @@ const SettingsUploader: React.FC<Props> = ({
   };
 
   const handleClear = () => {
+    if (disabled) return;
     resetSelection("");
     onChange("");
   };
@@ -96,20 +101,29 @@ const SettingsUploader: React.FC<Props> = ({
 
   return (
     <div className="border border-gray-300 rounded-lg p-4 bg-white space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="font-semibold">{label}</p>
-        {value && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="text-xs text-red-600 hover:text-red-700 font-semibold"
-          >
-            Clear
-          </button>
-        )}
-      </div>
+        <div className="flex items-center justify-between">
+          <p className="font-semibold">{label}</p>
+          {value && (
+            <button
+              type="button"
+              onClick={handleClear}
+              disabled={disabled}
+              className={`text-xs font-semibold ${
+                disabled ? "text-red-300 cursor-not-allowed" : "text-red-600 hover:text-red-700"
+              }`}
+            >
+              Clear
+            </button>
+          )}
+        </div>
 
-      <input type="file" accept={accept} onChange={handleFileChange} className="block w-full text-sm" />
+      <input
+        type="file"
+        accept={accept}
+        onChange={handleFileChange}
+        className="block w-full text-sm"
+        disabled={disabled}
+      />
 
       {previewUrl ? (
         <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
@@ -127,8 +141,12 @@ const SettingsUploader: React.FC<Props> = ({
         <button
           type="button"
           onClick={handleUpload}
-          disabled={uploading}
-          className="px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 disabled:opacity-60"
+          disabled={uploading || disabled}
+          className={`px-4 py-2 font-semibold rounded ${
+            uploading || disabled
+              ? "bg-blue-300 text-white/80 cursor-not-allowed"
+              : "bg-blue-600 text-white hover:bg-blue-700"
+          }`}
         >
           {uploading ? "Uploading…" : buttonLabel}
         </button>
