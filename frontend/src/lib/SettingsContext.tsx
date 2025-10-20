@@ -119,33 +119,35 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const save = useCallback(
-    async (incoming?: Partial<Settings>) => {
+    async (payload?: Partial<Settings>) => {
       if (stage !== "draft") return;
 
-      const payload = isEventLike(incoming) ? undefined : incoming;
-      const base = sanitizeSettings(settings);
-      const next = payload ? { ...base, ...sanitizeSettings(payload as Settings) } : base;
+      setSettings((prev) => {
+        if (!prev && !payload) return prev;
+        if (!prev) return { ...(payload || {}) };
+        if (!payload) return prev;
+        return { ...prev, ...payload };
+      });
+
+      const next = (() => {
+        const base = settings || {};
+        return payload ? { ...base, ...payload } : base;
+      })();
 
       if (!next || Object.keys(next).length === 0) return;
-
-      // Optimistically update local state so forms stay in sync.
-      const safe = sanitizeSettings(next);
-      setSettings(safe);
-
       setSaving(true);
       try {
         const r = await fetch(api("/api/settings?stage=draft"), {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: jsonSafeStringify(safe),
+          body: JSON.stringify(next),
         });
         const out = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(out?.error || "Failed to save draft");
-        const data = out.data && typeof out.data === "object" ? out.data : safe;
-        const clean = sanitizeSettings(data);
-        setSettings(clean);
-        setInitial(clean);
+        const data = out.data || next;
+        setSettings(data);
+        setInitial(data);
       } finally {
         setSaving(false);
       }
@@ -154,22 +156,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   );
 
   const pullLive = useCallback(async () => {
-    const previousStage = stage;
-    try {
-      const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });
-      const out = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
-      const data = out.data && typeof out.data === "object" ? out.data : {};
-      const clean = sanitizeSettings(data);
-      setSettings(clean);
-      setInitial(clean);
-      setStage("draft");
-      await load("draft");
-    } catch (error) {
-      setStage(previousStage);
-      throw error;
-    }
-  }, [load, stage]);
+    const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
+    setStage("draft");
+    setSettings(out.data || {});
+    setInitial(out.data || {});
+  }, []);
 
   const publish = useCallback(async () => {
     const r = await fetch(api("/api/settings/publish"), { method: "POST", credentials: "include" });
