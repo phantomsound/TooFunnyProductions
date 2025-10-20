@@ -11,7 +11,49 @@ const isEventLike = (value: unknown): value is { nativeEvent?: unknown; preventD
   const maybe = value as Record<string, unknown>;
   if (typeof maybe.preventDefault === "function") return true;
   if (maybe.nativeEvent) return true;
+  if (typeof maybe.stopPropagation === "function") return true;
+  if ("target" in maybe && maybe.target && typeof maybe.target === "object") return true;
   return false;
+};
+
+const sanitizeValue = (value: any, seen: WeakSet<object>): any => {
+  if (value === null || value === undefined) return value;
+  const type = typeof value;
+  if (type === "string" || type === "number" || type === "boolean") return value;
+  if (value instanceof Date) return value.toISOString();
+  if (type === "function") return undefined;
+  if (typeof Element !== "undefined" && value instanceof Element) return undefined;
+  if (isEventLike(value)) return undefined;
+
+  if (type === "object") {
+    if (seen.has(value)) return undefined;
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      const next: any[] = [];
+      for (const entry of value) {
+        const sanitized = sanitizeValue(entry, seen);
+        if (sanitized !== undefined) next.push(sanitized);
+      }
+      return next;
+    }
+
+    const next: Record<string, any> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      const sanitized = sanitizeValue(entry, seen);
+      if (sanitized !== undefined) next[key] = sanitized;
+    }
+    return next;
+  }
+
+  return undefined;
+};
+
+const sanitizeSettings = (value: Settings | null | undefined): Settings => {
+  if (!value || typeof value !== "object") return {};
+  const sanitized = sanitizeValue(value, new WeakSet<object>());
+  if (!sanitized || typeof sanitized !== "object" || Array.isArray(sanitized)) return {};
+  return sanitized as Settings;
 };
 
 type Stage = "live" | "draft";
@@ -41,8 +83,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const load = useCallback(async (s: Stage) => {
     const r = await fetch(api(`/api/settings?stage=${s}`), { credentials: "include" });
     const d = await r.json().catch(() => ({}));
-    setSettings(d || {});
-    setInitial(d || {});
+    const safe = sanitizeSettings(d || {});
+    setSettings(safe);
+    setInitial(safe);
   }, []);
 
   useEffect(() => { load(stage); }, [stage, load]);
@@ -53,7 +96,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [settings, initial]);
 
   const setField = (k: string, v: any) => {
-    setSettings((prev) => ({ ...(prev || {}), [k]: v }));
+    setSettings((prev) => {
+      const base = sanitizeSettings(prev || {});
+      return { ...base, [k]: sanitizeValue(v, new WeakSet<object>()) };
+    });
   };
 
   const save = useCallback(
@@ -61,13 +107,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (stage !== "draft") return;
 
       const payload = isEventLike(incoming) ? undefined : incoming;
-      const base = settings ? { ...settings } : {};
-      const next = payload ? { ...base, ...payload } : base;
+      const base = sanitizeSettings(settings);
+      const next = payload ? { ...base, ...sanitizeSettings(payload as Settings) } : base;
 
       if (!next || Object.keys(next).length === 0) return;
 
       // Optimistically update local state so forms stay in sync.
-      setSettings(next);
+      const safe = sanitizeSettings(next);
+      setSettings(safe);
 
       setSaving(true);
       try {
@@ -75,13 +122,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           method: "PUT",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
+          body: JSON.stringify(safe),
         });
         const out = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(out?.error || "Failed to save draft");
-        const data = out.data && typeof out.data === "object" ? out.data : next;
-        setSettings(data);
-        setInitial(data);
+        const data = out.data && typeof out.data === "object" ? out.data : safe;
+        const clean = sanitizeSettings(data);
+        setSettings(clean);
+        setInitial(clean);
       } finally {
         setSaving(false);
       }
@@ -96,14 +144,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       const out = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
       const data = out.data && typeof out.data === "object" ? out.data : {};
-      setSettings(data);
-      setInitial(data);
+      const clean = sanitizeSettings(data);
+      setSettings(clean);
+      setInitial(clean);
       setStage("draft");
+      await load("draft");
     } catch (error) {
       setStage(previousStage);
       throw error;
     }
-  }, [stage]);
+  }, [load, stage]);
 
   const publish = useCallback(async () => {
     const r = await fetch(api("/api/settings/publish"), { method: "POST", credentials: "include" });
