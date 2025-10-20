@@ -7,18 +7,31 @@ import React from "react";
 import { useSettings } from "../../lib/SettingsContext";
 
 export default function AdminSettingsHome() {
-  const { settings, setField, save, stage } = useSettings();
+  const { settings, setField, stage } = useSettings();
   const s = settings || {};
+  const disabled = stage !== "draft";
+
+  const update = (key: string, value: unknown) => {
+    if (disabled) return;
+    setField(key, value);
+  };
 
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">Home Page Settings</h3>
 
+      {disabled ? (
+        <p className="mb-4 rounded border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-200">
+          Switch to the Draft view to edit the home page content.
+        </p>
+      ) : null}
+
       <label className="block text-sm font-medium mb-1">Hero Title</label>
       <input
         className="w-full border rounded px-3 py-2 mb-4"
         value={s.hero_title || ""}
-        onChange={(e) => setField("hero_title", e.target.value)}
+        onChange={(e) => update("hero_title", e.target.value)}
+        disabled={disabled}
         placeholder="Comedy that's Too Funny"
       />
 
@@ -27,7 +40,8 @@ export default function AdminSettingsHome() {
         className="w-full border rounded px-3 py-2 mb-4"
         rows={3}
         value={s.hero_subtext || ""}
-        onChange={(e) => setField("hero_subtext", e.target.value)}
+        onChange={(e) => update("hero_subtext", e.target.value)}
+        disabled={disabled}
         placeholder="Original sketch, live shows, and shamelessly fun chaos."
       />
 
@@ -35,7 +49,8 @@ export default function AdminSettingsHome() {
       <input
         className="w-full border rounded px-3 py-2 mb-4"
         value={s.hero_image_url || ""}
-        onChange={(e) => setField("hero_image_url", e.target.value)}
+        onChange={(e) => update("hero_image_url", e.target.value)}
+        disabled={disabled}
         placeholder="https://…/hero.jpg"
       />
 
@@ -43,19 +58,10 @@ export default function AdminSettingsHome() {
       <input
         className="w-full border rounded px-3 py-2 mb-6"
         value={s.featured_video_url || ""}
-        onChange={(e) => setField("featured_video_url", e.target.value)}
+        onChange={(e) => update("featured_video_url", e.target.value)}
+        disabled={disabled}
         placeholder="https://…/video.mp4"
       />
-
-      <button
-        onClick={save}
-        disabled={stage !== "draft"}
-        className={`px-4 py-2 rounded ${
-          stage !== "draft" ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-yellow-400 text-black hover:bg-yellow-300"
-        }`}
-      >
-        Save Changes
-      </button>
     </div>
   );
 }
