@@ -3,10 +3,11 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import WhoAmI from "./WhoAmI";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Navbar() {
-  const { search } = useLocation();
+  const { search, pathname } = useLocation();
+  const { signIn, user, isAdmin } = useAuth();
   const sp = new URLSearchParams(search);
   const stageSuffix = sp.get("stage") === "draft" ? "?stage=draft" : "";
 
@@ -36,7 +37,21 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          <WhoAmI />
+          {isAdmin ? (
+            <Link
+              to="/admin"
+              className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold hover:border-yellow-400"
+            >
+              Admin
+            </Link>
+          ) : user ? null : pathname.startsWith("/admin") ? null : (
+            <button
+              onClick={signIn}
+              className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold hover:border-yellow-400"
+            >
+              Sign in
+            </button>
+          )}
         </div>
       </div>
     </nav>
