@@ -10,23 +10,23 @@ import SettingsLinkManager from "./SettingsLinkManager";
 
 const TIMEOUT_OPTIONS = [5, 10, 15, 20, 25, 30, 45, 60];
 
-const text = (value: unknown, fallback = "") =>
+const text = (value, fallback = "") =>
   typeof value === "string" ? value : fallback;
 
-const color = (value: unknown, fallback: string) =>
+const color = (value, fallback = "") =>
   typeof value === "string" && value.trim() ? value : fallback;
 
-const number = (value: unknown, fallback: number) =>
+const numeric = (value, fallback = 0) =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
-const bool = (value: unknown) => value === true;
+const bool = (value) => value === true;
 
 export default function AdminSettingsGeneral() {
   const { settings, setField, stage } = useSettings();
   const safe = settings || {};
   const disabled = stage !== "draft";
 
-  const update = (key: string, value: unknown) => {
+  const update = (key, value) => {
     if (disabled) return;
     setField(key, value);
   };
@@ -230,7 +230,7 @@ export default function AdminSettingsGeneral() {
         </p>
         <select
           className="border border-gray-300 rounded px-3 py-2 text-black bg-white"
-          value={number(safe.session_timeout_minutes, 30)}
+          value={numeric(safe.session_timeout_minutes, 30)}
           onChange={(e) => update("session_timeout_minutes", Number(e.target.value))}
           disabled={disabled}
         >

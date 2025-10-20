@@ -104,7 +104,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const isDirty = useMemo(() => {
     if (!settings || !initial) return false;
-    return JSON.stringify(settings) !== JSON.stringify(initial);
+    try {
+      return JSON.stringify(settings) !== JSON.stringify(initial);
+    } catch {
+      return true;
+    }
   }, [settings, initial]);
 
   const setField = (k: string, v: any) => {
