@@ -1,7 +1,24 @@
 import React from "react";
 import { api } from "../../lib/api";
 
-const SORT_OPTIONS = [
+interface MediaItem {
+  name: string;
+  path: string;
+  url: string;
+  size: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+  mime_type?: string | null;
+}
+
+type SortOption = {
+  id: string;
+  label: string;
+  sort: string;
+  direction: "asc" | "desc";
+};
+
+const SORT_OPTIONS: SortOption[] = [
   { id: "newest", label: "Newest", sort: "updated_at", direction: "desc" },
   { id: "oldest", label: "Oldest", sort: "updated_at", direction: "asc" },
   { id: "name", label: "Name A–Z", sort: "name", direction: "asc" },
@@ -9,7 +26,7 @@ const SORT_OPTIONS = [
   { id: "size", label: "Size", sort: "size", direction: "desc" },
 ];
 
-const humanSize = (n) => {
+const humanSize = (n: number | null) => {
   if (n == null) return "";
   if (n === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -22,19 +39,19 @@ const humanSize = (n) => {
   return `${size.toFixed(size < 10 ? 1 : 0)} ${units[idx]}`;
 };
 
-const isImage = (name, mime) =>
+const isImage = (name: string, mime?: string | null) =>
   (mime && mime.startsWith("image/")) || /\.(png|jpe?g|gif|webp|svg)$/i.test(name);
-const isVideo = (name, mime) =>
+const isVideo = (name: string, mime?: string | null) =>
   (mime && mime.startsWith("video/")) || /\.(mp4|webm|mov|m4v)$/i.test(name);
 
 export default function AdminMediaManager() {
-  const [items, setItems] = React.useState([]);
+  const [items, setItems] = React.useState<MediaItem[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
-  const [error, setError] = React.useState(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   const [search, setSearch] = React.useState("");
-  const [activeSortId, setActiveSortId] = React.useState(SORT_OPTIONS[0].id);
+  const [activeSortId, setActiveSortId] = React.useState<string>(SORT_OPTIONS[0].id);
 
   const activeSort = SORT_OPTIONS.find((s) => s.id === activeSortId) ?? SORT_OPTIONS[0];
 
@@ -51,10 +68,9 @@ export default function AdminMediaManager() {
         credentials: "include",
       });
       if (!response.ok) throw new Error(`List failed: ${response.status}`);
-
       const data = await response.json();
-      setItems(data?.items || []);
-    } catch (err) {
+      setItems((data?.items || []) as MediaItem[]);
+    } catch (err: any) {
       console.error(err);
       setError(err?.message || "Failed to load media");
       setItems([]);
@@ -72,7 +88,7 @@ export default function AdminMediaManager() {
 
   const refresh = () => load();
 
-  const onUpload = async (fileList) => {
+  const onUpload = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     setUploading(true);
     setError(null);
@@ -91,7 +107,7 @@ export default function AdminMediaManager() {
         }
       }
       await load();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError(err?.message || "Upload failed");
     } finally {
@@ -99,7 +115,7 @@ export default function AdminMediaManager() {
     }
   };
 
-  const onDelete = async (item) => {
+  const onDelete = async (item: MediaItem) => {
     if (!window.confirm(`Delete \"${item.name}\"? This cannot be undone.`)) return;
     try {
       const response = await fetch(api("/api/storage/delete"), {
@@ -110,13 +126,13 @@ export default function AdminMediaManager() {
       });
       if (!response.ok) throw new Error(`Delete failed: ${response.status}`);
       setItems((prev) => prev.filter((it) => it.path !== item.path));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError(err?.message || "Delete failed");
     }
   };
 
-  const onRename = async (item) => {
+  const onRename = async (item: MediaItem) => {
     const current = item.name;
     const suggestion = window.prompt("Rename file", current);
     if (!suggestion || suggestion === current) return;
@@ -133,13 +149,13 @@ export default function AdminMediaManager() {
         throw new Error(text || "Rename failed");
       }
       await load();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError(err?.message || "Rename failed");
     }
   };
 
-  const onCopy = async (url) => {
+  const onCopy = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
     } catch {

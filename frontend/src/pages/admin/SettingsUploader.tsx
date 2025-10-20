@@ -1,18 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
-function SettingsUploader({
+interface Props {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  accept?: string;
+  buttonLabel?: string;
+}
+
+const SettingsUploader: React.FC<Props> = ({
   label,
   value,
   onChange,
   accept = "*",
   buttonLabel = "Upload",
-  disabled = false,
-}) {
-  const [file, setFile] = useState(null);
+}) => {
+  const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(value || "");
+  const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>(value || "");
 
   useEffect(() => {
     if (!file) {
@@ -28,13 +35,12 @@ function SettingsUploader({
     };
   }, [file, value]);
 
-  const resetSelection = (nextPreview) => {
+  const resetSelection = (nextPreview?: string) => {
     setFile(null);
     setPreviewUrl(nextPreview ?? "");
   };
 
-  const handleFileChange = (event) => {
-    if (disabled) return;
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
     const next = event.target.files?.[0] || null;
     if (!next) {
@@ -45,7 +51,6 @@ function SettingsUploader({
   };
 
   const handleUpload = async () => {
-    if (disabled) return;
     if (!file) {
       setError("Select a file before uploading.");
       return;
@@ -74,7 +79,7 @@ function SettingsUploader({
       } else {
         throw new Error("Upload response missing url");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Upload error", err);
       setError(err?.message || "Upload failed");
     } finally {
@@ -83,7 +88,6 @@ function SettingsUploader({
   };
 
   const handleClear = () => {
-    if (disabled) return;
     resetSelection("");
     onChange("");
   };
@@ -92,29 +96,20 @@ function SettingsUploader({
 
   return (
     <div className="border border-gray-300 rounded-lg p-4 bg-white space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="font-semibold">{label}</p>
-          {value && (
-            <button
-              type="button"
-              onClick={handleClear}
-              disabled={disabled}
-              className={`text-xs font-semibold ${
-                disabled ? "text-red-300 cursor-not-allowed" : "text-red-600 hover:text-red-700"
-              }`}
-            >
-              Clear
-            </button>
-          )}
-        </div>
+      <div className="flex items-center justify-between">
+        <p className="font-semibold">{label}</p>
+        {value && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="text-xs text-red-600 hover:text-red-700 font-semibold"
+          >
+            Clear
+          </button>
+        )}
+      </div>
 
-      <input
-        type="file"
-        accept={accept}
-        onChange={handleFileChange}
-        className="block w-full text-sm"
-        disabled={disabled}
-      />
+      <input type="file" accept={accept} onChange={handleFileChange} className="block w-full text-sm" />
 
       {previewUrl ? (
         <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
@@ -132,12 +127,8 @@ function SettingsUploader({
         <button
           type="button"
           onClick={handleUpload}
-          disabled={uploading || disabled}
-          className={`px-4 py-2 font-semibold rounded ${
-            uploading || disabled
-              ? "bg-blue-300 text-white/80 cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-700"
-          }`}
+          disabled={uploading}
+          className="px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 disabled:opacity-60"
         >
           {uploading ? "Uploading…" : buttonLabel}
         </button>
