@@ -32,6 +32,8 @@ git pull
 
 If you prefer to discard all local edits and force your workspace to match `origin/main`, replace the last command with `git reset --hard origin/main`. Run `npm run doctor` afterwards; if it reports package-lock files as untracked, you can remove them with `git clean -fd` before continuing.
 
+> **Do I need to run this every day?** No — only pull/reset when something new lands on GitHub or if `npm run doctor` shows your scripts are out of sync. On a normal day-to-day workflow you can simply reopen the repo, ensure `backend/.env` still has valid credentials, and run `npm run dev` without touching Git.
+
 To build and serve everything from Express in one process:
 ```bash
 npm run build      # builds frontend/dist
