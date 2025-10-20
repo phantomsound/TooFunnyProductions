@@ -7,7 +7,6 @@ interface SettingsLinkManagerProps {
   value: SettingsLink[];
   onChange: (links: SettingsLink[]) => void;
   addLabel?: string;
-  disabled?: boolean;
 }
 
 const emptyLink = (): SettingsLink => ({ label: "", url: "" });
@@ -27,24 +26,20 @@ const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
   value,
   onChange,
   addLabel = "Add Link",
-  disabled = false,
 }) => {
   const links = normalizeLinks(value);
 
   const updateLink = (index: number, next: Partial<SettingsLink>) => {
-    if (disabled) return;
     const updated = links.map((item, idx) => (idx === index ? { ...item, ...next } : item));
     onChange(updated);
   };
 
   const removeLink = (index: number) => {
-    if (disabled) return;
     const updated = links.filter((_, idx) => idx !== index);
     onChange(updated);
   };
 
   const addLink = () => {
-    if (disabled) return;
     onChange([...links, emptyLink()]);
   };
 
@@ -64,7 +59,6 @@ const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
                   placeholder="Navigation Label"
                   value={link.label}
                   onChange={(e) => updateLink(index, { label: e.target.value })}
-                  disabled={disabled}
                 />
               </label>
 
@@ -75,19 +69,13 @@ const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
                   placeholder="https://example.com"
                   value={link.url}
                   onChange={(e) => updateLink(index, { url: e.target.value })}
-                  disabled={disabled}
                 />
               </label>
 
               <button
                 type="button"
                 onClick={() => removeLink(index)}
-                disabled={disabled}
-                className={`self-center px-3 py-2 text-sm font-semibold rounded ${
-                  disabled
-                    ? "bg-red-300 text-white/80 cursor-not-allowed"
-                    : "bg-red-500 text-white hover:bg-red-600"
-                }`}
+                className="self-center px-3 py-2 bg-red-500 text-white text-sm font-semibold rounded hover:bg-red-600"
               >
                 Remove
               </button>
@@ -99,12 +87,7 @@ const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
       <button
         type="button"
         onClick={addLink}
-        disabled={disabled}
-        className={`px-4 py-2 font-semibold rounded ${
-          disabled
-            ? "bg-blue-300 text-white/80 cursor-not-allowed"
-            : "bg-blue-600 text-white hover:bg-blue-700"
-        }`}
+        className="px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
       >
         {addLabel}
       </button>
