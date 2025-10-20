@@ -63,6 +63,17 @@ Within **General Settings**:
 - The **Footer Links** list dynamically adds/removes `{label,url}` rows and feeds them back to the draft payload.
 - **Logo/Favicon uploaders** hit `/api/storage/upload`, store files in the Supabase `media` bucket, and surface the returned public URL so the setting is ready to save.
 
+Within **Media Manager** (Admin → Media):
+
+- Files are listed through `/api/storage/list`, so hidden folders never surface in the grid and every operation goes through the Express API for audit logging.
+- Sort chips let you toggle between newest, oldest, alphabetical, and file-size views with a single click.
+- Upload, rename, and delete actions call the dedicated storage routes, which automatically refresh the grid and keep Supabase references up to date.
+
+Within **Audit Log** (Admin → Audit):
+
+- Filter by actor, action, or search text, adjust the number of rows returned, and refresh on demand.
+- Results come from the `admin_actions` table; create it with [`backend/docs/admin-actions.sql`](backend/docs/admin-actions.sql) if you haven’t added the audit migration yet.
+
 Tabs for About, Events, Media, Merch, and Contact currently render a “Coming soon” placeholder; wireframes/content for those pages can be implemented next.
 
 ## ✅ Health check

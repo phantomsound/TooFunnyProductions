@@ -58,28 +58,53 @@ async function replaceUrlInTable(table, oldUrl, newUrl) {
 router.get("/list", requireAdmin, async (req, res) => {
   if (!ensureSupabase(res)) return;
   try {
-    const { prefix = "", limit = 1000 } = req.query;
-    const { data, error } = await supabase.storage.from(BUCKET).list(prefix || "", {
+    const { prefix = "", limit = 1000, sort = "updated_at", direction = "desc", q } = req.query;
+    const listOpts = {
       limit: Number(limit) || 1000,
       offset: 0,
-      sortBy: { column: "created_at", order: "desc" },
-    });
+      search: q ? String(q) : undefined,
+    };
+
+    const { data, error } = await supabase.storage.from(BUCKET).list(prefix || "", listOpts);
     if (error) throw error;
 
-    // hide any legacy folders named 'uploads' or 'incoming'
-    const filtered = (data || []).filter((item) => item.name !== "uploads" && item.name !== "incoming");
+    const entries = (data || [])
+      .map((f) => ({
+        name: f.name,
+        path: (prefix ? `${prefix}/` : "") + f.name,
+        size: f.metadata?.size ?? null,
+        created_at: f.created_at ?? null,
+        updated_at: f.updated_at ?? null,
+        mime_type: f.metadata?.mimetype ?? null,
+        url: publicUrl((prefix ? `${prefix}/` : "") + f.name),
+        isDir: !f.metadata && !f.created_at && !f.updated_at,
+      }))
+      .filter((item) => item.name !== "uploads" && item.name !== "incoming")
+      .filter((item) => !item.isDir);
 
-    const items = filtered.map((f) => ({
-      name: f.name,
-      path: (prefix ? `${prefix}/` : "") + f.name,
-      size: f.metadata?.size ?? null,
-      created_at: f.created_at ?? null,
-      updated_at: f.updated_at ?? null,
-      url: publicUrl((prefix ? `${prefix}/` : "") + f.name),
-      isDir: !!f.id && f.name && f.metadata == null && f.created_at == null, // storage marks folders with null meta
-    }));
+    const sortKey = typeof sort === "string" ? sort : "updated_at";
+    const dir = String(direction).toLowerCase() === "asc" ? 1 : -1;
 
-    res.json({ items });
+    const sorted = entries.sort((a, b) => {
+      const fallbackA = new Date(a.updated_at || a.created_at || 0).getTime();
+      const fallbackB = new Date(b.updated_at || b.created_at || 0).getTime();
+
+      switch (sortKey) {
+        case "name":
+          return dir * a.name.localeCompare(b.name);
+        case "size":
+          return dir * ((a.size || 0) - (b.size || 0));
+        case "created_at":
+          return dir *
+            (new Date(a.created_at || a.updated_at || 0).getTime() -
+              new Date(b.created_at || b.updated_at || 0).getTime());
+        case "updated_at":
+        default:
+          return dir * (fallbackA - fallbackB);
+      }
+    });
+
+    res.json({ items: sorted });
   } catch (err) {
     console.error("GET /api/storage/list error:", err);
     res.status(500).json({ error: "Failed to list" });
