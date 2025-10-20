@@ -2,39 +2,24 @@
 // Admin Settings → General (global site settings)
 // Branding, theme colors, footer links, maintenance, admin session timeout
 
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import { useSettings } from "../../lib/SettingsContext";
 import SettingsUploader from "./SettingsUploader";
 import SettingsColorPicker from "./SettingsColorPicker";
 import SettingsLinkManager from "./SettingsLinkManager";
 
-type GeneralFields = {
-  site_title?: string;
-  site_description?: string;
-  site_keywords?: string;
+const TIMEOUT_OPTIONS = [5, 10, 15, 20, 25, 30, 45, 60];
 
-  logo_url?: string;
-  favicon_url?: string;
+const text = (value: unknown, fallback = "") =>
+  typeof value === "string" ? value : fallback;
 
-  footer_text?: string;
-  footer_links?: { label: string; url: string }[];
-
-  theme_accent?: string;
-  theme_bg?: string;
-  header_bg?: string;
-  footer_bg?: string;
-
-  maintenance_enabled?: boolean;
-  maintenance_message?: string;
-  maintenance_schedule_enabled?: boolean;
-  maintenance_daily_start?: string | null;
-  maintenance_daily_end?: string | null;
-  maintenance_timezone?: string | null;
+const color = (value: unknown, fallback: string) =>
+  typeof value === "string" && value.trim() ? value : fallback;
 
   session_timeout_minutes?: number; // admin session dropdown
 };
 
-const TIMEOUT_OPTIONS = [5, 10, 15, 20, 25, 30, 45, 60];
+const bool = (value: unknown) => value === true;
 
 const mapSettingsToLocal = (safe: Record<string, any>): GeneralFields => ({
   site_title: safe.site_title || "Too Funny Productions",
@@ -71,6 +56,7 @@ type SaveStatus =
 export default function AdminSettingsGeneral() {
   const { settings, save, stage, saving } = useSettings();
   const safe = settings || {};
+  const disabled = stage !== "draft";
 
   const baseline = useMemo(() => mapSettingsToLocal(safe), [safe]);
   const [local, setLocal] = useState<GeneralFields>(baseline);
@@ -112,6 +98,12 @@ export default function AdminSettingsGeneral() {
 
   return (
     <div className="space-y-10">
+      {disabled ? (
+        <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+          Switch to the Draft view to edit these fields.
+        </div>
+      ) : null}
+
       {/* Branding */}
       <section>
         <h3 className="text-xl font-bold mb-3">Branding</h3>
@@ -120,8 +112,9 @@ export default function AdminSettingsGeneral() {
             <div className="font-semibold mb-1">Site Title</div>
             <input
               className="w-full border border-gray-300 rounded px-3 py-2 text-black"
-              value={local.site_title || ""}
-              onChange={(e) => handle("site_title", e.target.value)}
+              value={text(safe.site_title)}
+              onChange={(e) => update("site_title", e.target.value)}
+              disabled={disabled}
             />
           </label>
 
@@ -129,8 +122,9 @@ export default function AdminSettingsGeneral() {
             <div className="font-semibold mb-1">Site Description</div>
             <textarea
               className="w-full border border-gray-300 rounded px-3 py-2 text-black min-h-[70px]"
-              value={local.site_description || ""}
-              onChange={(e) => handle("site_description", e.target.value)}
+              value={text(safe.site_description)}
+              onChange={(e) => update("site_description", e.target.value)}
+              disabled={disabled}
             />
           </label>
 
@@ -139,24 +133,27 @@ export default function AdminSettingsGeneral() {
             <input
               className="w-full border border-gray-300 rounded px-3 py-2 text-black"
               placeholder="comma,separated,keywords"
-              value={local.site_keywords || ""}
-              onChange={(e) => handle("site_keywords", e.target.value)}
+              value={text(safe.site_keywords)}
+              onChange={(e) => update("site_keywords", e.target.value)}
+              disabled={disabled}
             />
           </label>
 
           <SettingsUploader
             label="Logo"
-            value={local.logo_url || ""}
-            onChange={(url) => handle("logo_url", url)}
+            value={text(safe.logo_url)}
+            onChange={(url) => update("logo_url", url)}
             accept="image/*"
             buttonLabel="Select Logo"
+            disabled={disabled}
           />
           <SettingsUploader
             label="Favicon"
-            value={local.favicon_url || ""}
-            onChange={(url) => handle("favicon_url", url)}
+            value={text(safe.favicon_url)}
+            onChange={(url) => update("favicon_url", url)}
             accept="image/*"
             buttonLabel="Select Favicon"
+            disabled={disabled}
           />
         </div>
       </section>
@@ -167,23 +164,27 @@ export default function AdminSettingsGeneral() {
         <div className="grid md:grid-cols-2 gap-4">
           <SettingsColorPicker
             label="Accent Color"
-            value={local.theme_accent || "#FFD700"}
-            onChange={(v) => handle("theme_accent", v)}
+            value={color(safe.theme_accent, "#FFD700")}
+            onChange={(v) => update("theme_accent", v)}
+            disabled={disabled}
           />
           <SettingsColorPicker
             label="Page Background"
-            value={local.theme_bg || "#111111"}
-            onChange={(v) => handle("theme_bg", v)}
+            value={color(safe.theme_bg, "#111111")}
+            onChange={(v) => update("theme_bg", v)}
+            disabled={disabled}
           />
           <SettingsColorPicker
             label="Header Background"
-            value={local.header_bg || "#000000"}
-            onChange={(v) => handle("header_bg", v)}
+            value={color(safe.header_bg, "#000000")}
+            onChange={(v) => update("header_bg", v)}
+            disabled={disabled}
           />
           <SettingsColorPicker
             label="Footer Background"
-            value={local.footer_bg || "#000000"}
-            onChange={(v) => handle("footer_bg", v)}
+            value={color(safe.footer_bg, "#000000")}
+            onChange={(v) => update("footer_bg", v)}
+            disabled={disabled}
           />
         </div>
         <p className="text-xs opacity-80 mt-2">
@@ -198,16 +199,18 @@ export default function AdminSettingsGeneral() {
           <div className="font-semibold mb-1">Footer Text</div>
           <textarea
             className="w-full border border-gray-300 rounded px-3 py-2 text-black min-h-[60px]"
-            value={local.footer_text || ""}
-            onChange={(e) => handle("footer_text", e.target.value)}
+            value={text(safe.footer_text)}
+            onChange={(e) => update("footer_text", e.target.value)}
+            disabled={disabled}
           />
         </label>
 
         <SettingsLinkManager
           label="Footer Links"
-          value={local.footer_links || []}
-          onChange={(v) => handle("footer_links", v)}
+          value={Array.isArray(safe.footer_links) ? safe.footer_links : []}
+          onChange={(links) => update("footer_links", links)}
           addLabel="Add Footer Link"
+          disabled={disabled}
         />
       </section>
 
@@ -218,8 +221,9 @@ export default function AdminSettingsGeneral() {
           <input
             id="maint_enabled"
             type="checkbox"
-            checked={!!local.maintenance_enabled}
-            onChange={(e) => handle("maintenance_enabled", e.target.checked)}
+            checked={bool(safe.maintenance_enabled)}
+            onChange={(e) => update("maintenance_enabled", e.target.checked)}
+            disabled={disabled}
           />
           <label htmlFor="maint_enabled" className="select-none">
             Enable Manual Maintenance Mode
@@ -230,8 +234,9 @@ export default function AdminSettingsGeneral() {
           <div className="font-semibold mb-1">Maintenance Message</div>
           <input
             className="w-full border border-gray-300 rounded px-3 py-2 text-black"
-            value={local.maintenance_message || ""}
-            onChange={(e) => handle("maintenance_message", e.target.value)}
+            value={text(safe.maintenance_message)}
+            onChange={(e) => update("maintenance_message", e.target.value)}
+            disabled={disabled}
           />
         </label>
 
@@ -253,8 +258,9 @@ export default function AdminSettingsGeneral() {
             <input
               className="w-full border border-gray-300 rounded px-3 py-2 text-black"
               placeholder="02:00"
-              value={local.maintenance_daily_start || ""}
-              onChange={(e) => handle("maintenance_daily_start", e.target.value)}
+              value={text(safe.maintenance_daily_start)}
+              onChange={(e) => update("maintenance_daily_start", e.target.value)}
+              disabled={disabled}
             />
           </label>
           <label className="block">
@@ -262,8 +268,9 @@ export default function AdminSettingsGeneral() {
             <input
               className="w-full border border-gray-300 rounded px-3 py-2 text-black"
               placeholder="02:30"
-              value={local.maintenance_daily_end || ""}
-              onChange={(e) => handle("maintenance_daily_end", e.target.value)}
+              value={text(safe.maintenance_daily_end)}
+              onChange={(e) => update("maintenance_daily_end", e.target.value)}
+              disabled={disabled}
             />
           </label>
           <label className="block">
@@ -271,8 +278,9 @@ export default function AdminSettingsGeneral() {
             <input
               className="w-full border border-gray-300 rounded px-3 py-2 text-black"
               placeholder="America/Chicago"
-              value={local.maintenance_timezone || ""}
-              onChange={(e) => handle("maintenance_timezone", e.target.value)}
+              value={text(safe.maintenance_timezone)}
+              onChange={(e) => update("maintenance_timezone", e.target.value)}
+              disabled={disabled}
             />
           </label>
         </div>
