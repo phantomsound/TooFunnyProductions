@@ -1,6 +1,20 @@
 import React from "react";
 
-function SettingsColorPicker({ label, value, onChange, onSave, disabled = false }) {
+interface SettingsColorPickerProps {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  onSave?: () => void;
+  disabled?: boolean;
+}
+
+const SettingsColorPicker: React.FC<SettingsColorPickerProps> = ({
+  label,
+  value,
+  onChange,
+  onSave,
+  disabled = false,
+}) => {
   return (
     <div className="flex items-center gap-4 mb-4">
       <div>

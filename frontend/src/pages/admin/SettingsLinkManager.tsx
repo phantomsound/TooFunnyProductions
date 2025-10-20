@@ -1,8 +1,17 @@
 import React from "react";
 
-const emptyLink = () => ({ label: "", url: "" });
+export type SettingsLink = { label: string; url: string };
 
-function normalizeLinks(value) {
+interface SettingsLinkManagerProps {
+  label?: string;
+  value: SettingsLink[];
+  onChange: (links: SettingsLink[]) => void;
+  addLabel?: string;
+}
+
+const emptyLink = (): SettingsLink => ({ label: "", url: "" });
+
+function normalizeLinks(value: SettingsLink[] | undefined | null): SettingsLink[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter((item) => item && typeof item === "object")
@@ -12,23 +21,25 @@ function normalizeLinks(value) {
     }));
 }
 
-function SettingsLinkManager({ label, value, onChange, addLabel = "Add Link", disabled = false }) {
+const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
+  label,
+  value,
+  onChange,
+  addLabel = "Add Link",
+}) => {
   const links = normalizeLinks(value);
 
-  const updateLink = (index, next) => {
-    if (disabled) return;
+  const updateLink = (index: number, next: Partial<SettingsLink>) => {
     const updated = links.map((item, idx) => (idx === index ? { ...item, ...next } : item));
     onChange(updated);
   };
 
-  const removeLink = (index) => {
-    if (disabled) return;
+  const removeLink = (index: number) => {
     const updated = links.filter((_, idx) => idx !== index);
     onChange(updated);
   };
 
   const addLink = () => {
-    if (disabled) return;
     onChange([...links, emptyLink()]);
   };
 
@@ -48,7 +59,6 @@ function SettingsLinkManager({ label, value, onChange, addLabel = "Add Link", di
                   placeholder="Navigation Label"
                   value={link.label}
                   onChange={(e) => updateLink(index, { label: e.target.value })}
-                  disabled={disabled}
                 />
               </label>
 
@@ -59,19 +69,13 @@ function SettingsLinkManager({ label, value, onChange, addLabel = "Add Link", di
                   placeholder="https://example.com"
                   value={link.url}
                   onChange={(e) => updateLink(index, { url: e.target.value })}
-                  disabled={disabled}
                 />
               </label>
 
               <button
                 type="button"
                 onClick={() => removeLink(index)}
-                disabled={disabled}
-                className={`self-center px-3 py-2 text-sm font-semibold rounded ${
-                  disabled
-                    ? "bg-red-300 text-white/80 cursor-not-allowed"
-                    : "bg-red-500 text-white hover:bg-red-600"
-                }`}
+                className="self-center px-3 py-2 bg-red-500 text-white text-sm font-semibold rounded hover:bg-red-600"
               >
                 Remove
               </button>
@@ -83,12 +87,7 @@ function SettingsLinkManager({ label, value, onChange, addLabel = "Add Link", di
       <button
         type="button"
         onClick={addLink}
-        disabled={disabled}
-        className={`px-4 py-2 font-semibold rounded ${
-          disabled
-            ? "bg-blue-300 text-white/80 cursor-not-allowed"
-            : "bg-blue-600 text-white hover:bg-blue-700"
-        }`}
+        className="px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
       >
         {addLabel}
       </button>
