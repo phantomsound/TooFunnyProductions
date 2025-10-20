@@ -26,12 +26,6 @@ npm run start      # serves backend + static frontend from the same origin
 ```
 The server auto-detects `frontend/dist` and responds to non-API routes with `index.html`, so the SPA loads from the same host that serves the API.
 
-## 🌐 Why GitHub Pages will not work
-
-GitHub Pages can only host static files. The admin panel depends on authenticated API routes (sessions, Supabase service key usage, media uploads) under `/api/*`, which require the Express server to be running. Because of that, deploying to `https://phantomsound.github.io/TooFunnyProductions/` would render the UI but every data action would fail with network errors. Host the bundled app from the Express server (on your PC or another machine) instead so the SPA and API share the same origin.
-
-If you want a public marketing site on GitHub Pages, export a static copy from the public pages only and keep the admin tooling on a server with the API.
-
 ## 🛠️ Admin buttons & current status
 
 The main admin shell wires up every top-level action:
