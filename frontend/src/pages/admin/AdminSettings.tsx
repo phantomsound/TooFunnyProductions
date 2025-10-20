@@ -43,7 +43,7 @@ export default function AdminSettings() {
             </select>
 
             <button
-              onClick={save}
+              onClick={() => save()}
               disabled={stage !== "draft" || !isDirty || saving}
               className={`px-3 py-1 rounded font-semibold ${
                 stage !== "draft" || !isDirty || saving

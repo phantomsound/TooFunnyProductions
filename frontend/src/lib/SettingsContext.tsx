@@ -6,6 +6,72 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 
+const isEventLike = (value: unknown): value is { nativeEvent?: unknown; preventDefault?: () => void } => {
+  if (!value || typeof value !== "object") return false;
+  const maybe = value as Record<string, unknown>;
+  if (typeof maybe.preventDefault === "function") return true;
+  if (maybe.nativeEvent) return true;
+  if (typeof maybe.stopPropagation === "function") return true;
+  if ("target" in maybe && maybe.target && typeof maybe.target === "object") return true;
+  return false;
+};
+
+const sanitizeValue = (value: any, seen: WeakSet<object>): any => {
+  if (value === null || value === undefined) return value;
+  const type = typeof value;
+  if (type === "string" || type === "number" || type === "boolean") return value;
+  if (value instanceof Date) return value.toISOString();
+  if (type === "function") return undefined;
+  if (typeof File !== "undefined" && value instanceof File) return undefined;
+  if (typeof Element !== "undefined" && value instanceof Element) return undefined;
+  if (isEventLike(value)) return undefined;
+
+  if (type === "object") {
+    if (seen.has(value)) return undefined;
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      const next: any[] = [];
+      for (const entry of value) {
+        const sanitized = sanitizeValue(entry, seen);
+        if (sanitized !== undefined) next.push(sanitized);
+      }
+      return next;
+    }
+
+    const next: Record<string, any> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      const sanitized = sanitizeValue(entry, seen);
+      if (sanitized !== undefined) next[key] = sanitized;
+    }
+    return next;
+  }
+
+  return undefined;
+};
+
+const sanitizeSettings = (value: Settings | null | undefined): Settings => {
+  if (!value || typeof value !== "object") return {};
+  const sanitized = sanitizeValue(value, new WeakSet<object>());
+  if (!sanitized || typeof sanitized !== "object" || Array.isArray(sanitized)) return {};
+  return sanitized as Settings;
+};
+
+const jsonSafeStringify = (value: unknown): string => {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(value, (_key, val) => {
+    if (typeof val === "function") return undefined;
+    if (val && typeof val === "object") {
+      if (isEventLike(val)) return undefined;
+      if (typeof File !== "undefined" && val instanceof File) return undefined;
+      if (typeof Element !== "undefined" && val instanceof Element) return undefined;
+      if (seen.has(val)) return undefined;
+      seen.add(val);
+    }
+    return val;
+  });
+};
+
 type Stage = "live" | "draft";
 type Settings = Record<string, any>;
 
@@ -16,7 +82,7 @@ type Ctx = {
   setField: (k: string, v: any) => void; // mutate local working copy
   isDirty: boolean;
   saving: boolean;
-  save: () => Promise<void>;         // saves draft only (no-op if stage=live)
+  save: (payload?: Partial<Settings>) => Promise<void>; // saves draft only (no-op if stage=live)
   pullLive: () => Promise<void>;     // copies live -> draft and loads it
   publish: () => Promise<void>;      // copies draft -> live and reloads live
   reload: () => Promise<void>;       // reload current stage from server
@@ -33,8 +99,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const load = useCallback(async (s: Stage) => {
     const r = await fetch(api(`/api/settings?stage=${s}`), { credentials: "include" });
     const d = await r.json().catch(() => ({}));
-    setSettings(d || {});
-    setInitial(d || {});
+    const safe = sanitizeSettings(d || {});
+    setSettings(safe);
+    setInitial(safe);
   }, []);
 
   useEffect(() => { load(stage); }, [stage, load]);
@@ -45,36 +112,64 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [settings, initial]);
 
   const setField = (k: string, v: any) => {
-    setSettings((prev) => ({ ...(prev || {}), [k]: v }));
+    setSettings((prev) => {
+      const base = sanitizeSettings(prev || {});
+      return { ...base, [k]: sanitizeValue(v, new WeakSet<object>()) };
+    });
   };
 
-  const save = useCallback(async () => {
-    if (stage !== "draft" || !settings) return;
-    setSaving(true);
-    try {
-      const r = await fetch(api("/api/settings?stage=draft"), {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
-      });
-      const out = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(out?.error || "Failed to save draft");
-      setSettings(out.data || settings);
-      setInitial(out.data || settings);
-    } finally {
-      setSaving(false);
-    }
-  }, [settings, stage]);
+  const save = useCallback(
+    async (incoming?: Partial<Settings>) => {
+      if (stage !== "draft") return;
+
+      const payload = isEventLike(incoming) ? undefined : incoming;
+      const base = sanitizeSettings(settings);
+      const next = payload ? { ...base, ...sanitizeSettings(payload as Settings) } : base;
+
+      if (!next || Object.keys(next).length === 0) return;
+
+      // Optimistically update local state so forms stay in sync.
+      const safe = sanitizeSettings(next);
+      setSettings(safe);
+
+      setSaving(true);
+      try {
+        const r = await fetch(api("/api/settings?stage=draft"), {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: jsonSafeStringify(safe),
+        });
+        const out = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(out?.error || "Failed to save draft");
+        const data = out.data && typeof out.data === "object" ? out.data : safe;
+        const clean = sanitizeSettings(data);
+        setSettings(clean);
+        setInitial(clean);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [settings, stage]
+  );
 
   const pullLive = useCallback(async () => {
-    const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });
-    const out = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
-    setStage("draft");
-    setSettings(out.data || {});
-    setInitial(out.data || {});
-  }, []);
+    const previousStage = stage;
+    try {
+      const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
+      const data = out.data && typeof out.data === "object" ? out.data : {};
+      const clean = sanitizeSettings(data);
+      setSettings(clean);
+      setInitial(clean);
+      setStage("draft");
+      await load("draft");
+    } catch (error) {
+      setStage(previousStage);
+      throw error;
+    }
+  }, [load, stage]);
 
   const publish = useCallback(async () => {
     const r = await fetch(api("/api/settings/publish"), { method: "POST", credentials: "include" });
