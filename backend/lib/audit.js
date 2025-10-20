@@ -20,12 +20,57 @@ function getServiceClient() {
 /**
  * Log an admin action. Fails quietly if env is missing.
  */
-export async function logAdminAction(actorEmail, action, payload = null) {
+export async function logAdminAction(actorEmail, action, meta = null) {
   try {
     const sb = getServiceClient();
     if (!sb) return; // don't throw on servers without secrets
-    await sb.from("admin_actions").insert([{ actor_email: actorEmail, action, payload }]);
+    await sb.from("admin_actions").insert([
+      {
+        actor_email: actorEmail,
+        action,
+        meta,
+        occurred_at: new Date().toISOString(),
+      },
+    ]);
   } catch (e) {
     console.error("Audit log insert failed:", e?.message || e);
   }
+}
+
+/**
+ * Fetch audit log rows for the admin dashboard.
+ */
+export async function listAdminActions({ limit = 100, actor, action, search, direction } = {}) {
+  const sb = getServiceClient();
+  if (!sb) {
+    throw new Error("Supabase service client not configured");
+  }
+
+  const cappedLimit = Math.min(Math.max(Number(limit) || 50, 1), 500);
+  const ascending = String(direction).toLowerCase() === "asc";
+
+  let query = sb
+    .from("admin_actions")
+    .select("id, occurred_at, actor_email, action, meta, payload")
+    .order("occurred_at", { ascending })
+    .limit(cappedLimit);
+
+  if (actor) query = query.eq("actor_email", actor);
+  if (action) query = query.eq("action", action);
+  if (search) {
+    const term = `%${search}%`;
+    query = query.or(`actor_email.ilike.${term},action.ilike.${term}`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data || []).map((row) => ({
+    ...row,
+    meta: row.meta ?? row.payload ?? null,
+  }));
+}
+
+export function getAuditClient() {
+  return getServiceClient();
 }
