@@ -19,6 +19,19 @@ This repo contains the Too Funny Productions admin dashboard (React + Vite + Tai
 > **Having trouble?** Run `npm run doctor` to confirm your checkout has the latest scripts and environment files. For detailed
 > recovery steps when scripts appear to be missing, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
+### Updating your local copy with the latest GitHub changes
+
+Whenever a pull request is merged, sync your PC with these commands:
+
+```powershell
+cd C:\Apps\TooFunnyProductions
+git fetch origin
+git switch main
+git pull
+```
+
+If you prefer to discard all local edits and force your workspace to match `origin/main`, replace the last command with `git reset --hard origin/main`. Run `npm run doctor` afterwards; if it reports package-lock files as untracked, you can remove them with `git clean -fd` before continuing.
+
 To build and serve everything from Express in one process:
 ```bash
 npm run build      # builds frontend/dist

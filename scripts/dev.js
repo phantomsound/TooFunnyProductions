@@ -8,6 +8,12 @@ const commands = [
   { name: "frontend", args: ["--prefix", "frontend", "run", "dev"] },
 ];
 
+const spawnOptions = {
+  stdio: "inherit",
+  env: process.env,
+  shell: process.platform === "win32",
+};
+
 const children = [];
 let shuttingDown = false;
 
@@ -24,10 +30,7 @@ function terminate(exitCode = 0) {
 }
 
 for (const command of commands) {
-  const child = spawn(npmCommand, command.args, {
-    stdio: "inherit",
-    env: process.env,
-  });
+  const child = spawn(npmCommand, command.args, spawnOptions);
   children.push(child);
 
   child.on("error", (error) => {

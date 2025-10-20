@@ -31,6 +31,9 @@ If `npm run doctor` itself fails with `Missing script`, open `package.json` and 
 `setup`, `dev`, `dev:backend`, `dev:frontend`, `build`, `start`, `start:api`, and `doctor`. If not, repeat step 1 to
 synchronize with `origin/main`.
 
+If the doctor script reports stray `package-lock.json` files inside `backend/` or `frontend/`, they can be safely removed with
+`git clean -fd` (they are intentionally excluded from version control because each workspace is managed via the root `package-lock.json`).
+
 ## 3. Recreate the environment files
 
 ```powershell
