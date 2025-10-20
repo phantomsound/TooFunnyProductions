@@ -45,6 +45,6 @@ const SettingsColorPicker: React.FC<SettingsColorPickerProps> = ({
       </div>
     </div>
   );
-};
+}
 
 export default SettingsColorPicker;

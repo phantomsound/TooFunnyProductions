@@ -145,6 +145,6 @@ const SettingsUploader: React.FC<Props> = ({
       </div>
     </div>
   );
-};
+}
 
 export default SettingsUploader;

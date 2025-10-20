@@ -93,6 +93,6 @@ const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
       </button>
     </div>
   );
-};
+}
 
 export default SettingsLinkManager;
