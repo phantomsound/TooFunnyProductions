@@ -6,6 +6,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 
+const isEventLike = (value: unknown): value is { nativeEvent?: unknown; preventDefault?: () => void } => {
+  if (!value || typeof value !== "object") return false;
+  const maybe = value as Record<string, unknown>;
+  if (typeof maybe.preventDefault === "function") return true;
+  if (maybe.nativeEvent) return true;
+  return false;
+};
+
 type Stage = "live" | "draft";
 type Settings = Record<string, any>;
 
@@ -49,7 +57,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const save = useCallback(
-    async (payload?: Partial<Settings>) => {
+    async (incoming?: Partial<Settings>) => {
+      const payload = isEventLike(incoming) ? undefined : incoming;
       if (stage !== "draft") return;
 
       setSettings((prev) => {
@@ -86,13 +95,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   );
 
   const pullLive = useCallback(async () => {
-    const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });
-    const out = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
+    const previousStage = stage;
     setStage("draft");
-    setSettings(out.data || {});
-    setInitial(out.data || {});
-  }, []);
+    try {
+      const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
+      setSettings(out.data || {});
+      setInitial(out.data || {});
+    } catch (error) {
+      setStage(previousStage);
+      throw error;
+    }
+  }, [stage]);
 
   const publish = useCallback(async () => {
     const r = await fetch(api("/api/settings/publish"), { method: "POST", credentials: "include" });
