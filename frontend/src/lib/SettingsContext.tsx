@@ -58,22 +58,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const save = useCallback(
     async (incoming?: Partial<Settings>) => {
-      const payload = isEventLike(incoming) ? undefined : incoming;
       if (stage !== "draft") return;
 
-      setSettings((prev) => {
-        if (!prev && !payload) return prev;
-        if (!prev) return { ...(payload || {}) };
-        if (!payload) return prev;
-        return { ...prev, ...payload };
-      });
-
-      const next = (() => {
-        const base = settings || {};
-        return payload ? { ...base, ...payload } : base;
-      })();
+      const payload = isEventLike(incoming) ? undefined : incoming;
+      const base = settings ? { ...settings } : {};
+      const next = payload ? { ...base, ...payload } : base;
 
       if (!next || Object.keys(next).length === 0) return;
+
+      // Optimistically update local state so forms stay in sync.
+      setSettings(next);
+
       setSaving(true);
       try {
         const r = await fetch(api("/api/settings?stage=draft"), {
@@ -84,7 +79,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         });
         const out = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(out?.error || "Failed to save draft");
-        const data = out.data || next;
+        const data = out.data && typeof out.data === "object" ? out.data : next;
         setSettings(data);
         setInitial(data);
       } finally {
@@ -96,13 +91,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const pullLive = useCallback(async () => {
     const previousStage = stage;
-    setStage("draft");
     try {
       const r = await fetch(api("/api/settings/pull-live"), { method: "POST", credentials: "include" });
       const out = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(out?.error || "Failed to pull live into draft");
-      setSettings(out.data || {});
-      setInitial(out.data || {});
+      const data = out.data && typeof out.data === "object" ? out.data : {};
+      setSettings(data);
+      setInitial(data);
+      setStage("draft");
     } catch (error) {
       setStage(previousStage);
       throw error;

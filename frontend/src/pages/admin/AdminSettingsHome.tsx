@@ -48,7 +48,7 @@ export default function AdminSettingsHome() {
       />
 
       <button
-        onClick={save}
+        onClick={() => save()}
         disabled={stage !== "draft"}
         className={`px-4 py-2 rounded ${
           stage !== "draft" ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-yellow-400 text-black hover:bg-yellow-300"
