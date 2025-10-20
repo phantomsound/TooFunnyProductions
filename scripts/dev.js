@@ -4,15 +4,9 @@ const { spawn } = require("node:child_process");
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const commands = [
-  { name: "backend", args: ["--prefix", "backend", "run", "dev"] },
-  { name: "frontend", args: ["--prefix", "frontend", "run", "dev"] },
+  { name: "backend", args: ["run", "dev", "--prefix", "backend"] },
+  { name: "frontend", args: ["run", "dev", "--prefix", "frontend"] },
 ];
-
-const spawnOptions = {
-  stdio: "inherit",
-  env: process.env,
-  shell: process.platform === "win32",
-};
 
 const children = [];
 let shuttingDown = false;
@@ -30,7 +24,10 @@ function terminate(exitCode = 0) {
 }
 
 for (const command of commands) {
-  const child = spawn(npmCommand, command.args, spawnOptions);
+  const child = spawn(npmCommand, command.args, {
+    stdio: "inherit",
+    env: process.env,
+  });
   children.push(child);
 
   child.on("error", (error) => {

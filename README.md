@@ -19,31 +19,12 @@ This repo contains the Too Funny Productions admin dashboard (React + Vite + Tai
 > **Having trouble?** Run `npm run doctor` to confirm your checkout has the latest scripts and environment files. For detailed
 > recovery steps when scripts appear to be missing, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
-### Updating your local copy with the latest GitHub changes
-
-Whenever a pull request is merged, sync your PC with these commands:
-
-```powershell
-cd C:\Apps\TooFunnyProductions
-git fetch origin
-git switch main
-git pull
-```
-
-If you prefer to discard all local edits and force your workspace to match `origin/main`, replace the last command with `git reset --hard origin/main`. Run `npm run doctor` afterwards; if it reports package-lock files as untracked, you can remove them with `git clean -fd` before continuing.
-
 To build and serve everything from Express in one process:
 ```bash
 npm run build      # builds frontend/dist
 npm run start      # serves backend + static frontend from the same origin
 ```
 The server auto-detects `frontend/dist` and responds to non-API routes with `index.html`, so the SPA loads from the same host that serves the API.
-
-## 🌐 Why GitHub Pages will not work
-
-GitHub Pages can only host static files. The admin panel depends on authenticated API routes (sessions, Supabase service key usage, media uploads) under `/api/*`, which require the Express server to be running. Because of that, deploying to `https://phantomsound.github.io/TooFunnyProductions/` would render the UI but every data action would fail with network errors. Host the bundled app from the Express server (on your PC or another machine) instead so the SPA and API share the same origin.
-
-If you want a public marketing site on GitHub Pages, export a static copy from the public pages only and keep the admin tooling on a server with the API.
 
 ## 🛠️ Admin buttons & current status
 

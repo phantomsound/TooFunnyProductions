@@ -4,15 +4,10 @@ const { spawn } = require("node:child_process");
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
-const child = spawn(
-  npmCommand,
-  ["--prefix", "backend", "run", "start"],
-  {
-    stdio: "inherit",
-    env: { ...process.env, NODE_ENV: process.env.NODE_ENV || "production" },
-    shell: process.platform === "win32",
-  }
-);
+const child = spawn(npmCommand, ["run", "start", "--prefix", "backend"], {
+  stdio: "inherit",
+  env: { ...process.env, NODE_ENV: process.env.NODE_ENV || "production" },
+});
 
 child.on("error", (error) => {
   console.error("[start] Failed to boot backend:", error);
