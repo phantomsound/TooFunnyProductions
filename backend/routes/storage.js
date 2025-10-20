@@ -6,6 +6,7 @@
    ========================================================================= */
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import multer from "multer";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
 
@@ -14,15 +15,26 @@ const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_KEY ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) : null;
 
+const upload = multer({ storage: multer.memoryStorage() });
+
 const BUCKET = "media";
 
 // Build public URL from path
+function ensureSupabase(res) {
+  if (!supabase) {
+    res.status(500).json({ error: "Supabase not configured." });
+    return false;
+  }
+  return true;
+}
+
 function publicUrl(path) {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 // Replace any occurrences of oldUrl with newUrl in a settings table row
 async function replaceUrlInTable(table, oldUrl, newUrl) {
+  if (!supabase) return;
   const sel = await supabase.from(table).select("*").limit(1).maybeSingle();
   if (sel.error) throw sel.error;
   const row = sel.data;
@@ -44,29 +56,55 @@ async function replaceUrlInTable(table, oldUrl, newUrl) {
 
 // --- LIST --------------------------------------------------------------
 router.get("/list", requireAdmin, async (req, res) => {
+  if (!ensureSupabase(res)) return;
   try {
-    const { prefix = "", limit = 1000 } = req.query;
-    const { data, error } = await supabase.storage.from(BUCKET).list(prefix || "", {
+    const { prefix = "", limit = 1000, sort = "updated_at", direction = "desc", q } = req.query;
+    const listOpts = {
       limit: Number(limit) || 1000,
       offset: 0,
-      sortBy: { column: "created_at", order: "desc" },
-    });
+      search: q ? String(q) : undefined,
+    };
+
+    const { data, error } = await supabase.storage.from(BUCKET).list(prefix || "", listOpts);
     if (error) throw error;
 
-    // hide any legacy folders named 'uploads' or 'incoming'
-    const filtered = (data || []).filter((item) => item.name !== "uploads" && item.name !== "incoming");
+    const entries = (data || [])
+      .map((f) => ({
+        name: f.name,
+        path: (prefix ? `${prefix}/` : "") + f.name,
+        size: f.metadata?.size ?? null,
+        created_at: f.created_at ?? null,
+        updated_at: f.updated_at ?? null,
+        mime_type: f.metadata?.mimetype ?? null,
+        url: publicUrl((prefix ? `${prefix}/` : "") + f.name),
+        isDir: !f.metadata && !f.created_at && !f.updated_at,
+      }))
+      .filter((item) => item.name !== "uploads" && item.name !== "incoming")
+      .filter((item) => !item.isDir);
 
-    const items = filtered.map((f) => ({
-      name: f.name,
-      path: (prefix ? `${prefix}/` : "") + f.name,
-      size: f.metadata?.size ?? null,
-      created_at: f.created_at ?? null,
-      updated_at: f.updated_at ?? null,
-      url: publicUrl((prefix ? `${prefix}/` : "") + f.name),
-      isDir: !!f.id && f.name && f.metadata == null && f.created_at == null, // storage marks folders with null meta
-    }));
+    const sortKey = typeof sort === "string" ? sort : "updated_at";
+    const dir = String(direction).toLowerCase() === "asc" ? 1 : -1;
 
-    res.json({ items });
+    const sorted = entries.sort((a, b) => {
+      const fallbackA = new Date(a.updated_at || a.created_at || 0).getTime();
+      const fallbackB = new Date(b.updated_at || b.created_at || 0).getTime();
+
+      switch (sortKey) {
+        case "name":
+          return dir * a.name.localeCompare(b.name);
+        case "size":
+          return dir * ((a.size || 0) - (b.size || 0));
+        case "created_at":
+          return dir *
+            (new Date(a.created_at || a.updated_at || 0).getTime() -
+              new Date(b.created_at || b.updated_at || 0).getTime());
+        case "updated_at":
+        default:
+          return dir * (fallbackA - fallbackB);
+      }
+    });
+
+    res.json({ items: sorted });
   } catch (err) {
     console.error("GET /api/storage/list error:", err);
     res.status(500).json({ error: "Failed to list" });
@@ -74,15 +112,14 @@ router.get("/list", requireAdmin, async (req, res) => {
 });
 
 // --- UPLOAD ------------------------------------------------------------
-router.post("/upload", requireAdmin, async (req, res) => {
+router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => {
+  if (!ensureSupabase(res)) return;
   try {
-    // Expecting multipart/form-data; ensure your server.js has a body-parser for it or use raw buffer.
-    // Here we assume you've already attached something like express-fileupload or multer.
-    const file = req.files?.file; // if using express-fileupload
+    const file = req.file;
     if (!file) return res.status(400).json({ error: "No file" });
 
-    const filePath = `${Date.now()}_${file.name}`; // root of bucket
-    const { data, error } = await supabase.storage.from(BUCKET).upload(filePath, file.data, {
+    const filePath = `${Date.now()}_${file.originalname}`;
+    const { data, error } = await supabase.storage.from(BUCKET).upload(filePath, file.buffer, {
       contentType: file.mimetype,
       upsert: false,
     });
@@ -99,6 +136,7 @@ router.post("/upload", requireAdmin, async (req, res) => {
 
 // --- DELETE ------------------------------------------------------------
 router.post("/delete", requireAdmin, async (req, res) => {
+  if (!ensureSupabase(res)) return;
   try {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: "path required" });
@@ -118,6 +156,7 @@ router.post("/delete", requireAdmin, async (req, res) => {
 
 // --- RENAME (move) -----------------------------------------------------
 router.post("/rename", requireAdmin, async (req, res) => {
+  if (!ensureSupabase(res)) return;
   try {
     const { fromPath, toName } = req.body;
     if (!fromPath || !toName) return res.status(400).json({ error: "fromPath and toName required" });
