@@ -1,12 +1,15 @@
-// frontend/src/pages/admin/AdminSettingsGeneral.tsx
-// Admin Settings → General (global site settings)
-// Branding, theme colors, footer links, maintenance, admin session timeout
+/* =========================================================================
+   FILE: frontend/src/pages/admin/AdminSettingsGeneral.tsx
+   -------------------------------------------------------------------------
+   Admin Settings → General: branding, colors, maintenance, and session TTL.
+   ========================================================================= */
+import React from "react";
 
 import React from "react";
 import { useSettings } from "../../lib/SettingsContext";
-import SettingsUploader from "./SettingsUploader";
 import SettingsColorPicker from "./SettingsColorPicker";
 import SettingsLinkManager from "./SettingsLinkManager";
+import SettingsUploader from "./SettingsUploader";
 
 const TIMEOUT_OPTIONS = [5, 10, 15, 20, 25, 30, 45, 60];
 
@@ -95,6 +98,8 @@ export default function AdminSettingsGeneral() {
       setStatus({ type: "error", message: err?.message || "Failed to save general settings." });
     }
   };
+
+  const footerLinks = coerceLinks(safe.footer_links);
 
   return (
     <div className="space-y-10">
@@ -333,3 +338,4 @@ export default function AdminSettingsGeneral() {
     </div>
   );
 }
+
