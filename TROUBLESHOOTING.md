@@ -31,26 +31,6 @@ If `npm run doctor` itself fails with `Missing script`, open `package.json` and 
 `setup`, `dev`, `dev:backend`, `dev:frontend`, `build`, `start`, `start:api`, and `doctor`. If not, repeat step 1 to
 synchronize with `origin/main`.
 
-If the doctor script reports stray `package-lock.json` files inside `backend/` or `frontend/`, they can be safely removed with
-`git clean -fd` (they are intentionally excluded from version control because each workspace is managed via the root `package-lock.json`).
-
-### Still seeing `Unexpected ":"` errors from Vite?
-
-That message indicates one of the admin settings files contains leftover TypeScript syntax from an outdated merge (for example,
-`session_timeout_minutes?: number;`). The fix is to refresh your checkout so the current TypeScript version of
-`frontend/src/pages/admin/AdminSettingsGeneral.tsx` is restored.
-
-```powershell
-git status               # make sure nothing you need is listed under "Changes not staged for commit"
-git fetch origin
-git reset --hard origin/main
-git clean -fd            # removes stray package-locks or generated files
-npm run setup
-```
-
-After the reset finishes, re-run `npm run dev`. The TypeScript file in `origin/main` compiles cleanly; if the error persists,
-verify that your editor is not restoring old content from a stash or backup plugin.
-
 ## 3. Recreate the environment files
 
 ```powershell
