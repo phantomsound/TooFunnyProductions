@@ -3,7 +3,6 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import WhoAmI from "./WhoAmI";
 
 export default function Navbar() {
   const { search } = useLocation();
@@ -35,9 +34,7 @@ export default function Navbar() {
           <Item to="/contact">Contact</Item>
         </div>
 
-        <div className="flex items-center gap-2">
-          <WhoAmI />
-        </div>
+        <div className="h-8 w-8" aria-hidden />
       </div>
     </nav>
   );
