@@ -8,6 +8,12 @@ import { useAuth } from "../../hooks/useAuth";
 
 export default function AdminUserBar() {
   const { user, loading, signIn, logout } = useAuth();
+  const [showAvatar, setShowAvatar] = React.useState(true);
+
+  React.useEffect(() => {
+    // Reset the avatar visibility whenever the signed-in user changes.
+    setShowAvatar(true);
+  }, [user?.email, user?.picture]);
 
   if (loading) return <div className="text-sm opacity-70">…</div>;
   if (!user) {
@@ -22,7 +28,6 @@ export default function AdminUserBar() {
   }
 
   const { email, name, picture } = user;
-  const [showAvatar, setShowAvatar] = React.useState(true);
   return (
     <div className="flex items-center gap-3">
       {picture && showAvatar ? (
