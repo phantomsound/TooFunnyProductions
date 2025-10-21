@@ -6,8 +6,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 export default function Navbar() {
-  const { search, pathname } = useLocation();
-  const { signIn, user, isAdmin } = useAuth();
+  const { search } = useLocation();
+  const { user } = useAuth();
   const sp = new URLSearchParams(search);
   const stageSuffix = sp.get("stage") === "draft" ? "?stage=draft" : "";
 
@@ -37,21 +37,13 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          {isAdmin ? (
-            <Link
-              to="/admin"
-              className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold hover:border-yellow-400"
-            >
-              Admin
-            </Link>
-          ) : user ? null : pathname.startsWith("/admin") ? null : (
-            <button
-              onClick={signIn}
-              className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold hover:border-yellow-400"
-            >
-              Sign in
-            </button>
-          )}
+          {user?.picture ? (
+            <img
+              src={user.picture}
+              alt=""
+              className="h-8 w-8 rounded-full border border-white/20 object-cover"
+            />
+          ) : null}
         </div>
       </div>
     </nav>

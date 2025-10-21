@@ -5,6 +5,7 @@
    ========================================================================= */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "./api";
+import { useAuth } from "../hooks/useAuth";
 
 const isEventLike = (value: unknown): value is { nativeEvent?: unknown; preventDefault?: () => void } => {
   if (!value || typeof value !== "object") return false;
@@ -71,6 +72,21 @@ const sanitizeSettings = (value: Settings | null | undefined): Settings => {
 type Stage = "live" | "draft";
 type Settings = Record<string, any>;
 
+type LockState = {
+  holder_email: string | null;
+  acquired_at: string | null;
+  expires_at: string | null;
+} | null;
+
+type AcquireOptions = {
+  silent?: boolean;
+  ttlSeconds?: number;
+};
+
+type ReleaseOptions = {
+  silent?: boolean;
+};
+
 type Ctx = {
   stage: Stage;
   setStage: (s: Stage) => void;
@@ -82,15 +98,37 @@ type Ctx = {
   pullLive: () => Promise<void>;     // copies live -> draft and loads it
   publish: () => Promise<void>;      // copies draft -> live and reloads live
   reload: () => Promise<void>;       // reload current stage from server
+  lock: LockState;
+  hasLock: boolean;
+  lockedByOther: boolean;
+  lockLoading: boolean;
+  lockError: string | null;
+  acquireLock: (options?: AcquireOptions) => Promise<boolean>;
+  releaseLock: (options?: ReleaseOptions) => Promise<void>;
+  refreshLock: () => Promise<void>;
 };
 
 const SettingsContext = createContext<Ctx | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const myEmail = user?.email ? user.email.toLowerCase() : null;
+
   const [stage, setStage] = useState<Stage>("live");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [initial, setInitial] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [lock, setLock] = useState<LockState>(null);
+  const [lockLoading, setLockLoading] = useState(false);
+  const [lockError, setLockError] = useState<string | null>(null);
+
+  const lockOwner = useMemo(() => {
+    if (!lock?.holder_email) return null;
+    return String(lock.holder_email).toLowerCase();
+  }, [lock?.holder_email]);
+
+  const hasLock = Boolean(lockOwner && myEmail && lockOwner === myEmail);
+  const lockedByOther = Boolean(lockOwner && lockOwner !== myEmail);
 
   const load = useCallback(async (s: Stage) => {
     const r = await fetch(api(`/api/settings?stage=${s}`), { credentials: "include" });
@@ -112,6 +150,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [settings, initial]);
 
   const setField = (k: string, v: any) => {
+    if (stage !== "draft" || lockedByOther) return;
     setSettings((prev) => {
       const base = sanitizeSettings(prev || {});
       const nextValue = toSerializable(v);
@@ -125,7 +164,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const save = useCallback(
     async (incoming?: Partial<Settings>) => {
-      if (stage !== "draft") return;
+      if (stage !== "draft" || lockedByOther) return;
 
       const payload = isEventLike(incoming) ? undefined : incoming;
       const base = sanitizeSettings(settings);
@@ -155,7 +194,109 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setSaving(false);
       }
     },
-    [settings, stage]
+    [settings, stage, lockedByOther]
+  );
+
+  const refreshLock = useCallback(async () => {
+    if (stage !== "draft") {
+      setLock(null);
+      setLockError(null);
+      return;
+    }
+    try {
+      const response = await fetch(api("/api/settings/lock"), { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 403) {
+          setLock(null);
+          setLockError(null);
+          return;
+        }
+        throw new Error(data?.error || "Failed to load lock");
+      }
+      setLock(data.lock || null);
+      setLockError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load lock";
+      setLockError(message);
+    }
+  }, [stage]);
+
+  const acquireLock = useCallback(
+    async (options: AcquireOptions = {}) => {
+      if (stage !== "draft") return false;
+      const { silent = false, ttlSeconds } = options;
+      if (!silent) {
+        setLockLoading(true);
+        setLockError(null);
+      }
+      try {
+        const response = await fetch(api("/api/settings/lock/acquire"), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ttlSeconds }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (response.status === 423) {
+            setLock(data.lock || null);
+            if (!silent) setLockError(data?.error || "Draft locked by another editor.");
+            return false;
+          }
+          if (response.status === 403) {
+            setLock(null);
+            if (!silent) setLockError("Admin access required to edit draft.");
+            return false;
+          }
+          throw new Error(data?.error || "Failed to acquire lock");
+        }
+        setLock(data.lock || null);
+        if (!silent) setLockError(null);
+        return true;
+      } catch (error) {
+        if (!silent) {
+          const message = error instanceof Error ? error.message : "Failed to acquire lock";
+          setLockError(message);
+        }
+        return false;
+      } finally {
+        if (!silent) setLockLoading(false);
+      }
+    },
+    [stage]
+  );
+
+  const releaseLock = useCallback(
+    async (options: ReleaseOptions = {}) => {
+      const { silent = false } = options;
+      if (!silent) {
+        setLockLoading(true);
+        setLockError(null);
+      }
+      try {
+        const response = await fetch(api("/api/settings/lock/release"), {
+          method: "POST",
+          credentials: "include",
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (!silent) setLockError(data?.error || "Failed to release lock");
+          setLock(data.lock || null);
+          return;
+        }
+        setLock(null);
+        if (!silent) setLockError(null);
+      } catch (error) {
+        if (!silent) {
+          const message = error instanceof Error ? error.message : "Failed to release lock";
+          setLockError(message);
+        }
+      } finally {
+        if (!silent) setLockLoading(false);
+      }
+    },
+    []
   );
 
   const pullLive = useCallback(async () => {
@@ -187,9 +328,97 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const reload = useCallback(async () => { await load(stage); }, [stage, load]);
 
+  useEffect(() => {
+    if (stage === "draft") {
+      acquireLock({ silent: true });
+    } else {
+      setLock(null);
+      setLockError(null);
+    }
+  }, [stage, acquireLock]);
+
+  useEffect(() => {
+    if (stage !== "draft" || !hasLock) return;
+    const handle = window.setInterval(() => {
+      acquireLock({ silent: true, ttlSeconds: 300 });
+    }, 60_000);
+    return () => window.clearInterval(handle);
+  }, [stage, hasLock, acquireLock]);
+
+  useEffect(() => {
+    if (stage !== "draft" || hasLock) return;
+    const handle = window.setInterval(() => {
+      refreshLock();
+    }, 90_000);
+    return () => window.clearInterval(handle);
+  }, [stage, hasLock, refreshLock]);
+
+  useEffect(() => {
+    if (stage === "draft" || !hasLock) return;
+    releaseLock({ silent: true }).catch(() => {});
+  }, [stage, hasLock, releaseLock]);
+
+  useEffect(() => {
+    if (stage === "draft" || !lock) return;
+    setLock(null);
+    setLockError(null);
+  }, [stage, lock]);
+
+  useEffect(() => {
+    if (!hasLock) return;
+    const handler = () => {
+      try {
+        const blob = new Blob([JSON.stringify({})], { type: "application/json" });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(api("/api/settings/lock/release"), blob);
+        }
+      } catch {
+        /* no-op */
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasLock]);
+
   const value = useMemo<Ctx>(
-    () => ({ stage, setStage, settings, setField, isDirty, saving, save, pullLive, publish, reload }),
-    [stage, settings, isDirty, saving, save, pullLive, publish, reload]
+    () => ({
+      stage,
+      setStage,
+      settings,
+      setField,
+      isDirty,
+      saving,
+      save,
+      pullLive,
+      publish,
+      reload,
+      lock,
+      hasLock,
+      lockedByOther,
+      lockLoading,
+      lockError,
+      acquireLock,
+      releaseLock,
+      refreshLock,
+    }),
+    [
+      stage,
+      settings,
+      isDirty,
+      saving,
+      save,
+      pullLive,
+      publish,
+      reload,
+      lock,
+      hasLock,
+      lockedByOther,
+      lockLoading,
+      lockError,
+      acquireLock,
+      releaseLock,
+      refreshLock,
+    ]
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

@@ -99,10 +99,10 @@ const sanitizeSettings = (raw: unknown): GeneralSettings => {
 };
 
 export default function AdminSettingsGeneral(): JSX.Element {
-  const { settings, setField, stage } = useSettings();
+  const { settings, setField, stage, lockedByOther } = useSettings();
 
   const safe = useMemo(() => sanitizeSettings(settings), [settings]);
-  const disabled = stage !== "draft";
+  const disabled = stage !== "draft" || lockedByOther;
 
   const [local, setLocal] = useState<GeneralSettings>(safe);
 
@@ -120,7 +120,11 @@ export default function AdminSettingsGeneral(): JSX.Element {
 
   return (
     <div className="space-y-10">
-      {disabled ? (
+      {lockedByOther ? (
+        <div className="rounded border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">
+          Draft is locked by another editor. Fields are read-only until they release the lock.
+        </div>
+      ) : stage !== "draft" ? (
         <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-200">
           Switch to the Draft view to edit these fields.
         </div>

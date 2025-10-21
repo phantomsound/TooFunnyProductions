@@ -148,11 +148,11 @@ export default function AdminMediaManager() {
   };
 
   return (
-    <div className="space-y-6 p-6 text-gray-900">
+    <div className="space-y-6 text-neutral-100">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Media Manager</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-2xl font-bold text-yellow-300">Media Manager</h2>
+          <p className="text-sm text-neutral-400">
             Upload, rename, and organize assets stored in the Supabase media bucket. Folders are hidden so everything is
             flat and searchable.
           </p>
@@ -171,7 +171,7 @@ export default function AdminMediaManager() {
             />
           </label>
           <button
-            className="rounded border px-3 py-2 text-sm hover:bg-gray-100"
+            className="rounded border border-neutral-700 px-3 py-2 text-sm hover:bg-neutral-800"
             onClick={refresh}
             disabled={loading}
           >
@@ -180,18 +180,18 @@ export default function AdminMediaManager() {
         </div>
       </header>
 
-      <section className="grid gap-4 rounded border bg-white p-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 rounded border border-neutral-800 bg-neutral-900/70 p-4 md:grid-cols-2 xl:grid-cols-4">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-xs font-semibold uppercase text-gray-500">Search</span>
+          <span className="text-xs font-semibold uppercase text-neutral-500">Search</span>
           <input
-            className="rounded border px-3 py-2 text-black"
+            className="rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 placeholder:text-neutral-500"
             placeholder="Filename contains…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
         <div className="flex flex-col gap-2 text-sm md:col-span-1 xl:col-span-2">
-          <span className="text-xs font-semibold uppercase text-gray-500">Sort</span>
+          <span className="text-xs font-semibold uppercase text-neutral-500">Sort</span>
           <div className="flex flex-wrap gap-2">
             {SORT_OPTIONS.map((option) => (
               <button
@@ -199,8 +199,8 @@ export default function AdminMediaManager() {
                 onClick={() => setActiveSortId(option.id)}
                 className={`rounded-full px-3 py-1 text-sm ${
                   activeSortId === option.id
-                    ? "bg-gray-900 text-white"
-                    : "border border-gray-300 text-gray-700 hover:bg-gray-100"
+                    ? "bg-neutral-100 text-neutral-900"
+                    : "border border-neutral-700 text-neutral-300 hover:bg-neutral-800"
                 }`}
               >
                 {option.label}
@@ -211,7 +211,7 @@ export default function AdminMediaManager() {
         <div className="flex items-end justify-end">
           {search && (
             <button
-              className="text-sm text-gray-500 underline"
+              className="text-sm text-neutral-400 underline hover:text-neutral-200"
               onClick={() => setSearch("")}
             >
               Clear search
@@ -220,43 +220,45 @@ export default function AdminMediaManager() {
         </div>
       </section>
 
-      {error && <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {error && (
+        <div className="rounded border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</div>
+      )}
 
       {loading ? (
-        <div className="text-sm text-gray-500">Loading media…</div>
+        <div className="text-sm text-neutral-400">Loading media…</div>
       ) : items.length === 0 ? (
-        <div className="text-sm text-gray-500">No media files found.</div>
+        <div className="text-sm text-neutral-400">No media files found.</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
-            <article key={item.path} className="overflow-hidden rounded-lg border bg-white shadow-sm">
-              <div className="flex h-48 items-center justify-center bg-gray-100">
+            <article key={item.path} className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 shadow-sm">
+              <div className="flex h-48 items-center justify-center bg-neutral-800">
                 {isImage(item.name, item.mime_type) ? (
                   <img src={item.url} alt={item.name} className="max-h-48 w-full object-contain" />
                 ) : isVideo(item.name, item.mime_type) ? (
                   <video src={item.url} controls preload="metadata" className="max-h-48 w-full object-contain" />
                 ) : (
-                  <span className="truncate px-4 text-xs text-gray-500">{item.name}</span>
+                  <span className="truncate px-4 text-xs text-neutral-400">{item.name}</span>
                 )}
               </div>
               <div className="space-y-2 p-4 text-sm">
-                <div className="truncate font-semibold" title={item.name}>
+                <div className="truncate font-semibold text-neutral-100" title={item.name}>
                   {item.name}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-400">
                   <span>{humanSize(item.size)}</span>
                   <span>•</span>
                   <span>{new Date(item.updated_at || item.created_at || Date.now()).toLocaleString()}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    className="rounded border px-2 py-1 text-xs"
+                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
                     onClick={() => onCopy(item.url)}
                   >
                     Copy URL
                   </button>
                   <a
-                    className="rounded border px-2 py-1 text-xs"
+                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
                     href={item.url}
                     target="_blank"
                     rel="noreferrer"
@@ -264,13 +266,13 @@ export default function AdminMediaManager() {
                     Open
                   </a>
                   <button
-                    className="rounded border px-2 py-1 text-xs"
+                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
                     onClick={() => onRename(item)}
                   >
                     Rename
                   </button>
                   <button
-                    className="ml-auto rounded bg-red-600 px-2 py-1 text-xs text-white"
+                    className="ml-auto rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-500"
                     onClick={() => onDelete(item)}
                   >
                     Delete
