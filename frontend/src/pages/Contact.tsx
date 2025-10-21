@@ -7,6 +7,15 @@ export default function Contact() {
   const { settings } = useSettings();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [sending, setSending] = useState(false);
+  const title = typeof settings?.contact_title === "string" ? settings.contact_title : "Contact Us";
+  const intro =
+    typeof settings?.contact_intro === "string"
+      ? settings.contact_intro
+      : "Booking, collaborations, or just want to say hi? Drop us a line.";
+  const cards = Array.isArray(settings?.contact_cards) ? settings.contact_cards : [];
+  const socials = settings?.contact_socials && typeof settings.contact_socials === "object"
+    ? (settings.contact_socials as Record<string, string>)
+    : {};
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +40,9 @@ export default function Contact() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 text-white">
-      <h1 className="text-3xl font-bold text-yellow-400 mb-6">{settings?.contact_title || "Contact Us"}</h1>
+      <h1 className="text-3xl font-bold text-yellow-400 mb-3">{title}</h1>
+      <p className="opacity-80 mb-8 whitespace-pre-wrap">{intro}</p>
+
       <div className="grid md:grid-cols-2 gap-8">
         {/* Left: form with floating labels (always-visible labels) */}
         <form onSubmit={onSubmit} className="bg-[#111] rounded p-5">
@@ -86,20 +97,36 @@ export default function Contact() {
             {settings?.contactphone && <div>Phone: {settings.contactphone}</div>}
           </div>
 
+          {cards.length > 0 ? (
+            <div className="space-y-4 mb-6">
+              {cards.map((card: any, index: number) => (
+                <div key={index} className="rounded border border-white/10 bg-white/5 p-4">
+                  <div className="text-lg font-semibold text-yellow-300 mb-1">{card.title}</div>
+                  <p className="text-sm opacity-90 mb-3 whitespace-pre-wrap">{card.description}</p>
+                  {card.link_url ? (
+                    <a
+                      href={card.link_url}
+                      target={card.link_url.startsWith("http") ? "_blank" : undefined}
+                      rel="noopener noreferrer"
+                      className="inline-block rounded bg-yellow-400 px-3 py-1 text-sm font-semibold text-black hover:bg-yellow-300"
+                    >
+                      {card.link_label || "Learn more"}
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           <h3 className="text-lg font-semibold mb-2">Socials</h3>
           <div className="flex flex-wrap gap-3">
-            {settings?.contact_socials?.instagram && (
-              <a href={settings.contact_socials.instagram} target="_blank" className="underline">Instagram</a>
-            )}
-            {settings?.contact_socials?.twitter && (
-              <a href={settings.contact_socials.twitter} target="_blank" className="underline">Twitter/X</a>
-            )}
-            {settings?.contact_socials?.youtube && (
-              <a href={settings.contact_socials.youtube} target="_blank" className="underline">YouTube</a>
-            )}
-            {settings?.contact_socials?.tiktok && (
-              <a href={settings.contact_socials.tiktok} target="_blank" className="underline">TikTok</a>
-            )}
+            {Object.entries(socials)
+              .filter(([, url]) => typeof url === "string" && url)
+              .map(([network, url]) => (
+                <a key={network} href={url} target="_blank" rel="noopener noreferrer" className="underline">
+                  {network.charAt(0).toUpperCase() + network.slice(1)}
+                </a>
+              ))}
           </div>
         </div>
       </div>
