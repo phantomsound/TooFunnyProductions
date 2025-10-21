@@ -1,38 +1,42 @@
 // backend/routes/admin.js
 import { Router } from "express";
 import { requireAdmin } from "../auth.js";
-import { createClient } from "@supabase/supabase-js";
-import { logAdminAction } from "../lib/audit.js";
+import { getAuditClient, listAdminActions } from "../lib/audit.js";
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const router = Router();
 
-// POST /api/admin/publish  -> copy draft row into public and stamp published_at
-router.post("/publish", requireAdmin, async (req, res) => {
+// The publish logic lives in /api/settings/publish.
+// Keep this route around for legacy clients but point them to the supported endpoint.
+router.post("/publish", requireAdmin, (_req, res) => {
+  res.status(410).json({
+    error: "Deprecated endpoint. Use POST /api/settings/publish instead.",
+  });
+});
+
+// GET /api/admin/audit
+router.get("/audit", requireAdmin, async (req, res) => {
   try {
-    const { data: draft, error } = await supabase.from("settings_draft").select("*").limit(1).maybeSingle();
-    if (error) throw error;
+    if (!getAuditClient()) {
+      return res.status(500).json({ error: "Supabase not configured." });
+    }
 
-    if (!draft) return res.status(400).json({ error: "No draft row to publish." });
+    const { limit, actor, action, q, direction } = req.query;
 
-    const { id, ...rest } = draft;
-    const payload = { ...rest, updated_at: new Date().toISOString(), published_at: new Date().toISOString() };
+    const items = await listAdminActions({
+      limit: limit ? Number(limit) : undefined,
+      actor: actor ? String(actor) : undefined,
+      action: action ? String(action) : undefined,
+      search: q ? String(q) : undefined,
+      direction: direction ? String(direction) : undefined,
+    });
 
-    const up = await supabase
-      .from("settings_public")
-      .upsert([{ ...payload }], { onConflict: "id" })   // id will be auto if public row doesn't exist
-      .select("*")
-      .limit(1)
-      .maybeSingle();
+    const actors = Array.from(new Set(items.map((row) => row.actor_email).filter(Boolean))).sort();
+    const actions = Array.from(new Set(items.map((row) => row.action).filter(Boolean))).sort();
 
-    if (up.error) throw up.error;
-
-    try { await logAdminAction(req.user?.email || "unknown", "settings.publish", { to: "live" }); } catch {}
-
-    res.json({ success: true, data: up.data });
-  } catch (e) {
-    console.error("Publish error:", e);
-    res.status(500).json({ error: "Failed to publish" });
+    res.json({ items, actors, actions });
+  } catch (err) {
+    console.error("GET /api/admin/audit error:", err);
+    res.status(500).json({ error: "Failed to load audit log" });
   }
 });
 

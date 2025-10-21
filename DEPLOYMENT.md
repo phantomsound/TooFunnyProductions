@@ -1,0 +1,107 @@
+# Too Funny Productions — Deployment & Operations Guide
+
+This guide walks through preparing the environment variables, running the app during development, and hosting the combined frontend + backend service on your own machine or server.
+
+## 1. Environment configuration
+
+Create `backend/.env` with the required secrets:
+
+```
+SUPABASE_URL=...
+SUPABASE_SERVICE_KEY=...
+SESSION_SECRET=generate-a-long-random-string
+ALLOWLIST_EMAILS=admin@example.com,second-admin@example.com
+FRONTEND_URL=https://toofunnyproductions.com
+CORS_ORIGIN=https://toofunnyproductions.com
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=https://toofunnyproductions.com/api/auth/google/callback
+```
+
+> **Tip:** Use the SQL statements in `backend/docs/settings-columns.sql` inside Supabase’s SQL editor once so every new column used by the admin UI exists in both `settings_draft` and `settings_public`.
+
+For the frontend, copy `frontend/.env.example` to `frontend/.env` when you want to override the API location in development:
+
+```
+VITE_API_URL=http://localhost:5000
+```
+
+When you build for production the React app will fall back to the same origin that served it, so no extra configuration is needed.
+
+## 2. Install dependencies
+
+From the repo root run:
+
+```
+npm run setup
+```
+
+That installs packages in both `backend/` and `frontend/` workspaces.
+
+## 3. Development workflow
+
+```
+npm run dev
+```
+
+This starts the Express API on port `5000` and the Vite dev server on `5173` simultaneously. The script watches for Ctrl+C and shuts both processes down cleanly.
+
+You can still start the layers separately if you prefer:
+
+```
+npm run dev:backend
+npm run dev:frontend
+```
+
+## 4. Build & serve the production bundle
+
+1. Build the React app:
+   ```
+   npm run build
+   ```
+   The output lands in `frontend/dist/`.
+
+2. Start the backend in production mode, which will automatically serve any files found in `frontend/dist` under the same domain:
+   ```
+   npm run start
+   ```
+
+   The server listens on `PORT` (defaults to `5000`). Visit `http://localhost:5000` or your Cloudflare domain to load the SPA.
+
+> The backend detects `frontend/dist` automatically; if you prefer a different location set `FRONTEND_DIST=/absolute/path/to/build` in the environment.
+
+## 5. Keeping the service running
+
+To keep the service alive on your PC you can:
+
+- Use a process manager like [PM2](https://pm2.keymetrics.io/):
+  ```
+  pm2 start npm --name toofunny -- run start
+  pm2 save
+  ```
+
+- Or create a `systemd` unit (Linux):
+  ```ini
+  [Unit]
+  Description=Too Funny Productions Admin
+  After=network.target
+
+  [Service]
+  WorkingDirectory=/path/to/TooFunnyProductions
+  ExecStart=/usr/bin/npm run start
+  Restart=always
+  Environment=PORT=5000
+  Environment=FRONTEND_URL=https://toofunnyproductions.com
+  Environment=...other vars...
+
+  [Install]
+  WantedBy=multi-user.target
+  ```
+
+## 6. Cloudflare & domain notes
+
+1. Point your domain’s A record to your PC’s public IP (or use Cloudflare Tunnel if you don’t want to expose your IP).
+2. Make sure the backend listens on the same origin (`FRONTEND_URL` and `CORS_ORIGIN` above) so cookies and OAuth callbacks succeed.
+3. Update your Google OAuth client to use the production callback URL shown above.
+
+Once the admin settings are saved in Draft mode you can preview via the “Preview Draft” button and publish when ready. The General Settings page now shows inline success/error feedback and requires you to switch to Draft before saving, keeping the workflow predictable.
