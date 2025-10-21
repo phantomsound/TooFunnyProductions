@@ -3,7 +3,7 @@
    -------------------------------------------------------------------------
    Admin Settings → General: branding, colors, maintenance, and session TTL.
    ========================================================================= */
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
 import SettingsColorPicker from "./SettingsColorPicker";
