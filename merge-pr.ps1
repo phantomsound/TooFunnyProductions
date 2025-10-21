@@ -79,14 +79,21 @@ function Resolve-Branch {
 
 function Checkout-Tracking {
   param([string]$Branch)
-  if (-not (git rev-parse --verify $Branch 2>$null)) {
+
+  # Does the local branch already exist?
+  $exists = (git branch --list $Branch) -ne $null -and (git branch --list $Branch).Trim().Length -gt 0
+
+  if (-not $exists) {
+    # Create a new local branch that tracks the remote PR branch
     git switch -c $Branch --track origin/$Branch | Out-Host
   } else {
+    # Use the existing local branch and ensure it tracks the right remote
     git switch $Branch | Out-Host
     git branch --set-upstream-to=origin/$Branch $Branch | Out-Host
     git pull | Out-Host
   }
 }
+
 
 function Clear-Esbuild-Lock {
   # Kill stray processes & remove locked esbuild to allow clean installs, best-effort
