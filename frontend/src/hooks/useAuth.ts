@@ -79,3 +79,5 @@ export function useAuth() {
     reload: fetchMe,
   };
 }
+
+export default useAuth;
