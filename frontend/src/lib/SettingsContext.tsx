@@ -147,6 +147,27 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { load(stage); }, [stage, load]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const favicon = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    const fallback = "/favicon.ico";
+    const next =
+      typeof settings?.favicon_url === "string" && settings.favicon_url.trim().length > 0
+        ? settings.favicon_url
+        : fallback;
+    if (favicon && favicon.href !== next) {
+      favicon.href = next;
+    }
+
+    const title =
+      typeof settings?.site_title === "string" && settings.site_title.trim().length > 0
+        ? settings.site_title
+        : "Too Funny Productions";
+    if (document.title !== title) {
+      document.title = title;
+    }
+  }, [settings?.favicon_url, settings?.site_title]);
+
   const isDirty = useMemo(() => {
     if (!settings || !initial) return false;
     try {

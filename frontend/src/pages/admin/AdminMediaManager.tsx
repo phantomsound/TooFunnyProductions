@@ -32,6 +32,7 @@ export default function AdminMediaManager() {
   const [loading, setLoading] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const [copiedPath, setCopiedPath] = React.useState(null);
 
   const [search, setSearch] = React.useState("");
   const [activeSortId, setActiveSortId] = React.useState(SORT_OPTIONS[0].id);
@@ -139,12 +140,15 @@ export default function AdminMediaManager() {
     }
   };
 
-  const onCopy = async (url) => {
+  const onCopy = async (item) => {
+    const { url, path } = item;
     try {
       await navigator.clipboard.writeText(url);
     } catch {
       window.prompt("Copy URL", url);
     }
+    setCopiedPath(path);
+    window.setTimeout(() => setCopiedPath((prev) => (prev === path ? null : prev)), 2000);
   };
 
   return (
@@ -253,9 +257,29 @@ export default function AdminMediaManager() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
-                    onClick={() => onCopy(item.url)}
+                    onClick={() => onCopy(item)}
                   >
-                    Copy URL
+                    {copiedPath === item.path ? "Copied!" : "Copy URL"}
+                  </button>
+                  <a
+                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open
+                  </a>
+                  <button
+                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
+                    onClick={() => onRename(item)}
+                  >
+                    Rename
+                  </button>
+                  <button
+                    className="ml-auto rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-500"
+                    onClick={() => onDelete(item)}
+                  >
+                    Delete
                   </button>
                   <a
                     className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"

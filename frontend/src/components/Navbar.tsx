@@ -4,12 +4,22 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import useAuth from "../hooks/useAuth";
+import { useSettings } from "../lib/SettingsContext";
+
 export default function Navbar() {
   const { search } = useLocation();
   const { user } = useAuth();
   const [showAvatar, setShowAvatar] = React.useState(true);
   const sp = new URLSearchParams(search);
   const stageSuffix = sp.get("stage") === "draft" ? "?stage=draft" : "";
+  const { settings } = useSettings();
+  const { user } = useAuth();
+
+  const logoUrl =
+    typeof settings?.logo_url === "string" && settings.logo_url.trim().length > 0
+      ? settings.logo_url
+      : null;
 
   const Item: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
     <Link
@@ -23,8 +33,16 @@ export default function Navbar() {
   return (
     <nav className="w-full bg-neutral-900/95 backdrop-blur border-b border-white/10">
       <div className="mx-auto max-w-6xl h-12 flex items-center justify-between px-4">
-        <Link to={`/${stageSuffix}`} className="text-yellow-400 font-semibold">
-          Too Funny Productions
+        <Link to={`/${stageSuffix}`} className="flex items-center gap-2">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt="Too Funny Productions"
+              className="h-9 w-auto max-w-[150px] object-contain"
+            />
+          ) : (
+            <span className="text-yellow-400 font-semibold">Too Funny Productions</span>
+          )}
         </Link>
 
         <div className="flex items-center gap-1">
@@ -36,7 +54,19 @@ export default function Navbar() {
           <Item to="/contact">Contact</Item>
         </div>
 
-        <div className="h-8 w-8" aria-hidden />
+        <div className="h-8 w-8 flex items-center justify-center">
+          {user?.picture ? (
+            <img
+              src={user.picture}
+              alt=""
+              className="h-8 w-8 rounded-full border border-white/20 object-cover"
+              onError={(event) => {
+                const target = event.currentTarget;
+                target.remove();
+              }}
+            />
+          ) : null}
+        </div>
       </div>
     </nav>
   );

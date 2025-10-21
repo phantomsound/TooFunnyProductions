@@ -49,21 +49,36 @@ export async function listAdminActions({ limit = 100, actor, action, search, dir
   const cappedLimit = Math.min(Math.max(Number(limit) || 50, 1), 500);
   const ascending = String(direction).toLowerCase() === "asc";
 
-  let query = sb
-    .from("admin_actions")
-    .select("id, occurred_at, actor_email, action, meta, payload")
-    .order("occurred_at", { ascending })
-    .limit(cappedLimit);
+  const buildQuery = (columns) => {
+    let q = sb
+      .from("admin_actions")
+      .select(columns)
+      .order(columns.includes("occurred_at") ? "occurred_at" : "created_at", { ascending })
+      .limit(cappedLimit);
+    if (actor) q = q.eq("actor_email", actor);
+    if (action) q = q.eq("action", action);
+    if (search) {
+      const term = `%${search}%`;
+      q = q.or(`actor_email.ilike.${term},action.ilike.${term}`);
+    }
+    return q;
+  };
 
-  if (actor) query = query.eq("actor_email", actor);
-  if (action) query = query.eq("action", action);
-  if (search) {
-    const term = `%${search}%`;
-    query = query.or(`actor_email.ilike.${term},action.ilike.${term}`);
+  const primaryCols = "id, occurred_at, actor_email, action, meta, payload";
+  let { data, error } = await buildQuery(primaryCols);
+
+  if (error && error.code === "42703") {
+    const fallbackCols = "id, created_at, actor_email, action, meta, payload";
+    const fallback = await buildQuery(fallbackCols);
+    const { data: fallbackData, error: fallbackError } = await fallback;
+    if (fallbackError) throw fallbackError;
+    data = (fallbackData || []).map((row) => ({
+      ...row,
+      occurred_at: row.created_at,
+    }));
+  } else if (error) {
+    throw error;
   }
-
-  const { data, error } = await query;
-  if (error) throw error;
 
   return (data || []).map((row) => ({
     ...row,

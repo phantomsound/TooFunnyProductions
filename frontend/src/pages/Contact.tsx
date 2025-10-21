@@ -7,6 +7,7 @@ export default function Contact() {
   const { settings } = useSettings();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
   const title = typeof settings?.contact_title === "string" ? settings.contact_title : "Contact Us";
   const intro =
     typeof settings?.contact_intro === "string"
@@ -20,19 +21,24 @@ export default function Contact() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSending(true);
+    setResult(null);
     try {
       const res = await fetch(api("/api/contact"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          from: form.email,
+          message: form.message,
+        }),
       });
       if (!res.ok) throw new Error("Failed to send");
-      alert("✅ Message sent!");
       setForm({ name: "", email: "", message: "" });
+      setResult("Message sent! We'll be in touch soon.");
     } catch (e: any) {
       console.error(e);
-      alert("❌ Failed to send message");
+      setResult("We couldn’t send your message. Please try again later.");
     } finally {
       setSending(false);
     }
@@ -83,10 +89,13 @@ export default function Contact() {
           <button
             type="submit"
             disabled={sending}
-            className={`px-4 py-2 rounded font-semibold ${sending ? "bg-gray-400" : "bg-yellow-400 text-black hover:bg-yellow-300"}`}
+            className={`px-4 py-2 rounded font-semibold ${
+              sending ? "bg-gray-400" : "bg-yellow-400 text-black hover:bg-yellow-300"
+            }`}
           >
             {sending ? "Sending…" : "Send Message"}
           </button>
+          {result ? <p className="mt-3 text-sm opacity-80">{result}</p> : null}
         </form>
 
         {/* Right: contact details + socials */}
