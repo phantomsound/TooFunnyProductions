@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 
 export type AuthUser = { email: string; name?: string | null; picture?: string | null };
 
-const useAuthHook = () => {
+export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -78,7 +78,6 @@ const useAuthHook = () => {
     refreshSession,
     reload: fetchMe,
   };
-};
+}
 
-export const useAuth = useAuthHook;
-export default useAuthHook;
+export default useAuth;

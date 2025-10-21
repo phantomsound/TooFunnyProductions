@@ -241,7 +241,7 @@ export default function AdminSettingsGeneral(): JSX.Element {
 
         <SettingsLinkManager
           label="Footer Links"
-          value={footerLinks}
+          value={local.footer_links}
           onChange={(links) => update("footer_links", links)}
           addLabel="Add Footer Link"
           disabled={disabled}
