@@ -13,6 +13,10 @@ type HomeSettings = {
   hero_subtext: string;
   hero_image_url: string;
   featured_video_url: string;
+  who_title: string;
+  who_body: string;
+  who_cta_label: string;
+  who_cta_url: string;
 };
 
 const sanitize = (raw: unknown): HomeSettings => {
@@ -23,6 +27,10 @@ const sanitize = (raw: unknown): HomeSettings => {
     hero_image_url: typeof safe.hero_image_url === "string" ? safe.hero_image_url : "",
     featured_video_url:
       typeof safe.featured_video_url === "string" ? safe.featured_video_url : "",
+    who_title: typeof safe.who_title === "string" ? safe.who_title : "",
+    who_body: typeof safe.who_body === "string" ? safe.who_body : "",
+    who_cta_label: typeof safe.who_cta_label === "string" ? safe.who_cta_label : "Meet the Team",
+    who_cta_url: typeof safe.who_cta_url === "string" ? safe.who_cta_url : "/about",
   };
 };
 
@@ -172,6 +180,48 @@ export default function AdminSettingsHome() {
         onSelect={(item) => update("featured_video_url", item.url)}
         kind="video"
       />
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold">Who We Are — Title</label>
+          <input
+            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            value={local.who_title}
+            onChange={(event) => update("who_title", event.target.value)}
+            disabled={disabled}
+            placeholder="Who We Are"
+          />
+          <label className="block text-sm font-semibold">Call to Action Label</label>
+          <input
+            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            value={local.who_cta_label}
+            onChange={(event) => update("who_cta_label", event.target.value)}
+            disabled={disabled}
+            placeholder="Meet the Team"
+          />
+          <label className="block text-sm font-semibold">Call to Action Link</label>
+          <input
+            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            value={local.who_cta_url}
+            onChange={(event) => update("who_cta_url", event.target.value)}
+            disabled={disabled}
+            placeholder="/about"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold">Who We Are — Body</label>
+          <textarea
+            className="w-full border border-gray-300 rounded px-3 py-2 text-black min-h-[150px]"
+            value={local.who_body}
+            onChange={(event) => update("who_body", event.target.value)}
+            disabled={disabled}
+            placeholder="Too Funny Productions is a collective of comedians, directors, editors, and techs bringing high-energy sketch and improv."
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            This section appears beneath the hero on the public home page alongside the featured image.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

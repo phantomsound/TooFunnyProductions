@@ -7,7 +7,7 @@ const COUNTDOWN_SECONDS = 60; // the visible “are you still there?” countdow
 
 export default function SessionTimeoutOverlay() {
   const { settings } = useSettings();
-  const { isAuthed, refreshSession, logout } = useAuth();
+  const { isAuthed, refreshSession, logout, loading: authLoading } = useAuth();
 
   // Minutes to idle before showing countdown → configurable
   const minutes = useMemo(() => {
@@ -51,7 +51,7 @@ export default function SessionTimeoutOverlay() {
   }
 
   function armIdle() {
-    if (!isAuthed || firedRef.current) return;
+    if (!isAuthed || authLoading || firedRef.current) return;
     clearIdle();
     idleTimerRef.current = window.setTimeout(() => {
       // show countdown once, then never re-arm until page refresh
@@ -75,7 +75,7 @@ export default function SessionTimeoutOverlay() {
 
   // Any user activity resets idle timer (only if not fired yet)
   useEffect(() => {
-    if (!isAuthed) {
+    if (!isAuthed || authLoading) {
       resetTimers();
       return;
     }
@@ -97,7 +97,7 @@ export default function SessionTimeoutOverlay() {
       events.forEach((e) => window.removeEventListener(e, reset));
       document.removeEventListener("visibilitychange", reset);
     };
-  }, [isAuthed, idleMs]);
+  }, [isAuthed, idleMs, authLoading]);
 
   if (!show) return null;
 

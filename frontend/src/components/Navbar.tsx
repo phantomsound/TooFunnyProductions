@@ -3,7 +3,6 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
 
 export default function Navbar() {
   const { search } = useLocation();
@@ -37,16 +36,7 @@ export default function Navbar() {
           <Item to="/contact">Contact</Item>
         </div>
 
-        <div className="flex items-center gap-2">
-          {user?.picture && showAvatar ? (
-            <img
-              src={user.picture}
-              alt=""
-              className="h-8 w-8 rounded-full border border-white/20 object-cover"
-              onError={() => setShowAvatar(false)}
-            />
-          ) : null}
-        </div>
+        <div className="h-8 w-8" aria-hidden />
       </div>
     </nav>
   );

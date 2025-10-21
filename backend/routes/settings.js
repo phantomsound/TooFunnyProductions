@@ -27,6 +27,10 @@ const ALLOWED = new Set([
   "hero_subtext",
   "hero_image_url",
   "featured_video_url",
+  "who_title",
+  "who_body",
+  "who_cta_label",
+  "who_cta_url",
 
   "site_title",
   "site_description",
@@ -39,6 +43,30 @@ const ALLOWED = new Set([
   "contactemail",
   "contactphone",
   "contact_socials",    // jsonb []
+
+  "about_title",
+  "about_body",
+  "about_mission_title",
+  "about_mission_body",
+  "about_team_intro",
+  "about_team",         // jsonb []
+
+  "events_title",
+  "events_intro",
+  "events_upcoming",    // jsonb []
+  "events_past",        // jsonb []
+
+  "media_title",
+  "media_intro",
+  "media_sections",     // jsonb []
+
+  "merch_title",
+  "merch_intro",
+  "merch_items",        // jsonb []
+
+  "contact_title",
+  "contact_intro",
+  "contact_cards",      // jsonb []
 
   "maintenance_enabled",
   "maintenance_message",

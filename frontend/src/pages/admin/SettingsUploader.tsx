@@ -1,5 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
+import MediaPickerModal, {
+  type MediaPickerItem,
+} from "../../components/MediaPickerModal";
 
 type SettingsUploaderProps = {
   label: string;
@@ -8,6 +11,8 @@ type SettingsUploaderProps = {
   accept?: string;
   buttonLabel?: string;
   disabled?: boolean;
+  pickerKind?: "image" | "video" | "any";
+  allowLibrary?: boolean;
 };
 
 type UploadError = string | null;
@@ -19,11 +24,22 @@ export default function SettingsUploader({
   accept = "*",
   buttonLabel = "Upload",
   disabled = false,
+  pickerKind,
+  allowLibrary = true,
 }: SettingsUploaderProps): JSX.Element {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<UploadError>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(value || "");
+  const [showLibrary, setShowLibrary] = useState(false);
+
+  const derivedPickerKind = useMemo(() => {
+    if (pickerKind) return pickerKind;
+    const normalized = accept.toLowerCase();
+    if (normalized.includes("video")) return "video";
+    if (normalized.includes("image")) return "image";
+    return "any";
+  }, [accept, pickerKind]);
 
   useEffect(() => {
     if (!file) {
@@ -100,6 +116,13 @@ export default function SettingsUploader({
     onChange("");
   };
 
+  const handleLibrarySelect = (item: MediaPickerItem) => {
+    if (disabled) return;
+    const url = item.url;
+    onChange(url);
+    resetSelection(url);
+  };
+
   const isImage = file
     ? file.type.startsWith("image/")
     : !!previewUrl && /\.(png|jpe?g|gif|webp|svg)$/i.test(previewUrl);
@@ -122,13 +145,30 @@ export default function SettingsUploader({
         )}
       </div>
 
-      <input
-        type="file"
-        accept={accept}
-        onChange={handleFileChange}
-        className="block w-full text-sm"
-        disabled={disabled}
-      />
+      <div className="space-y-2">
+        <input
+          type="file"
+          accept={accept}
+          onChange={handleFileChange}
+          className="block w-full text-sm"
+          disabled={disabled}
+        />
+
+        {allowLibrary ? (
+          <button
+            type="button"
+            onClick={() => setShowLibrary(true)}
+            disabled={disabled}
+            className={`w-full rounded border px-3 py-2 text-sm font-semibold transition ${
+              disabled
+                ? "cursor-not-allowed border-gray-200 text-gray-400"
+                : "border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            Browse media library
+          </button>
+        ) : null}
+      </div>
 
       {previewUrl ? (
         <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
@@ -142,7 +182,7 @@ export default function SettingsUploader({
 
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <button
           type="button"
           onClick={handleUpload}
@@ -153,7 +193,7 @@ export default function SettingsUploader({
               : "bg-blue-600 text-white hover:bg-blue-700"
           }`}
         >
-          {uploading ? "Uploading…" : buttonLabel}
+          {uploading ? "Uploading…" : `${buttonLabel} from computer`}
         </button>
         {value && !file ? (
           <a
@@ -166,6 +206,12 @@ export default function SettingsUploader({
           </a>
         ) : null}
       </div>
+      <MediaPickerModal
+        isOpen={showLibrary && !disabled}
+        onClose={() => setShowLibrary(false)}
+        onSelect={handleLibrarySelect}
+        kind={derivedPickerKind}
+      />
     </div>
   );
 }

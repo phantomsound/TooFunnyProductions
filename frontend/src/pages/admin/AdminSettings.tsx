@@ -6,6 +6,11 @@
 import React, { useCallback, useMemo, useState } from "react";
 import AdminSettingsHome from "./AdminSettingsHome";
 import AdminSettingsGeneral from "./AdminSettingsGeneral";
+import AdminSettingsAbout from "./AdminSettingsAbout";
+import AdminSettingsEvents from "./AdminSettingsEvents";
+import AdminSettingsMedia from "./AdminSettingsMedia";
+import AdminSettingsMerch from "./AdminSettingsMerch";
+import AdminSettingsContact from "./AdminSettingsContact";
 import AdminSettingsSnapshots from "./AdminSettingsSnapshots";
 import { useSettings } from "../../lib/SettingsContext";
 
@@ -49,9 +54,22 @@ export default function AdminSettings() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case "home": return <AdminSettingsHome />;
-      case "general": return <AdminSettingsGeneral />;
-      default: return <div className="text-sm opacity-70">(Coming soon)</div>;
+      case "home":
+        return <AdminSettingsHome />;
+      case "general":
+        return <AdminSettingsGeneral />;
+      case "about":
+        return <AdminSettingsAbout />;
+      case "events":
+        return <AdminSettingsEvents />;
+      case "media":
+        return <AdminSettingsMedia />;
+      case "merch":
+        return <AdminSettingsMerch />;
+      case "contact":
+        return <AdminSettingsContact />;
+      default:
+        return <div className="text-sm opacity-70">(Coming soon)</div>;
     }
   };
 

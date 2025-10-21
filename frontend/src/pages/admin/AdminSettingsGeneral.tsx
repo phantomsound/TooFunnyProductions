@@ -165,6 +165,10 @@ export default function AdminSettingsGeneral(): JSX.Element {
               onChange={(event) => update("site_keywords", event.target.value)}
               disabled={disabled}
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Separate each term with a comma (for example: <em>comedy, improv, sketch shows</em>). These help search engines
+              understand what your site is about but do not appear on the page.
+            </p>
           </label>
 
           <SettingsUploader
@@ -174,6 +178,7 @@ export default function AdminSettingsGeneral(): JSX.Element {
             accept="image/*"
             buttonLabel="Select Logo"
             disabled={disabled}
+            pickerKind="image"
           />
           <SettingsUploader
             label="Favicon"
@@ -182,6 +187,7 @@ export default function AdminSettingsGeneral(): JSX.Element {
             accept="image/*"
             buttonLabel="Select Favicon"
             disabled={disabled}
+            pickerKind="image"
           />
         </div>
       </section>
