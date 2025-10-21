@@ -5,10 +5,16 @@ export default function Media() {
   const { settings } = useSettings();
   const sections = Array.isArray(settings?.media_sections) ? settings.media_sections : [];
   // section: { title: string, items: [{type:"video"|"image", url, title?}] }
+  const title = typeof settings?.media_title === "string" ? settings.media_title : "Media";
+  const intro =
+    typeof settings?.media_intro === "string"
+      ? settings.media_intro
+      : "Watch our latest sketches, clips, and behind-the-scenes footage.";
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 text-white">
-      <h1 className="text-3xl font-bold text-yellow-400 mb-6">{settings?.media_title || "Media"}</h1>
+      <h1 className="text-3xl font-bold text-yellow-400 mb-3">{title}</h1>
+      <p className="opacity-80 mb-8 whitespace-pre-wrap">{intro}</p>
 
       {sections.map((s: any, idx: number) => (
         <div key={idx} className="mb-10">
