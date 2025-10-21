@@ -1,18 +1,20 @@
 import React from "react";
 
-interface SettingsColorPickerProps {
+type SettingsColorPickerProps = {
   label: string;
   value: string;
-  onChange: (val: string) => void;
+  onChange: (value: string) => void;
   onSave?: () => void;
-}
+  disabled?: boolean;
+};
 
-const SettingsColorPicker: React.FC<SettingsColorPickerProps> = ({
+export default function SettingsColorPicker({
   label,
   value,
   onChange,
   onSave,
-}) => {
+  disabled = false,
+}: SettingsColorPickerProps): JSX.Element {
   return (
     <div className="flex items-center gap-4 mb-4">
       <div>
@@ -21,7 +23,8 @@ const SettingsColorPicker: React.FC<SettingsColorPickerProps> = ({
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-12 h-10 rounded cursor-pointer border"
+          className={`w-12 h-10 rounded border ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+          disabled={disabled}
         />
       </div>
       <div className="flex flex-col">
@@ -29,7 +32,12 @@ const SettingsColorPicker: React.FC<SettingsColorPickerProps> = ({
         {onSave && (
           <button
             onClick={onSave}
-            className="text-xs px-2 py-1 mt-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+            disabled={disabled}
+            className={`text-xs px-2 py-1 mt-1 rounded ${
+              disabled
+                ? "bg-blue-300 text-white/70 cursor-not-allowed"
+                : "bg-blue-500 text-white hover:bg-blue-600"
+            }`}
           >
             Save
           </button>
@@ -37,6 +45,4 @@ const SettingsColorPicker: React.FC<SettingsColorPickerProps> = ({
       </div>
     </div>
   );
-};
-
-export default SettingsColorPicker;
+}
