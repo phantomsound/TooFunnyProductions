@@ -3,6 +3,8 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { logAdminAction } from "./lib/audit.js";
 
+const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+
 function getAllowlist() {
   return (process.env.ALLOWLIST_EMAILS || "")
     .split(",")
@@ -48,15 +50,15 @@ export function initAuth(app) {
   // OAuth callback → redirect to SPA
   app.get(
     "/api/auth/google/callback",
-    passport.authenticate("google", { failureRedirect: "http://localhost:5173/admin?auth=failed" }),
+    passport.authenticate("google", { failureRedirect: `${frontendUrl}/admin?auth=failed` }),
     async (req, res) => {
       const email = (req.user?.email || "").toLowerCase();
       const allowed = getAllowlist().includes(email);
       try {
         await logAdminAction(email || "unknown", allowed ? "login" : "login_denied");
       } catch {}
-      if (!allowed) return res.redirect("http://localhost:5173/admin?auth=denied");
-      res.redirect("http://localhost:5173/admin");
+      if (!allowed) return res.redirect(`${frontendUrl}/admin?auth=denied`);
+      res.redirect(`${frontendUrl}/admin`);
     }
   );
 
