@@ -1,37 +1,23 @@
 import React from "react";
 import { api } from "../../lib/api";
 
-type Row = {
-  id: string;
-  occurred_at: string;
-  actor_email: string;
-  action: string;
-  meta?: Record<string, unknown> | string | null;
-};
-
-type AuditResponse = {
-  items: Row[];
-  actors: string[];
-  actions: string[];
-};
-
-const SORT_LABEL: Record<"newest" | "oldest", string> = {
+const SORT_LABEL = {
   newest: "Newest",
   oldest: "Oldest",
 };
 
 export default function AdminAudit() {
-  const [rows, setRows] = React.useState<Row[]>([]);
-  const [actors, setActors] = React.useState<string[]>([]);
-  const [actions, setActions] = React.useState<string[]>([]);
+  const [rows, setRows] = React.useState([]);
+  const [actors, setActors] = React.useState([]);
+  const [actions, setActions] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState(null);
 
   const [search, setSearch] = React.useState("");
   const [selectedActor, setSelectedActor] = React.useState("all");
   const [selectedAction, setSelectedAction] = React.useState("all");
   const [limit, setLimit] = React.useState("100");
-  const [sort, setSort] = React.useState<"newest" | "oldest">("newest");
+  const [sort, setSort] = React.useState("newest");
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -50,11 +36,11 @@ export default function AdminAudit() {
 
       if (!response.ok) throw new Error(`Request failed: ${response.status}`);
 
-      const payload: AuditResponse = await response.json();
+      const payload = await response.json();
       setRows(payload.items || []);
       setActors(payload.actors || []);
       setActions(payload.actions || []);
-    } catch (err: any) {
+    } catch (err) {
       setError(err?.message || "Failed to load audit log");
       setRows([]);
     } finally {
@@ -161,11 +147,11 @@ export default function AdminAudit() {
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-xs font-semibold uppercase text-gray-500">Order</span>
-            <select
-              className="rounded border px-3 py-2 text-black"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as "newest" | "oldest")}
-            >
+              <select
+                className="rounded border px-3 py-2 text-black"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+              >
               {Object.entries(SORT_LABEL).map(([key, label]) => (
                 <option key={key} value={key}>
                   {label}

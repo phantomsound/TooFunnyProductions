@@ -1,24 +1,28 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
-interface Props {
+type SettingsUploaderProps = {
   label: string;
   value: string;
   onChange: (url: string) => void;
   accept?: string;
   buttonLabel?: string;
-}
+  disabled?: boolean;
+};
 
-const SettingsUploader: React.FC<Props> = ({
+type UploadError = string | null;
+
+export default function SettingsUploader({
   label,
   value,
   onChange,
   accept = "*",
   buttonLabel = "Upload",
-}) => {
+  disabled = false,
+}: SettingsUploaderProps): JSX.Element {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UploadError>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(value || "");
 
   useEffect(() => {
@@ -35,14 +39,15 @@ const SettingsUploader: React.FC<Props> = ({
     };
   }, [file, value]);
 
-  const resetSelection = (nextPreview?: string) => {
+  const resetSelection = (nextPreview: string | undefined) => {
     setFile(null);
     setPreviewUrl(nextPreview ?? "");
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     setError(null);
-    const next = event.target.files?.[0] || null;
+    const next = event.target.files?.[0] ?? null;
     if (!next) {
       resetSelection(value || "");
       return;
@@ -51,6 +56,7 @@ const SettingsUploader: React.FC<Props> = ({
   };
 
   const handleUpload = async () => {
+    if (disabled) return;
     if (!file) {
       setError("Select a file before uploading.");
       return;
@@ -68,7 +74,7 @@ const SettingsUploader: React.FC<Props> = ({
         credentials: "include",
       });
 
-      const out = await response.json().catch(() => ({}));
+      const out = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!response.ok) {
         throw new Error(out?.error || "Upload failed");
       }
@@ -79,20 +85,24 @@ const SettingsUploader: React.FC<Props> = ({
       } else {
         throw new Error("Upload response missing url");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Upload error", err);
-      setError(err?.message || "Upload failed");
+      const message = err instanceof Error ? err.message : "Upload failed";
+      setError(message || "Upload failed");
     } finally {
       setUploading(false);
     }
   };
 
   const handleClear = () => {
+    if (disabled) return;
     resetSelection("");
     onChange("");
   };
 
-  const isImage = file ? file.type.startsWith("image/") : !!previewUrl && /\.(png|jpe?g|gif|webp|svg)$/i.test(previewUrl);
+  const isImage = file
+    ? file.type.startsWith("image/")
+    : !!previewUrl && /\.(png|jpe?g|gif|webp|svg)$/i.test(previewUrl);
 
   return (
     <div className="border border-gray-300 rounded-lg p-4 bg-white space-y-3">
@@ -102,14 +112,23 @@ const SettingsUploader: React.FC<Props> = ({
           <button
             type="button"
             onClick={handleClear}
-            className="text-xs text-red-600 hover:text-red-700 font-semibold"
+            disabled={disabled}
+            className={`text-xs font-semibold ${
+              disabled ? "text-red-300 cursor-not-allowed" : "text-red-600 hover:text-red-700"
+            }`}
           >
             Clear
           </button>
         )}
       </div>
 
-      <input type="file" accept={accept} onChange={handleFileChange} className="block w-full text-sm" />
+      <input
+        type="file"
+        accept={accept}
+        onChange={handleFileChange}
+        className="block w-full text-sm"
+        disabled={disabled}
+      />
 
       {previewUrl ? (
         <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
@@ -127,8 +146,12 @@ const SettingsUploader: React.FC<Props> = ({
         <button
           type="button"
           onClick={handleUpload}
-          disabled={uploading}
-          className="px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 disabled:opacity-60"
+          disabled={uploading || disabled}
+          className={`px-4 py-2 font-semibold rounded ${
+            uploading || disabled
+              ? "bg-blue-300 text-white/80 cursor-not-allowed"
+              : "bg-blue-600 text-white hover:bg-blue-700"
+          }`}
         >
           {uploading ? "Uploading…" : buttonLabel}
         </button>
@@ -146,5 +169,3 @@ const SettingsUploader: React.FC<Props> = ({
     </div>
   );
 }
-
-export default SettingsUploader;

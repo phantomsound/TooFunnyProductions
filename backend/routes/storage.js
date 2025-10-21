@@ -126,7 +126,15 @@ router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => 
     if (error) throw error;
 
     const url = publicUrl(data.path);
-    try { await logAdminAction(req.user?.email || "unknown", "media.upload", { path: data.path }); } catch {}
+    try {
+      await logAdminAction(req.user?.email || "unknown", "media.upload", {
+        path: data.path,
+        originalName: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype,
+        url,
+      });
+    } catch {}
     res.json({ path: data.path, url });
   } catch (err) {
     console.error("POST /api/storage/upload error:", err);
@@ -145,7 +153,9 @@ router.post("/delete", requireAdmin, async (req, res) => {
     const del = await supabase.storage.from(BUCKET).remove([path]);
     if (del.error) throw del.error;
 
-    try { await logAdminAction(req.user?.email || "unknown", "media.delete", { path }); } catch {}
+    try {
+      await logAdminAction(req.user?.email || "unknown", "media.delete", { path, oldUrl });
+    } catch {}
     // We don't auto-clear references on delete (safer); UI should warn.
     res.json({ success: true, deleted: path, oldUrl });
   } catch (err) {
@@ -178,7 +188,14 @@ router.post("/rename", requireAdmin, async (req, res) => {
     await replaceUrlInTable("settings_draft", oldUrl, newUrl);
     await replaceUrlInTable("settings_public", oldUrl, newUrl);
 
-    try { await logAdminAction(req.user?.email || "unknown", "media.rename", { fromPath, toPath }); } catch {}
+    try {
+      await logAdminAction(req.user?.email || "unknown", "media.rename", {
+        fromPath,
+        toPath,
+        oldUrl,
+        newUrl,
+      });
+    } catch {}
     res.json({ success: true, fromPath, toPath, url: newUrl });
   } catch (err) {
     console.error("POST /api/storage/rename error:", err);

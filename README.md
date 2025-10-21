@@ -19,12 +19,33 @@ This repo contains the Too Funny Productions admin dashboard (React + Vite + Tai
 > **Having trouble?** Run `npm run doctor` to confirm your checkout has the latest scripts and environment files. For detailed
 > recovery steps when scripts appear to be missing, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
+### Updating your local copy with the latest GitHub changes
+
+Whenever a pull request is merged, sync your PC with these commands:
+
+```powershell
+cd C:\Apps\TooFunnyProductions
+git fetch origin
+git switch main
+git pull
+```
+
+If you prefer to discard all local edits and force your workspace to match `origin/main`, replace the last command with `git reset --hard origin/main`. Run `npm run doctor` afterwards; if it reports package-lock files as untracked, you can remove them with `git clean -fd` before continuing.
+
+> **Do I need to run this every day?** No — only pull/reset when something new lands on GitHub or if `npm run doctor` shows your scripts are out of sync. On a normal day-to-day workflow you can simply reopen the repo, ensure `backend/.env` still has valid credentials, and run `npm run dev` without touching Git.
+
 To build and serve everything from Express in one process:
 ```bash
 npm run build      # builds frontend/dist
 npm run start      # serves backend + static frontend from the same origin
 ```
 The server auto-detects `frontend/dist` and responds to non-API routes with `index.html`, so the SPA loads from the same host that serves the API.
+
+## 🌐 Why GitHub Pages will not work
+
+GitHub Pages can only host static files. The admin panel depends on authenticated API routes (sessions, Supabase service key usage, media uploads) under `/api/*`, which require the Express server to be running. Because of that, deploying to `https://phantomsound.github.io/TooFunnyProductions/` would render the UI but every data action would fail with network errors. Host the bundled app from the Express server (on your PC or another machine) instead so the SPA and API share the same origin.
+
+If you want a public marketing site on GitHub Pages, export a static copy from the public pages only and keep the admin tooling on a server with the API.
 
 ## 🛠️ Admin buttons & current status
 
@@ -41,6 +62,17 @@ Within **General Settings**:
 - Brand/theme inputs keep local state and call `save(local)` when you click **Save General Settings**, ensuring draft mode is enforced and success/error feedback is shown.
 - The **Footer Links** list dynamically adds/removes `{label,url}` rows and feeds them back to the draft payload.
 - **Logo/Favicon uploaders** hit `/api/storage/upload`, store files in the Supabase `media` bucket, and surface the returned public URL so the setting is ready to save.
+
+Within **Media Manager** (Admin → Media):
+
+- Files are listed through `/api/storage/list`, so hidden folders never surface in the grid and every operation goes through the Express API for audit logging.
+- Sort chips let you toggle between newest, oldest, alphabetical, and file-size views with a single click.
+- Upload, rename, and delete actions call the dedicated storage routes, which automatically refresh the grid and keep Supabase references up to date.
+
+Within **Audit Log** (Admin → Audit):
+
+- Filter by actor, action, or search text, adjust the number of rows returned, and refresh on demand.
+- Results come from the `admin_actions` table; create it with [`backend/docs/admin-actions.sql`](backend/docs/admin-actions.sql) if you haven’t added the audit migration yet.
 
 Tabs for About, Events, Media, Merch, and Contact currently render a “Coming soon” placeholder; wireframes/content for those pages can be implemented next.
 

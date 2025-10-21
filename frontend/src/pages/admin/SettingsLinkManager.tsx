@@ -1,45 +1,55 @@
 import React from "react";
 
-export type SettingsLink = { label: string; url: string };
+export type LinkValue = {
+  label: string;
+  url: string;
+};
 
-interface SettingsLinkManagerProps {
+type SettingsLinkManagerProps = {
   label?: string;
-  value: SettingsLink[];
-  onChange: (links: SettingsLink[]) => void;
+  value: LinkValue[];
+  onChange: (links: LinkValue[]) => void;
   addLabel?: string;
-}
+  disabled?: boolean;
+};
 
-const emptyLink = (): SettingsLink => ({ label: "", url: "" });
+const emptyLink = (): LinkValue => ({ label: "", url: "" });
 
-function normalizeLinks(value: SettingsLink[] | undefined | null): SettingsLink[] {
+const normalizeLinks = (value: LinkValue[] | unknown): LinkValue[] => {
   if (!Array.isArray(value)) return [];
   return value
-    .filter((item) => item && typeof item === "object")
-    .map((item) => ({
-      label: typeof item.label === "string" ? item.label : "",
-      url: typeof item.url === "string" ? item.url : "",
-    }));
-}
+    .filter((item): item is LinkValue =>
+      !!item &&
+      typeof item === "object" &&
+      typeof (item as LinkValue).label === "string" &&
+      typeof (item as LinkValue).url === "string"
+    )
+    .map((item) => ({ label: item.label, url: item.url }));
+};
 
-const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
+export default function SettingsLinkManager({
   label,
   value,
   onChange,
   addLabel = "Add Link",
-}) => {
+  disabled = false,
+}: SettingsLinkManagerProps): JSX.Element {
   const links = normalizeLinks(value);
 
-  const updateLink = (index: number, next: Partial<SettingsLink>) => {
+  const updateLink = (index: number, next: Partial<LinkValue>) => {
+    if (disabled) return;
     const updated = links.map((item, idx) => (idx === index ? { ...item, ...next } : item));
     onChange(updated);
   };
 
   const removeLink = (index: number) => {
+    if (disabled) return;
     const updated = links.filter((_, idx) => idx !== index);
     onChange(updated);
   };
 
   const addLink = () => {
+    if (disabled) return;
     onChange([...links, emptyLink()]);
   };
 
@@ -59,6 +69,7 @@ const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
                   placeholder="Navigation Label"
                   value={link.label}
                   onChange={(e) => updateLink(index, { label: e.target.value })}
+                  disabled={disabled}
                 />
               </label>
 
@@ -69,13 +80,19 @@ const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
                   placeholder="https://example.com"
                   value={link.url}
                   onChange={(e) => updateLink(index, { url: e.target.value })}
+                  disabled={disabled}
                 />
               </label>
 
               <button
                 type="button"
                 onClick={() => removeLink(index)}
-                className="self-center px-3 py-2 bg-red-500 text-white text-sm font-semibold rounded hover:bg-red-600"
+                disabled={disabled}
+                className={`self-center px-3 py-2 text-sm font-semibold rounded ${
+                  disabled
+                    ? "bg-red-300 text-white/80 cursor-not-allowed"
+                    : "bg-red-500 text-white hover:bg-red-600"
+                }`}
               >
                 Remove
               </button>
@@ -87,12 +104,15 @@ const SettingsLinkManager: React.FC<SettingsLinkManagerProps> = ({
       <button
         type="button"
         onClick={addLink}
-        className="px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
+        disabled={disabled}
+        className={`px-4 py-2 font-semibold rounded ${
+          disabled
+            ? "bg-blue-300 text-white/80 cursor-not-allowed"
+            : "bg-blue-600 text-white hover:bg-blue-700"
+        }`}
       >
         {addLabel}
       </button>
     </div>
   );
 }
-
-export default SettingsLinkManager;

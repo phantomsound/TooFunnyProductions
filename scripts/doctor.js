@@ -55,11 +55,49 @@ function checkEnvFiles() {
   }
 }
 
+function checkGeneralSettingsFile() {
+  heading("Admin settings file");
+  const filePath = path.resolve(
+    process.cwd(),
+    "frontend/src/pages/admin/AdminSettingsGeneral.tsx"
+  );
+
+  if (!fs.existsSync(filePath)) {
+    console.log("⚠ frontend/src/pages/admin/AdminSettingsGeneral.tsx is missing.");
+    console.log("  Run `git fetch origin` followed by `git reset --hard origin/main` to restore it.");
+    return;
+  }
+
+  const contents = fs.readFileSync(filePath, "utf8");
+  const issues = [];
+
+  if (contents.includes("session_timeout_minutes?:")) {
+    issues.push(
+      "Outdated optional property syntax detected (`session_timeout_minutes?:`)."
+    );
+  }
+
+  const reactImportMatches = contents.match(/import React from "react";/g) || [];
+  if (reactImportMatches.length > 1) {
+    issues.push("Duplicate React import detected at the top of the file.");
+  }
+
+  if (issues.length === 0) {
+    console.log("✓ AdminSettingsGeneral.tsx matches the expected TypeScript structure.");
+  } else {
+    issues.forEach((issue) => console.log(`⚠ ${issue}`));
+    console.log(
+      "  Reset the file with `git checkout -- frontend/src/pages/admin/AdminSettingsGeneral.tsx` or hard-reset to origin/main."
+    );
+  }
+}
+
 function main() {
   console.log("Too Funny Productions — Environment Doctor\n");
   checkPackageScripts();
   checkGitStatus();
   checkEnvFiles();
+  checkGeneralSettingsFile();
   console.log("\nNext steps:\n 1. If scripts are missing, update your git checkout.\n 2. Run `npm run setup` once per machine.\n 3. Start the stack with `npm run dev`.\n");
 }
 

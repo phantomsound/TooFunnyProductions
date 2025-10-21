@@ -3,9 +3,10 @@
    -------------------------------------------------------------------------
    Admin hub: stage switch, Save Draft / Pull Live / Preview Draft / Publish.
    ========================================================================= */
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import AdminSettingsHome from "./AdminSettingsHome";
 import AdminSettingsGeneral from "./AdminSettingsGeneral";
+import AdminSettingsSnapshots from "./AdminSettingsSnapshots";
 import { useSettings } from "../../lib/SettingsContext";
 
 const TABS = ["home", "general", "about", "events", "media", "merch", "contact"] as const;
@@ -13,9 +14,38 @@ type Tab = (typeof TABS)[number];
 
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
-  const { stage, setStage, isDirty, saving, save, pullLive, publish } = useSettings();
+  const [showSnapshots, setShowSnapshots] = useState(false);
+  const {
+    stage,
+    setStage,
+    isDirty,
+    saving,
+    save,
+    pullLive,
+    publish,
+    lock,
+    hasLock,
+    lockedByOther,
+    lockLoading,
+    lockError,
+    acquireLock,
+    releaseLock,
+    reload,
+  } = useSettings();
 
   const previewUrl = useMemo(() => `${window.location.origin}/?stage=draft`, []);
+
+  const lockOwner = lock?.holder_email || null;
+  const lockStatus = hasLock
+    ? "You hold the draft lock"
+    : lockedByOther
+    ? `Locked by ${lockOwner}`
+    : "No active lock";
+
+  const handleSnapshotRestored = useCallback(async () => {
+    await reload();
+    await acquireLock({ silent: true });
+  }, [reload, acquireLock]);
 
   const renderTab = () => {
     switch (activeTab) {
@@ -32,21 +62,54 @@ export default function AdminSettings() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <h2 className="text-2xl font-bold">Admin Settings</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm opacity-80">View:</label>
-            <select
-              className="border rounded px-2 py-1 bg-white"
-              value={stage}
-              onChange={(e) => setStage(e.target.value as "live" | "draft")}
-            >
-              <option value="live">Live</option>
-              <option value="draft">Draft</option>
-            </select>
+            <div className="flex flex-col gap-1 text-right">
+              <label className="text-xs uppercase tracking-wide text-gray-500">Draft lock</label>
+              <div className="flex items-center justify-end gap-2">
+                <span
+                  className={`text-sm ${
+                    hasLock ? "text-green-500" : lockedByOther ? "text-red-500" : "text-gray-600"
+                  }`}
+                >
+                  {lockStatus}
+                </span>
+                {hasLock ? (
+                  <button
+                    onClick={() => releaseLock({ silent: false })}
+                    disabled={lockLoading}
+                    className="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Release
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => acquireLock({ silent: false })}
+                    disabled={lockLoading || stage !== "draft"}
+                    className="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Acquire
+                  </button>
+                )}
+              </div>
+              {lockError ? <span className="text-xs text-red-500">{lockError}</span> : null}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm opacity-80">View:</label>
+              <select
+                className="border rounded px-2 py-1 bg-white"
+                value={stage}
+                onChange={(e) => setStage(e.target.value as "live" | "draft")}
+              >
+                <option value="live">Live</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
 
             <button
               onClick={() => save()}
-              disabled={stage !== "draft" || !isDirty || saving}
+              disabled={stage !== "draft" || !isDirty || saving || lockedByOther}
               className={`px-3 py-1 rounded font-semibold ${
-                stage !== "draft" || !isDirty || saving
+                stage !== "draft" || !isDirty || saving || lockedByOther
                   ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                   : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
@@ -57,7 +120,8 @@ export default function AdminSettings() {
 
             <button
               onClick={async () => { await pullLive(); }}
-              className="px-3 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
+              className="px-3 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={lockLoading || lockedByOther}
               title="Copy current Live settings into Draft (does not publish)"
             >
               Pull Current Live
@@ -72,8 +136,17 @@ export default function AdminSettings() {
             </button>
 
             <button
+              onClick={() => setShowSnapshots(true)}
+              className="px-3 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
+              title="Manage saved draft snapshots"
+            >
+              Snapshots
+            </button>
+
+            <button
               onClick={publish}
-              className="px-3 py-1 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300"
+              className="px-3 py-1 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={lockLoading || lockedByOther}
               title="Copy the current Draft into Live"
             >
               Publish to Live
@@ -98,6 +171,12 @@ export default function AdminSettings() {
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">{renderTab()}</div>
       </div>
+
+      <AdminSettingsSnapshots
+        open={showSnapshots}
+        onClose={() => setShowSnapshots(false)}
+        onRestored={handleSnapshotRestored}
+      />
     </div>
   );
 }
