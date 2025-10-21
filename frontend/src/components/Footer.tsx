@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useSettings } from "../hooks/useSettings";
+import { useSettings } from "../lib/SettingsContext";
 
 const Footer: React.FC = () => {
   const { settings } = useSettings();

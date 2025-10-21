@@ -11,7 +11,7 @@ export default function SessionTimeoutOverlay() {
 
   // Minutes to idle before showing countdown → configurable
   const minutes = useMemo(() => {
-    const fromSettings = Number((settings as any)?.admin_timeout_minutes);
+    const fromSettings = Number((settings as any)?.session_timeout_minutes ?? (settings as any)?.admin_timeout_minutes);
     const fromEnv = Number(import.meta.env.VITE_ADMIN_TIMEOUT_MINUTES);
     return Number.isFinite(fromSettings) && fromSettings > 0
       ? fromSettings
