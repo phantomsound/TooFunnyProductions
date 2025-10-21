@@ -22,9 +22,17 @@ export default function AdminUserBar() {
   }
 
   const { email, name, picture } = user;
+  const [showAvatar, setShowAvatar] = React.useState(true);
   return (
     <div className="flex items-center gap-3">
-      {picture ? <img src={picture} alt="" className="w-8 h-8 rounded-full" /> : null}
+      {picture && showAvatar ? (
+        <img
+          src={picture}
+          alt=""
+          className="w-8 h-8 rounded-full"
+          onError={() => setShowAvatar(false)}
+        />
+      ) : null}
       <div className="text-sm">
         <div className="font-semibold">{name || email}</div>
         <div className="opacity-70">{email}</div>

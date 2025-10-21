@@ -27,7 +27,7 @@ const Footer: React.FC = () => {
                 href={link.url as string}
                 className="hover:text-white"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
               >
                 {link.label}
               </a>

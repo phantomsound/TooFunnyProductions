@@ -42,6 +42,14 @@ export default function SessionTimeoutOverlay() {
     }
   }
 
+  function resetTimers() {
+    clearIdle();
+    clearCountdown();
+    firedRef.current = false;
+    setShow(false);
+    setSecondsLeft(COUNTDOWN_SECONDS);
+  }
+
   function armIdle() {
     if (!isAuthed || firedRef.current) return;
     clearIdle();
@@ -67,7 +75,11 @@ export default function SessionTimeoutOverlay() {
 
   // Any user activity resets idle timer (only if not fired yet)
   useEffect(() => {
-    if (!isAuthed || firedRef.current) return;
+    if (!isAuthed) {
+      resetTimers();
+      return;
+    }
+    if (firedRef.current) return;
 
     const reset = () => {
       if (document.hidden) return;

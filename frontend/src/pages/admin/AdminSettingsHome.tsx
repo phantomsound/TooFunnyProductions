@@ -83,76 +83,78 @@ export default function AdminSettingsHome() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <label className="block text-sm font-semibold">Hero Image</label>
-        <div className="space-y-2">
-          <input
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
-            value={local.hero_image_url}
-            onChange={(event) => update("hero_image_url", event.target.value)}
-            disabled={disabled}
-            placeholder="https://…/hero.jpg"
-          />
-          <div className="flex flex-wrap gap-2 text-sm">
-            <button
-              type="button"
-              onClick={() => setShowHeroPicker(true)}
+      <section className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold">Featured Video</label>
+          <div className="space-y-2">
+            <input
+              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              value={local.featured_video_url}
+              onChange={(event) => update("featured_video_url", event.target.value)}
               disabled={disabled}
-              className={`rounded px-3 py-1 font-semibold ${
-                disabled
-                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
-            >
-              Select from library
-            </button>
-            {local.hero_image_url ? (
-              <a
-                href={local.hero_image_url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
+              placeholder="https://…/video.mp4"
+            />
+            <div className="flex flex-wrap gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => setShowVideoPicker(true)}
+                disabled={disabled}
+                className={`rounded px-3 py-1 font-semibold ${
+                  disabled
+                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
               >
-                Open current
-              </a>
-            ) : null}
+                Select from library
+              </button>
+                {local.featured_video_url ? (
+                  <a
+                    href={local.featured_video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
+                  >
+                    Open current
+                  </a>
+                ) : null}
+            </div>
           </div>
         </div>
-      </section>
 
-      <section className="space-y-3">
-        <label className="block text-sm font-semibold">Featured Video</label>
-        <div className="space-y-2">
-          <input
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
-            value={local.featured_video_url}
-            onChange={(event) => update("featured_video_url", event.target.value)}
-            disabled={disabled}
-            placeholder="https://…/video.mp4"
-          />
-          <div className="flex flex-wrap gap-2 text-sm">
-            <button
-              type="button"
-              onClick={() => setShowVideoPicker(true)}
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold">Hero Image</label>
+          <div className="space-y-2">
+            <input
+              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              value={local.hero_image_url}
+              onChange={(event) => update("hero_image_url", event.target.value)}
               disabled={disabled}
-              className={`rounded px-3 py-1 font-semibold ${
-                disabled
-                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
-            >
-              Select from library
-            </button>
-            {local.featured_video_url ? (
-              <a
-                href={local.featured_video_url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
+              placeholder="https://…/hero.jpg"
+            />
+            <div className="flex flex-wrap gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => setShowHeroPicker(true)}
+                disabled={disabled}
+                className={`rounded px-3 py-1 font-semibold ${
+                  disabled
+                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
               >
-                Open current
-              </a>
-            ) : null}
+                Select from library
+              </button>
+                {local.hero_image_url ? (
+                  <a
+                    href={local.hero_image_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
+                  >
+                    Open current
+                  </a>
+                ) : null}
+            </div>
           </div>
         </div>
       </section>
