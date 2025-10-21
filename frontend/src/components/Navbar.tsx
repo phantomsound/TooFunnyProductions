@@ -3,10 +3,12 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import WhoAmI from "./WhoAmI";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Navbar() {
   const { search } = useLocation();
+  const { user } = useAuth();
+  const [showAvatar, setShowAvatar] = React.useState(true);
   const sp = new URLSearchParams(search);
   const stageSuffix = sp.get("stage") === "draft" ? "?stage=draft" : "";
 
@@ -36,7 +38,14 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          <WhoAmI />
+          {user?.picture && showAvatar ? (
+            <img
+              src={user.picture}
+              alt=""
+              className="h-8 w-8 rounded-full border border-white/20 object-cover"
+              onError={() => setShowAvatar(false)}
+            />
+          ) : null}
         </div>
       </div>
     </nav>

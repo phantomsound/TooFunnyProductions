@@ -11,7 +11,7 @@ export default function SessionTimeoutOverlay() {
 
   // Minutes to idle before showing countdown → configurable
   const minutes = useMemo(() => {
-    const fromSettings = Number((settings as any)?.admin_timeout_minutes);
+    const fromSettings = Number((settings as any)?.session_timeout_minutes ?? (settings as any)?.admin_timeout_minutes);
     const fromEnv = Number(import.meta.env.VITE_ADMIN_TIMEOUT_MINUTES);
     return Number.isFinite(fromSettings) && fromSettings > 0
       ? fromSettings
@@ -42,6 +42,14 @@ export default function SessionTimeoutOverlay() {
     }
   }
 
+  function resetTimers() {
+    clearIdle();
+    clearCountdown();
+    firedRef.current = false;
+    setShow(false);
+    setSecondsLeft(COUNTDOWN_SECONDS);
+  }
+
   function armIdle() {
     if (!isAuthed || firedRef.current) return;
     clearIdle();
@@ -67,7 +75,11 @@ export default function SessionTimeoutOverlay() {
 
   // Any user activity resets idle timer (only if not fired yet)
   useEffect(() => {
-    if (!isAuthed || firedRef.current) return;
+    if (!isAuthed) {
+      resetTimers();
+      return;
+    }
+    if (firedRef.current) return;
 
     const reset = () => {
       if (document.hidden) return;
