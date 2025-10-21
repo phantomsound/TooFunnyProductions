@@ -43,33 +43,66 @@ export default function Home() {
 
   const stageSuffix = isDraftPreview ? "?stage=draft" : "";
 
+  const heroTitle = settings?.hero_title || "Comedy that’s Too Funny";
+  const heroSubtext =
+    settings?.hero_subtext || "Original sketch, live shows, and shamelessly fun chaos.";
+  const heroImage = settings?.hero_image_url || "";
+  const heroVideo = settings?.featured_video_url || "";
+
   return (
     <div className="text-white">
       <section className="px-4 py-10 mx-auto max-w-6xl">
-        <h1 className="text-3xl font-bold text-yellow-400 mb-2">
-          {settings?.hero_title || "Comedy that’s Too Funny"}
-        </h1>
-        <p className="opacity-80 mb-6">
-          {settings?.hero_subtext || "Original sketch, live shows, and shamelessly fun chaos."}
-        </p>
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
+          <div className="flex flex-col gap-6">
+            <header>
+              <h1 className="text-3xl font-bold text-yellow-400 mb-2">{heroTitle}</h1>
+              <p className="opacity-80">{heroSubtext}</p>
+            </header>
 
-        {settings?.hero_image_url && (
-          <img src={settings.hero_image_url} alt="Hero" className="w-full max-w-3xl rounded shadow mx-auto mb-8 object-cover" />
-        )}
+            {heroVideo ? (
+              <div className="overflow-hidden rounded-lg border border-white/10 bg-black/40 shadow">
+                <video
+                  src={heroVideo}
+                  controls
+                  preload="metadata"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="rounded border border-dashed border-white/20 p-6 text-sm text-white/60">
+                Add a featured video in the admin panel to showcase your latest work.
+              </div>
+            )}
 
-        {settings?.featured_video_url && (
-          <div className="aspect-video w-full max-w-3xl mx-auto overflow-hidden rounded-lg mb-10">
-            <video src={settings.featured_video_url} controls preload="metadata" className="h-full w-full object-cover" />
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to={`/events${stageSuffix}`}
+                className="px-4 py-2 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300"
+              >
+                See Shows
+              </Link>
+              <Link
+                to={`/media${stageSuffix}`}
+                className="px-4 py-2 rounded border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
+              >
+                Watch a Clip
+              </Link>
+            </div>
           </div>
-        )}
 
-        <div className="flex gap-3">
-          <Link to={`/events${stageSuffix}`} className="px-4 py-2 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300">
-            See Shows
-          </Link>
-          <Link to={`/media${stageSuffix}`} className="px-4 py-2 rounded border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black">
-            Watch a Clip
-          </Link>
+          <div className="flex flex-col gap-4">
+            {heroImage ? (
+              <img
+                src={heroImage}
+                alt="Hero"
+                className="w-full rounded-2xl border border-white/10 object-cover shadow-lg"
+              />
+            ) : (
+              <div className="rounded border border-dashed border-white/20 p-6 text-sm text-white/60">
+                Add a hero image in the admin panel to complete the layout.
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </div>
