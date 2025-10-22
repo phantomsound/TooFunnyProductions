@@ -196,12 +196,6 @@ export default function Home() {
                   )
                 ) : null}
                 <Link
-                  to={`/media${stageSuffix}`}
-                  className="rounded-full border border-yellow-400/70 px-4 py-2 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-300 hover:text-black"
-                >
-                  Media Library
-                </Link>
-                <Link
                   to={`/contact${stageSuffix}`}
                   className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
                 >
@@ -275,7 +269,7 @@ export default function Home() {
                 </div>
                 <Link
                   to={`/media${stageSuffix}`}
-                  className="rounded-full bg-yellow-300 px-4 py-2 text-sm font-semibold text-black transition hover:bg-yellow-200"
+                  className="inline-flex items-center justify-center rounded-full bg-yellow-300 px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-yellow-200"
                 >
                   Visit Media Page
                 </Link>
