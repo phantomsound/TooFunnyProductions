@@ -4,6 +4,8 @@
 -- Core columns -----------------------------------------------------------
 alter table settings_draft  add column if not exists footer_links jsonb default '[]'::jsonb;
 alter table settings_public add column if not exists footer_links jsonb default '[]'::jsonb;
+alter table settings_draft  add column if not exists admin_quick_links jsonb default '[]'::jsonb;
+alter table settings_public add column if not exists admin_quick_links jsonb default '[]'::jsonb;
 
 alter table settings_draft  add column if not exists contact_socials jsonb default '{}'::jsonb;
 alter table settings_public add column if not exists contact_socials jsonb default '{}'::jsonb;

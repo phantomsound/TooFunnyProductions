@@ -25,6 +25,7 @@ interface GeneralSettings {
 
   footer_text: string;
   footer_links: FooterLink[];
+  admin_quick_links: FooterLink[];
 
   theme_accent: string;
   theme_bg: string;
@@ -81,6 +82,7 @@ const sanitizeSettings = (raw: unknown): GeneralSettings => {
       "© 2025 Too Funny Productions. All rights reserved."
     ),
     footer_links: coerceLinks(safe.footer_links),
+    admin_quick_links: coerceLinks(safe.admin_quick_links).slice(0, 4),
 
     theme_accent: coerceColor(safe.theme_accent, "#FFD700"),
     theme_bg: coerceColor(safe.theme_bg, "#111111"),
@@ -123,11 +125,11 @@ export default function AdminSettingsGeneral(): JSX.Element {
   return (
     <div className="space-y-10">
       {lockedByOther ? (
-        <div className="rounded border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">
+        <div className="rounded border border-red-400/40 bg-red-500/10 p-3 text-sm font-semibold tracking-wide text-red-100">
           Draft is locked by another editor. Fields are read-only until they release the lock.
         </div>
       ) : stage !== "draft" ? (
-        <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+        <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-[13px] font-semibold uppercase tracking-wide text-yellow-100">
           Switch to the Draft view to edit these fields.
         </div>
       ) : null}
@@ -245,6 +247,29 @@ export default function AdminSettingsGeneral(): JSX.Element {
           onChange={(links) => update("footer_links", links)}
           addLabel="Add Footer Link"
           disabled={disabled}
+        />
+      </section>
+
+      <section>
+        <h3 className="text-xl font-bold mb-3">Admin Quick Links</h3>
+        <p className="text-sm text-gray-600 mb-3">
+          Configure up to four shortcuts that appear under <span className="font-semibold">Quick Links</span> in the admin
+          sidebar. Perfect for Google Drive, documentation, or other team resources.
+        </p>
+        <SettingsLinkManager
+          label="Sidebar Shortcuts"
+          value={local.admin_quick_links}
+          onChange={(links) =>
+            update(
+              "admin_quick_links",
+              links
+                .slice(0, 4)
+                .map((link) => ({ label: link.label ?? "", url: link.url ?? "" }))
+            )
+          }
+          addLabel="Add Quick Link"
+          disabled={disabled}
+          maxItems={4}
         />
       </section>
 

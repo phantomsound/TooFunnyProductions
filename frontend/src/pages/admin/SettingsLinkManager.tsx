@@ -11,6 +11,7 @@ type SettingsLinkManagerProps = {
   onChange: (links: LinkValue[]) => void;
   addLabel?: string;
   disabled?: boolean;
+  maxItems?: number;
 };
 
 const emptyLink = (): LinkValue => ({ label: "", url: "" });
@@ -33,8 +34,10 @@ export default function SettingsLinkManager({
   onChange,
   addLabel = "Add Link",
   disabled = false,
+  maxItems,
 }: SettingsLinkManagerProps): JSX.Element {
   const links = normalizeLinks(value);
+  const maxReached = typeof maxItems === "number" && links.length >= maxItems;
 
   const updateLink = (index: number, next: Partial<LinkValue>) => {
     if (disabled) return;
@@ -49,7 +52,7 @@ export default function SettingsLinkManager({
   };
 
   const addLink = () => {
-    if (disabled) return;
+    if (disabled || maxReached) return;
     onChange([...links, emptyLink()]);
   };
 
@@ -104,14 +107,14 @@ export default function SettingsLinkManager({
       <button
         type="button"
         onClick={addLink}
-        disabled={disabled}
+        disabled={disabled || maxReached}
         className={`px-4 py-2 font-semibold rounded ${
-          disabled
+          disabled || maxReached
             ? "bg-blue-300 text-white/80 cursor-not-allowed"
             : "bg-blue-600 text-white hover:bg-blue-700"
         }`}
       >
-        {addLabel}
+        {maxReached ? "Link limit reached" : addLabel}
       </button>
     </div>
   );

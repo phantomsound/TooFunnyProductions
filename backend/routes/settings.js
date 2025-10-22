@@ -41,6 +41,7 @@ const ALLOWED = new Set([
   "footer_text",
 
   "footer_links",       // jsonb []
+  "admin_quick_links", // jsonb []
   "contactemail",
   "contactphone",
   "contact_socials",    // jsonb []

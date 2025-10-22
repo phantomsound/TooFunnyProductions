@@ -8,13 +8,12 @@ import useAuth from "../hooks/useAuth";
 import { useSettings } from "../lib/SettingsContext";
 
 export default function Navbar() {
-  const { search } = useLocation();
-  const { user } = useAuth();
-  const [showAvatar, setShowAvatar] = React.useState(true);
+  const { search, pathname } = useLocation();
   const sp = new URLSearchParams(search);
   const stageSuffix = sp.get("stage") === "draft" ? "?stage=draft" : "";
   const { settings } = useSettings();
-  
+  const { user } = useAuth();
+
   const logoUrl =
     typeof settings?.logo_url === "string" && settings.logo_url.trim().length > 0
       ? settings.logo_url
@@ -54,7 +53,7 @@ export default function Navbar() {
         </div>
 
         <div className="h-8 w-8 flex items-center justify-center">
-          {user?.picture ? (
+          {user?.picture && !pathname.startsWith("/admin") ? (
             <img
               src={user.picture}
               alt=""
