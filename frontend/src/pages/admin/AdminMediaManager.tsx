@@ -281,26 +281,6 @@ export default function AdminMediaManager() {
                   >
                     Delete
                   </button>
-                  <a
-                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open
-                  </a>
-                  <button
-                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
-                    onClick={() => onRename(item)}
-                  >
-                    Rename
-                  </button>
-                  <button
-                    className="ml-auto rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-500"
-                    onClick={() => onDelete(item)}
-                  >
-                    Delete
-                  </button>
                 </div>
               </div>
             </article>

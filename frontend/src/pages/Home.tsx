@@ -3,7 +3,7 @@
    -------------------------------------------------------------------------
    Public Home; shows draft if ?stage=draft by calling /api/settings/preview.
    ========================================================================= */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSettings } from "../lib/SettingsContext";
 import { Link, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
@@ -51,6 +51,7 @@ export default function Home() {
   const heroSubtext =
     settings?.hero_subtext || "Original sketch, live shows, and shamelessly fun chaos.";
   const heroImage = settings?.hero_image_url || "";
+  const whoImage = settings?.who_image_url || "";
   const heroVideo = settings?.featured_video_url || "";
   const whoTitle = settings?.who_title || "Who We Are";
   const whoBody = settings?.who_body ||
@@ -58,6 +59,12 @@ export default function Home() {
   const whoCtaLabel = settings?.who_cta_label || "Meet the Team";
   const whoCtaUrl = settings?.who_cta_url || "/about";
   const whoIsExternal = /^https?:/i.test(whoCtaUrl);
+
+  const upcoming = useMemo(() => {
+    if (!settings || !Array.isArray((settings as any).events_upcoming)) return [] as any[];
+    return ((settings as any).events_upcoming as any[]).filter(Boolean).slice(0, 3);
+  }, [settings]);
+  const hasEvents = upcoming.length > 0;
 
   return (
     <div className="text-white">
@@ -96,6 +103,12 @@ export default function Home() {
                 className="px-4 py-2 rounded border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
               >
                 Watch a Clip
+              </Link>
+              <Link
+                to={`/contact${stageSuffix}`}
+                className="px-4 py-2 rounded border border-white/20 text-white/80 hover:text-white hover:border-white"
+              >
+                Contact Us
               </Link>
             </div>
           </div>
@@ -147,22 +160,82 @@ export default function Home() {
               >
                 Watch Latest Clips
               </Link>
+              <Link
+                to={`/contact${stageSuffix}`}
+                className="px-4 py-2 rounded border border-white/20 text-white/80 hover:text-white hover:border-white"
+              >
+                Get in Touch
+              </Link>
             </div>
           </div>
 
           <div className="space-y-4">
-            {heroImage ? (
+            {whoImage ? (
               <img
-                src={heroImage}
-                alt="Behind the scenes"
+                src={whoImage}
+                alt="Too Funny Productions"
                 className="w-full rounded-2xl border border-white/10 object-cover shadow-lg"
               />
             ) : (
               <div className="rounded border border-dashed border-white/20 p-6 text-sm text-white/60">
-                Drop a production still or promotional photo in the admin panel to showcase your crew.
+                Drop a behind-the-scenes photo in the admin panel to showcase your crew.
               </div>
             )}
           </div>
+        </div>
+      </section>
+
+      <section className="px-4 pb-14 mx-auto max-w-6xl">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-2xl font-semibold text-yellow-300">Upcoming Shows</h2>
+              <p className="opacity-80 text-sm">
+                Catch Too Funny Productions live—here’s what’s coming up next.
+              </p>
+            </div>
+            <Link
+              to={`/events${stageSuffix}`}
+              className="self-start md:self-center px-4 py-2 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300"
+            >
+              View all events
+            </Link>
+          </div>
+
+          {hasEvents ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {upcoming.map((event: any, index: number) => {
+                const link = typeof event?.link === "string" ? event.link : "";
+                const hasLink = /^https?:/i.test(link);
+                return (
+                  <div
+                    key={`${event?.title || "event"}-${index}`}
+                    className="rounded-xl border border-white/10 bg-black/40 p-4 flex flex-col gap-3"
+                  >
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-white/40">{event?.date || "TBA"}</p>
+                      <h3 className="text-lg font-semibold text-yellow-200">{event?.title || "Untitled show"}</h3>
+                    </div>
+                    <p className="text-sm opacity-80">{event?.venue || "Venue TBA"}</p>
+                    {hasLink ? (
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-auto inline-flex items-center gap-1 text-sm font-semibold text-yellow-300 hover:text-yellow-200"
+                      >
+                        Get Tickets →
+                      </a>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-white/60">
+              No shows are on the calendar yet—check back soon or follow us on social for updates.
+            </p>
+          )}
         </div>
       </section>
     </div>

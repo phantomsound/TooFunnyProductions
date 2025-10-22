@@ -14,7 +14,7 @@ export default function Navbar() {
   const sp = new URLSearchParams(search);
   const stageSuffix = sp.get("stage") === "draft" ? "?stage=draft" : "";
   const { settings } = useSettings();
-
+  const { user } = useAuth();
 
   const logoUrl =
     typeof settings?.logo_url === "string" && settings.logo_url.trim().length > 0

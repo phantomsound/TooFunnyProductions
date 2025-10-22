@@ -17,6 +17,7 @@ type HomeSettings = {
   who_body: string;
   who_cta_label: string;
   who_cta_url: string;
+  who_image_url: string;
 };
 
 const sanitize = (raw: unknown): HomeSettings => {
@@ -31,6 +32,7 @@ const sanitize = (raw: unknown): HomeSettings => {
     who_body: typeof safe.who_body === "string" ? safe.who_body : "",
     who_cta_label: typeof safe.who_cta_label === "string" ? safe.who_cta_label : "Meet the Team",
     who_cta_url: typeof safe.who_cta_url === "string" ? safe.who_cta_url : "/about",
+    who_image_url: typeof safe.who_image_url === "string" ? safe.who_image_url : "",
   };
 };
 
@@ -43,6 +45,7 @@ export default function AdminSettingsHome() {
   const [local, setLocal] = useState<HomeSettings>(safe);
   const [showHeroPicker, setShowHeroPicker] = useState(false);
   const [showVideoPicker, setShowVideoPicker] = useState(false);
+  const [showWhoImagePicker, setShowWhoImagePicker] = useState(false);
 
   useEffect(() => {
     setLocal(safe);
@@ -165,6 +168,43 @@ export default function AdminSettingsHome() {
             </div>
           </div>
         </div>
+
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold">Who We Are Image</label>
+          <div className="space-y-2">
+            <input
+              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              value={local.who_image_url}
+              onChange={(event) => update("who_image_url", event.target.value)}
+              disabled={disabled}
+              placeholder="https://…/crew.jpg"
+            />
+            <div className="flex flex-wrap gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => setShowWhoImagePicker(true)}
+                disabled={disabled}
+                className={`rounded px-3 py-1 font-semibold ${
+                  disabled
+                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                Select from library
+              </button>
+                {local.who_image_url ? (
+                  <a
+                    href={local.who_image_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
+                  >
+                    Open current
+                  </a>
+                ) : null}
+            </div>
+          </div>
+        </div>
       </section>
 
       <MediaPickerModal
@@ -179,6 +219,13 @@ export default function AdminSettingsHome() {
         onClose={() => setShowVideoPicker(false)}
         onSelect={(item) => update("featured_video_url", item.url)}
         kind="video"
+      />
+
+      <MediaPickerModal
+        isOpen={showWhoImagePicker && !disabled}
+        onClose={() => setShowWhoImagePicker(false)}
+        onSelect={(item) => update("who_image_url", item.url)}
+        kind="image"
       />
 
       <section className="grid gap-4 md:grid-cols-2">

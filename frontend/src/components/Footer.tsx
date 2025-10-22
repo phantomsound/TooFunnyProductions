@@ -2,6 +2,25 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useSettings } from "../lib/SettingsContext";
 
+function normalizeHref(url: string): string {
+  if (!url) return "#";
+
+  const trimmed = url.trim();
+  if (trimmed.startsWith("/")) return trimmed; // internal path
+
+  if (/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(trimmed)) {
+    // already has protocol or protocol-relative (mailto:, tel:, http(s)://, etc.)
+    return trimmed;
+  }
+
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+    // custom scheme like mailto:, tel:
+    return trimmed;
+  }
+
+  return `https://${trimmed.replace(/^https?:\/\//i, "")}`;
+}
+
 const Footer: React.FC = () => {
   const { settings } = useSettings();
 
@@ -21,18 +40,21 @@ const Footer: React.FC = () => {
 
       {footerLinks.length > 0 ? (
         <ul className="flex flex-wrap justify-center gap-4 text-xs text-white/70">
-          {footerLinks.map((link, idx) => (
-            <li key={`${link.url}-${idx}`}>
-              <a
-                href={link.url as string}
-                className="hover:text-white"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {link.label}
-              </a>
-            </li>
-          ))}
+          {footerLinks.map((link, idx) => {
+            const href = normalizeHref(link.url as string);
+            return (
+              <li key={`${link.url}-${idx}`}>
+                <a
+                  href={href}
+                  className="hover:text-white"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {link.label}
+                </a>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 

@@ -31,6 +31,7 @@ const ALLOWED = new Set([
   "who_body",
   "who_cta_label",
   "who_cta_url",
+  "who_image_url",
 
   "site_title",
   "site_description",

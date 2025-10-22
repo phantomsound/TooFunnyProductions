@@ -28,6 +28,14 @@ alter table settings_draft  add column if not exists session_timeout_minutes int
 alter table settings_public add column if not exists session_timeout_minutes integer;
 
 -- Homepage spotlight ----------------------------------------------------
+alter table settings_draft  add column if not exists hero_title text;
+alter table settings_public add column if not exists hero_title text;
+alter table settings_draft  add column if not exists hero_subtext text;
+alter table settings_public add column if not exists hero_subtext text;
+alter table settings_draft  add column if not exists hero_image_url text;
+alter table settings_public add column if not exists hero_image_url text;
+alter table settings_draft  add column if not exists featured_video_url text;
+alter table settings_public add column if not exists featured_video_url text;
 alter table settings_draft  add column if not exists who_title text;
 alter table settings_public add column if not exists who_title text;
 alter table settings_draft  add column if not exists who_body text;
@@ -36,6 +44,8 @@ alter table settings_draft  add column if not exists who_cta_label text;
 alter table settings_public add column if not exists who_cta_label text;
 alter table settings_draft  add column if not exists who_cta_url text;
 alter table settings_public add column if not exists who_cta_url text;
+alter table settings_draft  add column if not exists who_image_url text;
+alter table settings_public add column if not exists who_image_url text;
 
 -- About page ------------------------------------------------------------
 alter table settings_draft  add column if not exists about_title text;
