@@ -20,12 +20,80 @@ function getServiceClient() {
 /**
  * Log an admin action. Fails quietly if env is missing.
  */
-export async function logAdminAction(actorEmail, action, payload = null) {
+export async function logAdminAction(actorEmail, action, meta = null) {
   try {
     const sb = getServiceClient();
     if (!sb) return; // don't throw on servers without secrets
-    await sb.from("admin_actions").insert([{ actor_email: actorEmail, action, payload }]);
+    const payload = {
+      actor_email: actorEmail,
+      action,
+      occurred_at: new Date().toISOString(),
+    };
+
+    const baseInsert = await sb.from("admin_actions").insert([
+      meta === undefined ? payload : { ...payload, meta },
+    ]);
+
+    if (baseInsert.error && baseInsert.error.code === "42703") {
+      await sb.from("admin_actions").insert([payload]);
+    } else if (baseInsert.error) {
+      throw baseInsert.error;
+    }
   } catch (e) {
     console.error("Audit log insert failed:", e?.message || e);
   }
+}
+
+/**
+ * Fetch audit log rows for the admin dashboard.
+ */
+export async function listAdminActions({ limit = 100, actor, action, search, direction } = {}) {
+  const sb = getServiceClient();
+  if (!sb) {
+    throw new Error("Supabase service client not configured");
+  }
+
+  const cappedLimit = Math.min(Math.max(Number(limit) || 50, 1), 500);
+  const ascending = String(direction).toLowerCase() === "asc";
+
+  const buildQuery = (columns) => {
+    let q = sb
+      .from("admin_actions")
+      .select(columns)
+      .order(columns.includes("occurred_at") ? "occurred_at" : "created_at", { ascending })
+      .limit(cappedLimit);
+    if (actor) q = q.eq("actor_email", actor);
+    if (action) q = q.eq("action", action);
+    if (search) {
+      const term = `%${search}%`;
+      q = q.or(`actor_email.ilike.${term},action.ilike.${term}`);
+    }
+    return q;
+  };
+
+  const primaryCols = "id, occurred_at, actor_email, action, meta, payload";
+  let { data, error } = await buildQuery(primaryCols);
+
+  if (error && error.code === "42703") {
+    const fallbackCols = "id, created_at, actor_email, action, payload";
+    const fallback = await buildQuery(fallbackCols);
+    const { data: fallbackData, error: fallbackError } = await fallback;
+    if (fallbackError) throw fallbackError;
+    data = (fallbackData || []).map((row) => ({
+      ...row,
+      occurred_at: row.created_at,
+      meta: row.meta ?? row.payload ?? null,
+    }));
+  } else if (error) {
+    throw error;
+  }
+
+  return (data || []).map((row) => ({
+    ...row,
+    meta: row.meta ?? row.payload ?? null,
+  }));
+}
+
+export function getAuditClient() {
+  return getServiceClient();
 }
