@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 import { api } from "../lib/api";
+import { uploadMedia } from "../lib/uploadMedia";
 
 export type MediaPickerItem = {
   name: string;
@@ -39,6 +40,10 @@ const MediaPickerModal: React.FC<MediaPickerModalProps> = ({ isOpen, onClose, on
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [refreshIndex, setRefreshIndex] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -75,11 +80,52 @@ const MediaPickerModal: React.FC<MediaPickerModalProps> = ({ isOpen, onClose, on
     return () => {
       cancelled = true;
     };
-  }, [isOpen, search]);
+  }, [isOpen, search, refreshIndex]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => matchesKind(item, kind));
   }, [items, kind]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setUploadError(null);
+      setUploading(false);
+    }
+  }, [isOpen]);
+
+  const accept = useMemo(() => {
+    if (kind === "image") return "image/*";
+    if (kind === "video") return "video/*";
+    return "*/*";
+  }, [kind]);
+
+  const handleUploadClick = () => {
+    if (uploading) return;
+    setUploadError(null);
+    fileInputRef.current?.click();
+  };
+
+  const handleUploadChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (uploading) return;
+    const file = event.target.files?.[0];
+    if (!file) {
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setUploadError(null);
+      await uploadMedia(file);
+      setRefreshIndex((index) => index + 1);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      setUploadError(message);
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -102,13 +148,39 @@ const MediaPickerModal: React.FC<MediaPickerModalProps> = ({ isOpen, onClose, on
         </div>
 
         <div className="px-6 py-4 space-y-4">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search filenames…"
-            className="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:border-yellow-400 focus:outline-none"
-            autoFocus
-          />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search filenames…"
+              className="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:border-yellow-400 focus:outline-none sm:flex-1"
+              autoFocus
+            />
+            <div className="flex flex-col gap-1 text-sm sm:w-60">
+              <button
+                type="button"
+                onClick={handleUploadClick}
+                disabled={uploading}
+                className={`rounded border px-3 py-2 font-semibold transition ${
+                  uploading
+                    ? "cursor-not-allowed border-neutral-700 bg-neutral-800 text-neutral-500"
+                    : "border-yellow-400/60 bg-yellow-400/10 text-yellow-200 hover:border-yellow-300 hover:bg-yellow-400/20"
+                }`}
+              >
+                {uploading ? "Uploading…" : "Upload from computer"}
+              </button>
+              {uploadError ? (
+                <span className="text-xs text-red-400">{uploadError}</span>
+              ) : null}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={accept}
+              className="hidden"
+              onChange={handleUploadChange}
+            />
+          </div>
 
           {error ? (
             <div className="rounded border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">

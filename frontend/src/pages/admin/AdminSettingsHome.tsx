@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
 import MediaPickerModal from "../../components/MediaPickerModal";
+import UploadFromComputerButton from "../../components/admin/UploadFromComputerButton";
 
 type HomeSettings = {
   hero_title: string;
@@ -105,7 +106,7 @@ export default function AdminSettingsHome() {
               disabled={disabled}
               placeholder="https://…/video.mp4"
             />
-            <div className="flex flex-wrap gap-2 text-sm">
+            <div className="flex flex-wrap items-start gap-2 text-sm">
               <button
                 type="button"
                 onClick={() => setShowVideoPicker(true)}
@@ -118,11 +119,31 @@ export default function AdminSettingsHome() {
               >
                 Select from library
               </button>
-                {local.featured_video_url ? (
-                  <a
-                    href={local.featured_video_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+              <UploadFromComputerButton
+                onUploaded={(url) => update("featured_video_url", url)}
+                accept="video/*"
+                disabled={disabled}
+                className="border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Upload from computer
+              </UploadFromComputerButton>
+              <button
+                type="button"
+                onClick={() => update("featured_video_url", "")}
+                disabled={disabled || !local.featured_video_url}
+                className={`rounded px-3 py-1 font-semibold ${
+                  disabled || !local.featured_video_url
+                    ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Remove video
+              </button>
+              {local.featured_video_url ? (
+                <a
+                  href={local.featured_video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                     className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
                   >
                     Open current
@@ -142,7 +163,7 @@ export default function AdminSettingsHome() {
               disabled={disabled}
               placeholder="https://…/hero.jpg"
             />
-            <div className="flex flex-wrap gap-2 text-sm">
+            <div className="flex flex-wrap items-start gap-2 text-sm">
               <button
                 type="button"
                 onClick={() => setShowHeroPicker(true)}
@@ -155,10 +176,30 @@ export default function AdminSettingsHome() {
               >
                 Select from library
               </button>
-                {local.hero_image_url ? (
-                  <a
-                    href={local.hero_image_url}
-                    target="_blank"
+              <UploadFromComputerButton
+                onUploaded={(url) => update("hero_image_url", url)}
+                accept="image/*"
+                disabled={disabled}
+                className="border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Upload from computer
+              </UploadFromComputerButton>
+              <button
+                type="button"
+                onClick={() => update("hero_image_url", "")}
+                disabled={disabled || !local.hero_image_url}
+                className={`rounded px-3 py-1 font-semibold ${
+                  disabled || !local.hero_image_url
+                    ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Remove image
+              </button>
+              {local.hero_image_url ? (
+                <a
+                  href={local.hero_image_url}
+                  target="_blank"
                     rel="noopener noreferrer"
                     className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
                   >
@@ -179,7 +220,7 @@ export default function AdminSettingsHome() {
               disabled={disabled}
               placeholder="https://…/crew.jpg"
             />
-            <div className="flex flex-wrap gap-2 text-sm">
+            <div className="flex flex-wrap items-start gap-2 text-sm">
               <button
                 type="button"
                 onClick={() => setShowWhoImagePicker(true)}
@@ -192,9 +233,29 @@ export default function AdminSettingsHome() {
               >
                 Select from library
               </button>
-                {local.who_image_url ? (
-                  <a
-                    href={local.who_image_url}
+              <UploadFromComputerButton
+                onUploaded={(url) => update("who_image_url", url)}
+                accept="image/*"
+                disabled={disabled}
+                className="border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Upload from computer
+              </UploadFromComputerButton>
+              <button
+                type="button"
+                onClick={() => update("who_image_url", "")}
+                disabled={disabled || !local.who_image_url}
+                className={`rounded px-3 py-1 font-semibold ${
+                  disabled || !local.who_image_url
+                    ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Remove image
+              </button>
+              {local.who_image_url ? (
+                <a
+                  href={local.who_image_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
@@ -265,7 +326,7 @@ export default function AdminSettingsHome() {
             placeholder="Too Funny Productions is a collective of comedians, directors, editors, and techs bringing high-energy sketch and improv."
           />
           <p className="mt-1 text-xs text-gray-500">
-            This section appears beneath the hero on the public home page alongside the featured image.
+            This section appears beneath the hero on the public home page.
           </p>
         </div>
       </section>

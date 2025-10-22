@@ -53,7 +53,6 @@ export default function Home() {
   const heroSubtext =
     settings?.hero_subtext?.trim() || "Original sketch, live shows, and shamelessly fun chaos.";
   const heroImage = settings?.hero_image_url?.trim() || "";
-  const whoImage = settings?.who_image_url?.trim() || "";
   const heroVideo = settings?.featured_video_url?.trim() || "";
   const whoTitle = settings?.who_title?.trim() || "Who We Are";
   const whoBody =
@@ -71,54 +70,54 @@ export default function Home() {
 
   return (
     <main className="bg-[#050505] text-white">
-      <div className="mx-auto max-w-6xl px-4 pb-16 pt-12">
-        <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-neutral-900/90 via-neutral-950 to-black p-8 shadow-lg lg:p-12">
-          <div className="grid gap-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center">
-            <div className="flex flex-col gap-8">
-              <header className="space-y-3">
-                <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/40 bg-yellow-400/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-yellow-200">
+      <div className="mx-auto max-w-7xl px-4 pb-16 pt-12">
+        <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-neutral-900/90 via-neutral-950 to-black p-8 shadow-2xl lg:p-14">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start">
+            <div className="flex flex-col gap-10">
+              <header className="space-y-4">
+                <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/40 bg-yellow-400/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-yellow-200/90">
                   Too Funny Productions
                 </span>
-                <h1 className="text-3xl font-bold leading-tight text-yellow-200 sm:text-4xl lg:text-[2.6rem]">
+                <h1 className="text-3xl font-bold leading-tight text-yellow-200 sm:text-4xl lg:text-[2.75rem]">
                   {heroTitle}
                 </h1>
                 <p className="max-w-xl text-base text-neutral-200/90 sm:text-lg">{heroSubtext}</p>
               </header>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-4">
                 <Link
                   to={`/events${stageSuffix}`}
-                  className="rounded-full bg-yellow-300 px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-yellow-200"
+                  className="rounded-full bg-yellow-300 px-6 py-2.5 text-sm font-semibold text-black transition hover:bg-yellow-200"
                 >
                   Get Tickets
                 </Link>
                 <Link
                   to={`/media${stageSuffix}`}
-                  className="rounded-full border border-yellow-400/70 px-5 py-2.5 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-300 hover:text-black"
+                  className="rounded-full border border-yellow-400/70 px-6 py-2.5 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-300 hover:text-black"
                 >
                   Watch a Clip
                 </Link>
                 <Link
                   to={`/contact${stageSuffix}`}
-                  className="rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
+                  className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
                 >
                   Contact Us
                 </Link>
               </div>
 
               {hasEvents ? (
-                <div className="rounded-2xl border border-white/10 bg-black/50 p-5">
-                  <div className="flex items-center justify-between gap-4">
+                <div className="rounded-3xl border border-yellow-400/20 bg-yellow-400/5 p-6 shadow-inner">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
-                      <p className="text-xs uppercase tracking-[0.4em] text-white/40">Next up</p>
-                      <h2 className="text-lg font-semibold text-yellow-200">{upcoming[0]?.title || "Live show"}</h2>
-                      <p className="text-sm text-neutral-300">
+                      <p className="text-xs uppercase tracking-[0.4em] text-yellow-200/70">Next up</p>
+                      <h2 className="text-lg font-semibold text-yellow-100">{upcoming[0]?.title || "Live show"}</h2>
+                      <p className="text-sm text-neutral-100/80">
                         {(upcoming[0]?.date || "Date TBA") + " • " + (upcoming[0]?.venue || "Venue TBA")}
                       </p>
                     </div>
                     <Link
                       to={`/events${stageSuffix}`}
-                      className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/70 transition hover:border-white hover:text-white"
+                      className="inline-flex items-center justify-center rounded-full border border-yellow-300/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-yellow-100 transition hover:border-yellow-200 hover:text-yellow-50"
                     >
                       View All
                     </Link>
@@ -127,42 +126,50 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="space-y-6">
-              <div className="grid gap-4 rounded-2xl border border-white/10 bg-black/40 p-4 sm:grid-cols-2">
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-black/70">
+            <div className="flex flex-col gap-6">
+              <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/60 p-4 shadow-2xl">
+                <div className="pointer-events-none absolute left-6 top-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-4 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-yellow-200/90">
+                  Featured Video
+                </div>
+                <div className="aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/80">
                   {heroVideo ? (
                     <video
                       src={heroVideo}
                       controls
                       preload="metadata"
-                      className="h-full w-full rounded-xl object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full min-h-[180px] items-center justify-center text-xs text-white/50">
-                      Add a featured video in the admin panel to showcase your latest work.
-                    </div>
-                  )}
-                </div>
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-black/70">
-                  {heroImage ? (
-                    <img
-                      src={heroImage}
-                      alt="Too Funny Productions"
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full min-h-[180px] items-center justify-center text-xs text-white/50">
-                      Add a hero image in the admin panel to complete the layout.
+                    <div className="flex h-full w-full items-center justify-center px-6 text-center text-xs text-white/60">
+                      Add a featured video in the admin panel to showcase your latest work.
                     </div>
                   )}
                 </div>
               </div>
 
-              {whoImage ? (
-                <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/40">
-                  <img src={whoImage} alt="Crew" className="h-full w-full object-cover" />
+              <div className="rounded-3xl border border-white/10 bg-black/45 p-6 shadow-xl">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/70 sm:w-48 sm:flex-shrink-0">
+                    {heroImage ? (
+                      <img
+                        src={heroImage}
+                        alt="Too Funny Productions"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-36 items-center justify-center px-4 text-center text-xs text-white/60">
+                        Add a hero image in the admin panel to complete the look.
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.35em] text-white/40">Hero Spotlight</p>
+                    <p className="text-sm text-neutral-300">
+                      Pair your headline clip with a bold still or promo shot to set the tone for the page.
+                    </p>
+                  </div>
                 </div>
-              ) : null}
+              </div>
             </div>
           </div>
         </section>
