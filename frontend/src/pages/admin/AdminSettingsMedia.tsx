@@ -9,6 +9,7 @@ import { useSettings } from "../../lib/SettingsContext";
 import MediaPickerModal, {
   type MediaPickerItem,
 } from "../../components/MediaPickerModal";
+import UploadFromComputerButton from "../../components/admin/UploadFromComputerButton";
 
 type MediaItem = {
   type: "image" | "video";
@@ -289,7 +290,7 @@ export default function AdminSettingsMedia(): JSX.Element {
                       </label>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3 flex flex-wrap items-start gap-2">
                       <button
                         type="button"
                         onClick={() => openPicker(sectionIndex, itemIndex, item.type)}
@@ -301,6 +302,23 @@ export default function AdminSettingsMedia(): JSX.Element {
                         }`}
                       >
                         Browse media library
+                      </button>
+                      <UploadFromComputerButton
+                        onUploaded={(url) => updateItem(sectionIndex, itemIndex, { url })}
+                        accept={item.type === "image" ? "image/*" : item.type === "video" ? "video/*" : "*"}
+                        disabled={disabled}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateItem(sectionIndex, itemIndex, { url: "" })}
+                        disabled={disabled || !item.url}
+                        className={`rounded border px-3 py-2 text-sm font-semibold ${
+                          disabled || !item.url
+                            ? "cursor-not-allowed border-gray-200 text-gray-400"
+                            : "border-gray-300 hover:bg-gray-100"
+                        }`}
+                      >
+                        Clear media
                       </button>
                       <button
                         type="button"

@@ -46,16 +46,6 @@ const Footer: React.FC = () => {
       )
     : [];
 
-  const footerText =
-    (settings && typeof settings === "object" && (settings as any).footer_text) ||
-    "© 2025 Too Funny Productions. All rights reserved.";
-
-  const footerLinks = Array.isArray((settings as any)?.footer_links)
-    ? ((settings as any).footer_links as Array<{ label?: string; url?: string }>).filter(
-        (entry) => typeof entry?.label === "string" && typeof entry?.url === "string"
-      )
-    : [];
-
   return (
     <footer className="bg-brandDark text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12">
