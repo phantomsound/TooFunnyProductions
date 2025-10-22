@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
 import SettingsUploader from "./SettingsUploader";
+import { normalizeAdminUrl } from "../../utils/url";
 
 type MerchItem = {
   title: string;
@@ -73,9 +74,17 @@ export default function AdminSettingsMerch(): JSX.Element {
   const updateItem = (index: number, patch: Partial<MerchItem>) => {
     if (disabled) return;
     setLocal((prev) => {
-      const nextItems = prev.merch_items.map((item, idx) =>
-        idx === index ? { ...item, ...patch } : item
-      );
+      const nextItems = prev.merch_items.map((item, idx) => {
+        if (idx !== index) return item;
+        const next: MerchItem = { ...item, ...patch };
+        if (typeof patch.image_url === "string") {
+          next.image_url = normalizeAdminUrl(patch.image_url);
+        }
+        if (typeof patch.buy_url === "string") {
+          next.buy_url = normalizeAdminUrl(patch.buy_url);
+        }
+        return next;
+      });
       setField("merch_items", nextItems);
       return { ...prev, merch_items: nextItems };
     });

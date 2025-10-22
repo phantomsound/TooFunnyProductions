@@ -57,11 +57,11 @@ export default function UploadFromComputerButton({
         type="button"
         onClick={handleClick}
         disabled={isDisabled}
-        className={`rounded border px-3 py-2 font-semibold transition ${
+        className={`inline-flex items-center justify-center rounded-md border px-3 py-2 font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-300 ${
           isDisabled
-            ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-500"
-            : "border-gray-300 bg-white hover:bg-gray-100"
-        } ${isDisabled ? "" : className}`.trim()}
+            ? "cursor-not-allowed border-gray-300 bg-gray-200 text-gray-500"
+            : "border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+        } ${className}`.trim()}
       >
         {uploading ? "Uploading…" : children}
       </button>

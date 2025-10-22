@@ -9,6 +9,7 @@ import { useSettings } from "../../lib/SettingsContext";
 import SettingsColorPicker from "./SettingsColorPicker";
 import SettingsLinkManager from "./SettingsLinkManager";
 import SettingsUploader from "./SettingsUploader";
+import { normalizeAdminUrl } from "../../utils/url";
 
 interface FooterLink {
   label: string;
@@ -118,8 +119,12 @@ export default function AdminSettingsGeneral(): JSX.Element {
 
   const update = <K extends keyof GeneralSettings>(key: K, value: GeneralSettings[K]) => {
     if (disabled) return;
-    setLocal((prev) => ({ ...prev, [key]: value }));
-    setField(key as string, value);
+    let nextValue = value;
+    if (typeof value === "string" && ["logo_url", "favicon_url"].includes(String(key))) {
+      nextValue = normalizeAdminUrl(value) as GeneralSettings[K];
+    }
+    setLocal((prev) => ({ ...prev, [key]: nextValue }));
+    setField(key as string, nextValue);
   };
 
   const footerLinks = local.footer_links;

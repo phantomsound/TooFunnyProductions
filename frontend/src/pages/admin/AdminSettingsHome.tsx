@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSettings } from "../../lib/SettingsContext";
 import MediaPickerModal from "../../components/MediaPickerModal";
 import UploadFromComputerButton from "../../components/admin/UploadFromComputerButton";
+import { normalizeAdminUrl } from "../../utils/url";
 
 type HomeSettings = {
   hero_title: string;
@@ -54,8 +55,12 @@ export default function AdminSettingsHome() {
 
   const update = <K extends keyof HomeSettings>(key: K, value: HomeSettings[K]) => {
     if (disabled) return;
-    setLocal((prev) => ({ ...prev, [key]: value }));
-    setField(key as string, value);
+    let nextValue = value;
+    if (typeof value === "string" && key.toString().includes("_url")) {
+      nextValue = normalizeAdminUrl(value) as HomeSettings[K];
+    }
+    setLocal((prev) => ({ ...prev, [key]: nextValue }));
+    setField(key as string, nextValue);
   };
 
   return (

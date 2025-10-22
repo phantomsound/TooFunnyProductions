@@ -1,5 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useSettings } from "../lib/SettingsContext";
+
+const isArchiveTitle = (value: unknown): boolean =>
+  typeof value === "string" && value.trim().toLowerCase() === "archive";
 
 export default function Media() {
   const { settings } = useSettings();
@@ -11,12 +14,17 @@ export default function Media() {
       ? settings.media_intro
       : "Watch our latest sketches, clips, and behind-the-scenes footage.";
 
+  const visibleSections = useMemo(
+    () => sections.filter((section: any) => section && !isArchiveTitle(section.title)),
+    [sections]
+  );
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 text-theme-base">
       <h1 className="mb-3 text-3xl font-bold text-theme-accent">{title}</h1>
       <p className="mb-8 whitespace-pre-wrap text-theme-muted">{intro}</p>
 
-      {sections.map((s: any, idx: number) => (
+      {visibleSections.map((s: any, idx: number) => (
         <div key={idx} className="mb-10">
           <h2 className="mb-4 text-2xl font-semibold text-theme-accent">{s.title}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -36,7 +44,7 @@ export default function Media() {
         </div>
       ))}
 
-      {sections.length === 0 && <div className="text-theme-muted">No media yet.</div>}
+      {visibleSections.length === 0 && <div className="text-theme-muted">No media yet.</div>}
     </div>
   );
 }

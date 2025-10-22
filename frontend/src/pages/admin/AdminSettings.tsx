@@ -94,7 +94,7 @@ export default function AdminSettings() {
                   <button
                     onClick={() => releaseLock({ silent: false })}
                     disabled={lockLoading}
-                    className="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded border border-red-400 bg-red-50 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Release
                   </button>
@@ -102,7 +102,7 @@ export default function AdminSettings() {
                   <button
                     onClick={() => acquireLock({ silent: false })}
                     disabled={lockLoading || stage !== "draft"}
-                    className="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded border border-blue-500 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Acquire
                   </button>
@@ -114,7 +114,7 @@ export default function AdminSettings() {
             <div className="flex items-center gap-2">
               <label className="text-sm opacity-80">View:</label>
               <select
-                className="border rounded px-2 py-1 bg-white"
+                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-400"
                 value={stage}
                 onChange={(e) => setStage(e.target.value as "live" | "draft")}
               >
@@ -126,10 +126,10 @@ export default function AdminSettings() {
             <button
               onClick={() => save()}
               disabled={stage !== "draft" || !isDirty || saving || lockedByOther}
-              className={`px-3 py-1 rounded font-semibold ${
+              className={`px-3 py-1 rounded font-semibold focus:outline-none focus:ring-2 focus:ring-offset-1 ${
                 stage !== "draft" || !isDirty || saving || lockedByOther
                   ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-300"
               }`}
               title="Save changes to Draft"
             >
@@ -138,7 +138,7 @@ export default function AdminSettings() {
 
             <button
               onClick={async () => { await pullLive(); }}
-              className="px-3 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="px-3 py-1 rounded border border-blue-500 bg-blue-50 font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={lockLoading || lockedByOther}
               title="Copy current Live settings into Draft (does not publish)"
             >
@@ -147,7 +147,7 @@ export default function AdminSettings() {
 
             <button
               onClick={() => window.open(previewUrl, "_blank")}
-              className="px-3 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
+              className="px-3 py-1 rounded border border-neutral-400 bg-neutral-100 font-semibold text-neutral-800 hover:bg-neutral-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-neutral-400"
               title="Open the public site with the draft values"
             >
               Preview Draft
@@ -155,7 +155,7 @@ export default function AdminSettings() {
 
             <button
               onClick={() => setShowSnapshots(true)}
-              className="px-3 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
+              className="px-3 py-1 rounded border border-purple-500 bg-purple-50 font-semibold text-purple-700 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-300"
               title="Manage saved draft snapshots"
             >
               Snapshots
@@ -163,7 +163,7 @@ export default function AdminSettings() {
 
             <button
               onClick={publish}
-              className="px-3 py-1 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="px-3 py-1 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={lockLoading || lockedByOther}
               title="Copy the current Draft into Live"
             >

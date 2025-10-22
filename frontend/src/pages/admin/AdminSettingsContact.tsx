@@ -6,6 +6,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
+import { normalizeAdminUrl } from "../../utils/url";
 
 type ContactCard = {
   title: string;
@@ -100,9 +101,14 @@ export default function AdminSettingsContact(): JSX.Element {
   const updateCard = (index: number, patch: Partial<ContactCard>) => {
     if (disabled) return;
     setLocal((prev) => {
-      const nextCards = prev.contact_cards.map((card, idx) =>
-        idx === index ? { ...card, ...patch } : card
-      );
+      const nextCards = prev.contact_cards.map((card, idx) => {
+        if (idx !== index) return card;
+        const next: ContactCard = { ...card, ...patch };
+        if (typeof patch.link_url === "string") {
+          next.link_url = normalizeAdminUrl(patch.link_url);
+        }
+        return next;
+      });
       setField("contact_cards", nextCards);
       return { ...prev, contact_cards: nextCards };
     });
@@ -126,8 +132,9 @@ export default function AdminSettingsContact(): JSX.Element {
     if (disabled) return;
     setLocal((prev) => {
       const socials = { ...prev.contact_socials };
-      if (value.trim()) {
-        socials[key] = value.trim();
+      const trimmed = value.trim();
+      if (trimmed) {
+        socials[key] = normalizeAdminUrl(trimmed);
       } else {
         delete socials[key];
       }

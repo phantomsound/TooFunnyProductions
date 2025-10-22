@@ -1,12 +1,12 @@
 // frontend/src/components/SessionTimeoutOverlay.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSettings } from "../lib/SettingsContext";
 import { useAuth } from "../hooks/useAuth";
 
 const COUNTDOWN_SECONDS = 60; // the visible “are you still there?” countdown length
 
 export default function SessionTimeoutOverlay() {
-  const { settings } = useSettings();
+  const { settings, stage, isDirty, save, hasLock, lockedByOther, saving } = useSettings();
   const { isAuthed, refreshSession, logout, loading: authLoading } = useAuth();
 
   // Minutes to idle before showing countdown → configurable
@@ -27,6 +27,37 @@ export default function SessionTimeoutOverlay() {
   const firedRef = useRef(false);      // prevents re-arming
   const idleTimerRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
+  const autoSaveRef = useRef<Promise<void> | null>(null);
+
+  const autoSaveDraft = useCallback(async () => {
+    if (autoSaveRef.current) {
+      await autoSaveRef.current;
+      return;
+    }
+    if (stage !== "draft" || lockedByOther || !isDirty || !hasLock || saving) return;
+    const task = (async () => {
+      try {
+        await save();
+      } catch (error) {
+        console.error("Failed to auto-save draft before logout", error);
+      }
+    })();
+    autoSaveRef.current = task.finally(() => {
+      autoSaveRef.current = null;
+    });
+    await autoSaveRef.current;
+  }, [stage, lockedByOther, isDirty, hasLock, saving, save]);
+
+  const handleTimeout = useCallback(async () => {
+    clearCountdown();
+    setShow(false);
+    firedRef.current = true;
+    try {
+      await autoSaveDraft();
+    } finally {
+      logout();
+    }
+  }, [autoSaveDraft, logout]);
 
   function clearIdle() {
     if (idleTimerRef.current) {
@@ -62,9 +93,7 @@ export default function SessionTimeoutOverlay() {
       countdownRef.current = window.setInterval(() => {
         setSecondsLeft((s) => {
           if (s <= 1) {
-            clearCountdown();
-            setShow(false);
-            logout(); // session expired
+            void handleTimeout();
             return 0;
           }
           return s - 1;
@@ -122,9 +151,12 @@ export default function SessionTimeoutOverlay() {
           <button
             className="px-3 py-2 rounded border border-neutral-500 hover:bg-neutral-700"
             onClick={() => {
-              clearCountdown();
-              setShow(false);
-              logout();
+              void (async () => {
+                clearCountdown();
+                setShow(false);
+                await autoSaveDraft();
+                logout();
+              })();
             }}
           >
             Sign out now

@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
 import SettingsUploader from "./SettingsUploader";
+import { normalizeAdminUrl } from "../../utils/url";
 
 type SocialLinks = {
   instagram?: string;
@@ -112,9 +113,14 @@ export default function AdminSettingsAbout(): JSX.Element {
     if (disabled) return;
     let nextTeam: TeamMember[] = [];
     setLocal((prev) => {
-      nextTeam = prev.about_team.map((member, idx) =>
-        idx === index ? { ...member, [key]: value } : member
-      );
+      nextTeam = prev.about_team.map((member, idx) => {
+        if (idx !== index) return member;
+        const nextMember: TeamMember = { ...member, [key]: value };
+        if (key === "photo_url" && typeof value === "string") {
+          nextMember.photo_url = normalizeAdminUrl(value);
+        }
+        return nextMember;
+      });
       return { ...prev, about_team: nextTeam };
     });
     setField("about_team", nextTeam);
@@ -127,8 +133,9 @@ export default function AdminSettingsAbout(): JSX.Element {
       nextTeam = prev.about_team.map((member, idx) => {
         if (idx !== index) return member;
         const socials = { ...member.socials };
-        if (value.trim()) {
-          socials[key] = value.trim();
+        const trimmed = value.trim();
+        if (trimmed) {
+          socials[key] = normalizeAdminUrl(trimmed);
         } else {
           delete socials[key];
         }

@@ -6,6 +6,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
+import { normalizeAdminUrl } from "../../utils/url";
 
 type EventEntry = {
   title: string;
@@ -73,7 +74,13 @@ export default function AdminSettingsEvents(): JSX.Element {
     if (disabled) return;
     setLocal((prev) => {
       const nextList = prev[list].map((event, idx) =>
-        idx === index ? { ...event, ...patch } : event
+        idx === index
+          ? {
+              ...event,
+              ...patch,
+              ...(typeof patch.link === "string" ? { link: normalizeAdminUrl(patch.link) } : {}),
+            }
+          : event
       );
       setField(list, nextList);
       return { ...prev, [list]: nextList } as EventsSettings;

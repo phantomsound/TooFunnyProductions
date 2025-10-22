@@ -1,5 +1,7 @@
 import React from "react";
 
+import { normalizeAdminUrl } from "../../utils/url";
+
 export type LinkValue = {
   label: string;
   url: string;
@@ -41,7 +43,11 @@ export default function SettingsLinkManager({
 
   const updateLink = (index: number, next: Partial<LinkValue>) => {
     if (disabled) return;
-    const updated = links.map((item, idx) => (idx === index ? { ...item, ...next } : item));
+    const patch: Partial<LinkValue> = { ...next };
+    if (typeof next.url === "string") {
+      patch.url = normalizeAdminUrl(next.url);
+    }
+    const updated = links.map((item, idx) => (idx === index ? { ...item, ...patch } : item));
     onChange(updated);
   };
 
