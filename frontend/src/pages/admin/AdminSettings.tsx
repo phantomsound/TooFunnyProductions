@@ -5,7 +5,6 @@
    ========================================================================= */
 import React, { useCallback, useMemo, useState } from "react";
 import AdminSettingsHome from "./AdminSettingsHome";
-import AdminSettingsGeneral from "./AdminSettingsGeneral";
 import AdminSettingsAbout from "./AdminSettingsAbout";
 import AdminSettingsEvents from "./AdminSettingsEvents";
 import AdminSettingsMedia from "./AdminSettingsMedia";
@@ -14,7 +13,7 @@ import AdminSettingsContact from "./AdminSettingsContact";
 import AdminSettingsSnapshots from "./AdminSettingsSnapshots";
 import { useSettings } from "../../lib/SettingsContext";
 
-const TABS = ["home", "general", "about", "events", "media", "merch", "contact"] as const;
+const TABS = ["home", "about", "events", "media", "merch", "contact"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function AdminSettings() {
@@ -56,8 +55,6 @@ export default function AdminSettings() {
     switch (activeTab) {
       case "home":
         return <AdminSettingsHome />;
-      case "general":
-        return <AdminSettingsGeneral />;
       case "about":
         return <AdminSettingsAbout />;
       case "events":
@@ -78,7 +75,7 @@ export default function AdminSettings() {
       <div className="mx-auto max-w-6xl px-4 py-6">
         {/* Header actions */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-          <h2 className="text-2xl font-bold">Admin Settings</h2>
+          <h2 className="text-2xl font-bold">Page Configurations</h2>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-col gap-1 text-right">
               <label className="text-xs uppercase tracking-wide text-gray-500">Draft lock</label>
@@ -173,6 +170,14 @@ export default function AdminSettings() {
         </div>
 
         {/* Tabs */}
+        <div className="mb-6 rounded-lg border border-neutral-300 bg-white/70 p-4 text-sm text-neutral-700">
+          <p className="font-semibold text-neutral-900">Configure each page’s content here.</p>
+          <p className="mt-2">
+            Looking for logos, theme colors, or maintenance mode? Head to <span className="font-semibold">General Settings</span>
+            from the sidebar to manage site-wide options, then fine-tune each page below.
+          </p>
+        </div>
+
         <div className="flex flex-wrap gap-2 mb-6">
           {TABS.map((tab) => (
             <button

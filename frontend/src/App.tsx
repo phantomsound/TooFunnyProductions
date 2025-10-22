@@ -26,6 +26,7 @@ import AdminShell from "./components/admin/AdminShell";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminMediaManager from "./pages/admin/AdminMediaManager";
 import AdminAudit from "./pages/admin/AdminAudit";
+import AdminGeneralSettingsPage from "./pages/admin/AdminGeneralSettingsPage";
 
 export default function App() {
   return (
@@ -57,8 +58,10 @@ export default function App() {
                       </AuthGuard>
                     }
                   >
-                    <Route index element={<AdminSettings />} />
-                    <Route path="settings" element={<AdminSettings />} />
+                    <Route index element={<AdminGeneralSettingsPage />} />
+                    <Route path="general" element={<AdminGeneralSettingsPage />} />
+                    <Route path="page-configurations" element={<AdminSettings />} />
+                    <Route path="settings" element={<Navigate to="/admin/page-configurations" replace />} />
                     <Route path="media" element={<AdminMediaManager />} />
                     <Route path="audit" element={<AdminAudit />} />
                   </Route>

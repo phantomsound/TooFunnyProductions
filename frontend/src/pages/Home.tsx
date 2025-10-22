@@ -142,23 +142,19 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-xl">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <div className="overflow-hidden rounded-2xl border border-theme-surface bg-theme-background sm:w-48 sm:flex-shrink-0">
-                    {heroImage ? (
-                      <img src={heroImage} alt="Too Funny Productions" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-36 items-center justify-center px-4 text-center text-xs text-theme-muted">
-                        Add a hero image in the admin panel to complete the look.
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.35em] text-theme-muted">Hero Spotlight</p>
-                    <p className="text-sm text-theme-muted">
-                      Pair your headline clip with a bold still or promo shot to set the tone for the page.
-                    </p>
-                  </div>
+              <div className="rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl">
+                <div className="aspect-[3/2] overflow-hidden rounded-2xl border border-theme-surface bg-theme-background">
+                  {heroImage ? (
+                    <img
+                      src={heroImage}
+                      alt={heroTitle || "Too Funny Productions hero"}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex aspect-[3/2] items-center justify-center px-4 text-center text-xs text-theme-muted">
+                      Add a hero image in the admin panel to complete the look.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -269,7 +265,7 @@ export default function Home() {
                 </div>
                 <Link
                   to={`/media${stageSuffix}`}
-                  className="theme-accent-button inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition"
+                  className="theme-accent-button inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition whitespace-nowrap"
                 >
                   Visit Media Page
                 </Link>

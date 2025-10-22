@@ -39,13 +39,22 @@ export default function AdminShell() {
         <div className="p-5 text-xl font-bold text-yellow-400">Admin</div>
         <nav className="px-3 py-2 space-y-1">
           <NavLink
-            to="/admin/settings"
+            to="/admin/general"
             className={({ isActive }) =>
               "block rounded px-3 py-2 hover:bg-neutral-800 " +
               (isActive ? "bg-neutral-800 text-yellow-300" : "text-neutral-200")
             }
           >
-            ⚙️ Settings
+            🎛 General Settings
+          </NavLink>
+          <NavLink
+            to="/admin/page-configurations"
+            className={({ isActive }) =>
+              "block rounded px-3 py-2 hover:bg-neutral-800 " +
+              (isActive ? "bg-neutral-800 text-yellow-300" : "text-neutral-200")
+            }
+          >
+            🗂 Page Configurations
           </NavLink>
           <NavLink
             to="/admin/media"
