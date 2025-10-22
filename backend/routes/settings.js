@@ -81,6 +81,7 @@ const ALLOWED = new Set([
   "theme_bg",
   "header_bg",
   "footer_bg",
+  "theme_use_global",
 
   "session_timeout_minutes",
 

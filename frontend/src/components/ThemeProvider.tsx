@@ -1,19 +1,9 @@
 // frontend/src/components/ThemeProvider.tsx
 import React, { createContext, useContext, useMemo } from "react";
 
-type Theme = {
-  bg: string;        // page background
-  card: string;      // card background
-  text: string;      // base text color
-  accent: string;    // accent color (e.g., buttons)
-};
+type Theme = Record<string, never>;
 
-const defaultTheme: Theme = {
-  bg: "bg-neutral-900",      // near-black
-  card: "bg-neutral-800",    // dark gray
-  text: "text-white",
-  accent: "text-yellow-400",
-};
+const defaultTheme: Theme = {};
 
 const ThemeContext = createContext<Theme>(defaultTheme);
 
@@ -27,14 +17,11 @@ type Props = {
 };
 
 function ThemeProvider({ theme, children }: Props) {
-  const value = useMemo<Theme>(
-    () => ({ ...defaultTheme, ...(theme || {}) }),
-    [theme]
-  );
+  const value = useMemo<Theme>(() => ({ ...defaultTheme, ...(theme || {}) }), [theme]);
 
   return (
     <ThemeContext.Provider value={value}>
-      <div className={`${value.bg} ${value.text} min-h-screen`}>{children}</div>
+      <div className="min-h-screen bg-theme-background text-theme-base transition-colors duration-200">{children}</div>
     </ThemeContext.Provider>
   );
 }

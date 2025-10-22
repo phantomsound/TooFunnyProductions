@@ -158,7 +158,7 @@ export default function AdminSettingsAbout(): JSX.Element {
           Draft is locked by another editor. Fields are read-only until they release the lock.
         </div>
       ) : stage !== "draft" ? (
-        <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+        <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-900">
           Switch to the Draft view to edit these fields.
         </div>
       ) : null}

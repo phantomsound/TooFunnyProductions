@@ -12,31 +12,31 @@ export default function Media() {
       : "Watch our latest sketches, clips, and behind-the-scenes footage.";
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 text-white">
-      <h1 className="text-3xl font-bold text-yellow-400 mb-3">{title}</h1>
-      <p className="opacity-80 mb-8 whitespace-pre-wrap">{intro}</p>
+    <div className="mx-auto max-w-6xl px-4 py-10 text-theme-base">
+      <h1 className="mb-3 text-3xl font-bold text-theme-accent">{title}</h1>
+      <p className="mb-8 whitespace-pre-wrap text-theme-muted">{intro}</p>
 
       {sections.map((s: any, idx: number) => (
         <div key={idx} className="mb-10">
-          <h2 className="text-2xl font-semibold mb-4">{s.title}</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h2 className="mb-4 text-2xl font-semibold text-theme-accent">{s.title}</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {(s.items || []).map((it: any, i: number) => (
-              <div key={i} className="bg-[#111] rounded p-3">
+              <div key={i} className="rounded border border-theme-surface bg-theme-surface p-3">
                 {it.type === "video" ? (
-                  <div className="aspect-video w-full overflow-hidden rounded mb-2">
+                  <div className="aspect-video mb-2 w-full overflow-hidden rounded">
                     <video src={it.url} controls preload="metadata" className="h-full w-full object-cover" />
                   </div>
                 ) : (
-                  <img src={it.url} alt={it.title || ""} className="w-full h-48 object-cover rounded mb-2" />
+                  <img src={it.url} alt={it.title || ""} className="mb-2 h-48 w-full rounded object-cover" />
                 )}
-                {it.title && <div className="text-sm opacity-90">{it.title}</div>}
+                {it.title && <div className="text-sm text-theme-muted">{it.title}</div>}
               </div>
             ))}
           </div>
         </div>
       ))}
 
-      {sections.length === 0 && <div className="opacity-70">No media yet.</div>}
+      {sections.length === 0 && <div className="text-theme-muted">No media yet.</div>}
     </div>
   );
 }

@@ -25,6 +25,9 @@ alter table settings_public add column if not exists header_bg text;
 alter table settings_draft  add column if not exists footer_bg text default '#000000';
 alter table settings_public add column if not exists footer_bg text;
 
+alter table settings_draft  add column if not exists theme_use_global boolean default true;
+alter table settings_public add column if not exists theme_use_global boolean default true;
+
 -- Admin session controls ------------------------------------------------
 alter table settings_draft  add column if not exists session_timeout_minutes integer default 30;
 alter table settings_public add column if not exists session_timeout_minutes integer;

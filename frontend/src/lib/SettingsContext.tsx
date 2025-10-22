@@ -72,6 +72,93 @@ const sanitizeSettings = (value: Settings | null | undefined): Settings => {
 type Stage = "live" | "draft";
 type Settings = Record<string, any>;
 
+const DEFAULT_THEME = {
+  accent: "#FFD700",
+  background: "#050505",
+  header: "#000000",
+  footer: "#000000",
+};
+
+const ensureHex = (value: unknown, fallback: string): string => {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  const match = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(trimmed);
+  if (!match) return fallback;
+  let hex = match[1];
+  if (hex.length === 3) {
+    hex = hex
+      .split("")
+      .map((char) => char + char)
+      .join("");
+  }
+  return `#${hex.toUpperCase()}`;
+};
+
+const hexToRgb = (hex: string): [number, number, number] => {
+  const clean = ensureHex(hex, "#000000").slice(1);
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return [r, g, b];
+};
+
+const relativeLuminance = (hex: string): number => {
+  const [r, g, b] = hexToRgb(hex).map((value) => {
+    const channel = value / 255;
+    return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+const getReadableText = (hex: string): string => (relativeLuminance(hex) > 0.55 ? "#111111" : "#FFFFFF");
+
+const blend = (base: string, mix: string, weight: number): string => {
+  const [r1, g1, b1] = hexToRgb(base);
+  const [r2, g2, b2] = hexToRgb(mix);
+  const clamp = (value: number) => Math.min(255, Math.max(0, Math.round(value)));
+  const ratio = Math.min(1, Math.max(0, weight));
+  const r = clamp(r1 * (1 - ratio) + r2 * ratio);
+  const g = clamp(g1 * (1 - ratio) + g2 * ratio);
+  const b = clamp(b1 * (1 - ratio) + b2 * ratio);
+  return `#${[r, g, b]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase()}`;
+};
+
+const computeTheme = (settings: Settings | null) => {
+  const useGlobal = settings?.theme_use_global !== false;
+  const accent = ensureHex(useGlobal ? settings?.theme_accent : null, DEFAULT_THEME.accent);
+  const background = ensureHex(useGlobal ? settings?.theme_bg : null, DEFAULT_THEME.background);
+  const header = ensureHex(useGlobal ? settings?.header_bg : null, DEFAULT_THEME.header);
+  const footer = ensureHex(useGlobal ? settings?.footer_bg : null, DEFAULT_THEME.footer);
+
+  const onAccent = getReadableText(accent);
+  const onBackground = getReadableText(background);
+  const onHeader = getReadableText(header);
+  const onFooter = getReadableText(footer);
+
+  return {
+    accent,
+    accentHover: blend(accent, onAccent, 0.15),
+    accentBorder: blend(accent, background, 0.55),
+    accentSoft: blend(background, accent, 0.12),
+    accentText: onAccent,
+    accentTextSoft: blend(onAccent, background, 0.35),
+    background,
+    backgroundText: onBackground,
+    backgroundTextMuted: blend(onBackground, background, 0.55),
+    surface: blend(background, onBackground, 0.08),
+    surfaceBorder: blend(onBackground, background, 0.82),
+    header,
+    headerText: onHeader,
+    headerTextMuted: blend(onHeader, header, 0.55),
+    footer,
+    footerText: onFooter,
+    footerTextMuted: blend(onFooter, footer, 0.55),
+  };
+};
+
 type LockState = {
   holder_email: string | null;
   acquired_at: string | null;
@@ -167,6 +254,36 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       document.title = title;
     }
   }, [settings?.favicon_url, settings?.site_title]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const theme = computeTheme(settings);
+    const root = document.documentElement;
+    const setVar = (name: string, value: string) => {
+      root.style.setProperty(name, value);
+    };
+
+    setVar("--tf-accent", theme.accent);
+    setVar("--tf-accent-hover", theme.accentHover);
+    setVar("--tf-accent-border", theme.accentBorder);
+    setVar("--tf-accent-soft", theme.accentSoft);
+    setVar("--tf-accent-text", theme.accentText);
+    setVar("--tf-accent-text-soft", theme.accentTextSoft);
+
+    setVar("--tf-bg", theme.background);
+    setVar("--tf-on-bg", theme.backgroundText);
+    setVar("--tf-on-bg-muted", theme.backgroundTextMuted);
+    setVar("--tf-surface", theme.surface);
+    setVar("--tf-surface-border", theme.surfaceBorder);
+
+    setVar("--tf-header", theme.header);
+    setVar("--tf-on-header", theme.headerText);
+    setVar("--tf-on-header-muted", theme.headerTextMuted);
+
+    setVar("--tf-footer", theme.footer);
+    setVar("--tf-on-footer", theme.footerText);
+    setVar("--tf-on-footer-muted", theme.footerTextMuted);
+  }, [settings]);
 
   const isDirty = useMemo(() => {
     if (!settings || !initial) return false;
