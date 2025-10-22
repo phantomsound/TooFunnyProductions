@@ -577,6 +577,39 @@ router.post("/versions/:id/restore", requireAdmin, async (req, res) => {
   }
 });
 
+router.delete("/versions/:id", requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    const versionId = req.params.id;
+    const email = (req.user?.email || "unknown").toLowerCase();
+
+    const removed = await supabase
+      .from("settings_versions")
+      .delete()
+      .eq("id", versionId)
+      .select("id, stage, label")
+      .single();
+
+    if (removed.error) {
+      if (removed.error.code === "PGRST116") return res.status(404).json({ error: "Version not found" });
+      throw removed.error;
+    }
+
+    try {
+      await logAdminAction(email, "settings.version.delete", {
+        versionId,
+        stage: removed.data.stage,
+        label: removed.data.label,
+      });
+    } catch {}
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /api/settings/versions/:id error:", err);
+    res.status(500).json({ error: "Failed to delete version" });
+  }
+});
+
 // GET /api/settings/preview – read draft row for /?stage=draft
 router.get("/preview", async (_req, res) => {
   try {

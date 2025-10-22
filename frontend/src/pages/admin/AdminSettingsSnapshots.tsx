@@ -30,6 +30,7 @@ const AdminSettingsSnapshots: React.FC<AdminSettingsSnapshotsProps> = ({ open, o
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [label, setLabel] = useState("");
 
   const load = useCallback(async () => {
@@ -102,6 +103,28 @@ const AdminSettingsSnapshots: React.FC<AdminSettingsSnapshotsProps> = ({ open, o
     }
   };
 
+  const deleteSnapshot = async (id: string) => {
+    const confirm = window.confirm("Delete this snapshot permanently? This action cannot be undone.");
+    if (!confirm) return;
+    setDeletingId(id);
+    setError(null);
+    try {
+      const response = await fetch(api(`/api/settings/versions/${id}`), {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || `Request failed: ${response.status}`);
+      setSnapshots((prev) => prev.filter((snapshot) => snapshot.id !== id));
+      await load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete snapshot";
+      setError(message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -156,7 +179,7 @@ const AdminSettingsSnapshots: React.FC<AdminSettingsSnapshotsProps> = ({ open, o
                     <th className="px-3 py-2">Label</th>
                     <th className="px-3 py-2">Created</th>
                     <th className="px-3 py-2">Author</th>
-                    <th className="px-3 py-2 text-right">Action</th>
+                    <th className="px-3 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,12 +192,22 @@ const AdminSettingsSnapshots: React.FC<AdminSettingsSnapshotsProps> = ({ open, o
                       <td className="px-3 py-2 text-neutral-400">{formatDate(snapshot.created_at)}</td>
                       <td className="px-3 py-2 text-neutral-400">{snapshot.author_email || "—"}</td>
                       <td className="px-3 py-2 text-right">
-                        <button
-                          onClick={() => restoreSnapshot(snapshot.id)}
-                          className="rounded border border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-800"
-                        >
-                          Restore to draft
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => restoreSnapshot(snapshot.id)}
+                            className="rounded border border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={loading || creating || deletingId === snapshot.id}
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => deleteSnapshot(snapshot.id)}
+                            className="rounded border border-red-500/60 px-3 py-1 text-xs text-red-200 transition hover:border-red-400 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={loading || creating || deletingId === snapshot.id}
+                          >
+                            {deletingId === snapshot.id ? "Removing…" : "Delete"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
