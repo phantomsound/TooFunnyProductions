@@ -24,14 +24,21 @@ export async function logAdminAction(actorEmail, action, meta = null) {
   try {
     const sb = getServiceClient();
     if (!sb) return; // don't throw on servers without secrets
-    await sb.from("admin_actions").insert([
-      {
-        actor_email: actorEmail,
-        action,
-        meta,
-        occurred_at: new Date().toISOString(),
-      },
+    const payload = {
+      actor_email: actorEmail,
+      action,
+      occurred_at: new Date().toISOString(),
+    };
+
+    const baseInsert = await sb.from("admin_actions").insert([
+      meta === undefined ? payload : { ...payload, meta },
     ]);
+
+    if (baseInsert.error && baseInsert.error.code === "42703") {
+      await sb.from("admin_actions").insert([payload]);
+    } else if (baseInsert.error) {
+      throw baseInsert.error;
+    }
   } catch (e) {
     console.error("Audit log insert failed:", e?.message || e);
   }
@@ -68,13 +75,14 @@ export async function listAdminActions({ limit = 100, actor, action, search, dir
   let { data, error } = await buildQuery(primaryCols);
 
   if (error && error.code === "42703") {
-    const fallbackCols = "id, created_at, actor_email, action, meta, payload";
+    const fallbackCols = "id, created_at, actor_email, action, payload";
     const fallback = await buildQuery(fallbackCols);
     const { data: fallbackData, error: fallbackError } = await fallback;
     if (fallbackError) throw fallbackError;
     data = (fallbackData || []).map((row) => ({
       ...row,
       occurred_at: row.created_at,
+      meta: row.meta ?? row.payload ?? null,
     }));
   } else if (error) {
     throw error;
