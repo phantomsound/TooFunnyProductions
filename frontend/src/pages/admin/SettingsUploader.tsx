@@ -128,16 +128,16 @@ export default function SettingsUploader({
     : !!previewUrl && /\.(png|jpe?g|gif|webp|svg)$/i.test(previewUrl);
 
   return (
-    <div className="border border-gray-300 rounded-lg p-4 bg-white space-y-3">
+    <div className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900/80 p-4 text-neutral-100 shadow-sm">
       <div className="flex items-center justify-between">
-        <p className="font-semibold">{label}</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-neutral-300">{label}</p>
         {value && (
           <button
             type="button"
             onClick={handleClear}
             disabled={disabled}
-            className={`text-xs font-semibold ${
-              disabled ? "text-red-300 cursor-not-allowed" : "text-red-600 hover:text-red-700"
+            className={`text-xs font-semibold transition ${
+              disabled ? "cursor-not-allowed text-red-400/60" : "text-red-300 hover:text-red-200"
             }`}
           >
             Clear
@@ -150,7 +150,7 @@ export default function SettingsUploader({
           type="file"
           accept={accept}
           onChange={handleFileChange}
-          className="block w-full text-sm"
+          className="block w-full text-sm text-neutral-200 file:mr-2 file:rounded-md file:border-0 file:bg-yellow-400 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-black"
           disabled={disabled}
         />
 
@@ -161,8 +161,8 @@ export default function SettingsUploader({
             disabled={disabled}
             className={`w-full rounded border px-3 py-2 text-sm font-semibold transition ${
               disabled
-                ? "cursor-not-allowed border-gray-200 text-gray-400"
-                : "border-gray-300 hover:bg-gray-50"
+                ? "cursor-not-allowed border-neutral-700 text-neutral-500"
+                : "border-neutral-700 text-neutral-200 hover:border-yellow-300 hover:text-yellow-200"
             }`}
           >
             Browse media library
@@ -171,26 +171,26 @@ export default function SettingsUploader({
       </div>
 
       {previewUrl ? (
-        <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+        <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3">
           {isImage ? (
-            <img src={previewUrl} alt="Preview" className="max-h-40 mx-auto object-contain" />
+            <img src={previewUrl} alt="Preview" className="mx-auto max-h-40 object-contain" />
           ) : (
-            <p className="text-xs text-gray-600 break-all">{previewUrl}</p>
+            <p className="break-all text-xs text-neutral-300">{previewUrl}</p>
           )}
         </div>
       ) : null}
 
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-red-400">{error}</p> : null}
 
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
           onClick={handleUpload}
           disabled={uploading || disabled}
-          className={`px-4 py-2 font-semibold rounded ${
+          className={`rounded px-4 py-2 font-semibold transition ${
             uploading || disabled
-              ? "bg-blue-300 text-white/80 cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-700"
+              ? "cursor-not-allowed bg-neutral-700 text-neutral-400"
+              : "bg-yellow-400 text-black hover:bg-yellow-300"
           }`}
         >
           {uploading ? "Uploading…" : `${buttonLabel} from computer`}
@@ -200,7 +200,7 @@ export default function SettingsUploader({
             href={value}
             target="_blank"
             rel="noreferrer"
-            className="px-4 py-2 border border-gray-300 rounded text-sm font-semibold hover:bg-gray-50"
+            className="rounded border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200"
           >
             View current
           </a>

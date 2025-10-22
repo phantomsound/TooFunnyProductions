@@ -131,51 +131,51 @@ export default function AdminSettingsGeneral(): JSX.Element {
   const usingGlobalTheme = local.theme_use_global;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 text-neutral-100">
       {lockedByOther ? (
-        <div className="rounded border border-red-400/40 bg-red-500/10 p-3 text-sm font-semibold tracking-wide text-red-100">
+        <div className="rounded border border-red-500/50 bg-red-500/10 p-3 text-sm font-semibold tracking-wide text-red-200">
           Draft is locked by another editor. Fields are read-only until they release the lock.
         </div>
       ) : stage !== "draft" ? (
-        <div className="rounded border border-amber-300 bg-amber-50 p-3 text-[13px] font-semibold uppercase tracking-wide text-amber-900">
+        <div className="rounded border border-amber-500/60 bg-amber-400/10 p-3 text-[13px] font-semibold uppercase tracking-wide text-amber-200">
           Switch to the Draft view to edit these fields.
         </div>
       ) : null}
 
       {/* Branding */}
       <section>
-        <h3 className="text-xl font-bold mb-3">Branding</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          <label className="block">
-            <div className="font-semibold mb-1">Site Title</div>
+        <h3 className="mb-3 text-xl font-semibold text-yellow-200">Branding</h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block text-sm">
+            <div className="mb-1 font-semibold text-neutral-200">Site Title</div>
             <input
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-400 focus:border-yellow-300 focus:outline-none focus:ring-0"
               value={local.site_title}
               onChange={(event) => update("site_title", event.target.value)}
               disabled={disabled}
             />
           </label>
 
-          <label className="block md:col-span-2">
-            <div className="font-semibold mb-1">Site Description</div>
+          <label className="block text-sm md:col-span-2">
+            <div className="mb-1 font-semibold text-neutral-200">Site Description</div>
             <textarea
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black min-h-[70px]"
+              className="min-h-[70px] w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-400 focus:border-yellow-300 focus:outline-none focus:ring-0"
               value={local.site_description}
               onChange={(event) => update("site_description", event.target.value)}
               disabled={disabled}
             />
           </label>
 
-          <label className="block md:col-span-2">
-            <div className="font-semibold mb-1">SEO Keywords</div>
+          <label className="block text-sm md:col-span-2">
+            <div className="mb-1 font-semibold text-neutral-200">SEO Keywords</div>
             <input
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-400 focus:border-yellow-300 focus:outline-none focus:ring-0"
               placeholder="comma,separated,keywords"
               value={local.site_keywords}
               onChange={(event) => update("site_keywords", event.target.value)}
               disabled={disabled}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-neutral-400">
               Separate each term with a comma (for example: <em>comedy, improv, sketch shows</em>). These help search engines
               understand what your site is about but do not appear on the page.
             </p>
@@ -206,16 +206,16 @@ export default function AdminSettingsGeneral(): JSX.Element {
       <section>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-xl font-bold mb-1">Theme Colors</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="mb-1 text-xl font-semibold text-yellow-200">Theme Colors</h3>
+            <p className="text-sm text-neutral-300">
               Use these pickers to set the accent and background colors that appear across the public site. Toggle the switch to
               allow each page to manage its own palette instead.
             </p>
           </div>
-          <label className="flex items-center gap-2 text-sm font-semibold">
+          <label className="flex items-center gap-2 text-sm font-semibold text-neutral-200">
             <input
               type="checkbox"
-              className="h-4 w-4"
+              className="h-4 w-4 accent-yellow-400"
               checked={usingGlobalTheme}
               onChange={(event) => update("theme_use_global", event.target.checked)}
               disabled={disabled}
@@ -223,7 +223,7 @@ export default function AdminSettingsGeneral(): JSX.Element {
             <span>Apply theme colors site-wide</span>
           </label>
         </div>
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <SettingsColorPicker
             label="Accent Color"
             value={local.theme_accent}
@@ -249,7 +249,7 @@ export default function AdminSettingsGeneral(): JSX.Element {
             disabled={disabled || !usingGlobalTheme}
           />
         </div>
-        <p className="mt-2 text-xs opacity-80">
+        <p className="mt-2 text-xs text-neutral-400">
           {usingGlobalTheme
             ? "These colors instantly theme the navigation, footer, and global accents."
             : "With the global theme disabled, colors fall back to each page’s defaults so you can customize them individually."}
@@ -258,11 +258,11 @@ export default function AdminSettingsGeneral(): JSX.Element {
 
       {/* Footer */}
       <section>
-        <h3 className="text-xl font-bold mb-3">Footer</h3>
-        <label className="block mb-3">
-          <div className="font-semibold mb-1">Footer Text</div>
+        <h3 className="mb-3 text-xl font-semibold text-yellow-200">Footer</h3>
+        <label className="mb-3 block text-sm">
+          <div className="mb-1 font-semibold text-neutral-200">Footer Text</div>
           <textarea
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black min-h-[60px]"
+            className="min-h-[60px] w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-400 focus:border-yellow-300 focus:outline-none focus:ring-0"
             value={local.footer_text}
             onChange={(event) => update("footer_text", event.target.value)}
             disabled={disabled}
@@ -279,9 +279,9 @@ export default function AdminSettingsGeneral(): JSX.Element {
       </section>
 
       <section>
-        <h3 className="text-xl font-bold mb-3">Admin Quick Links</h3>
-        <p className="text-sm text-gray-600 mb-3">
-          Configure up to four shortcuts that appear under <span className="font-semibold">Quick Links</span> in the admin
+        <h3 className="mb-3 text-xl font-semibold text-yellow-200">Admin Quick Links</h3>
+        <p className="mb-3 text-sm text-neutral-300">
+          Configure up to four shortcuts that appear under <span className="font-semibold text-yellow-100">Quick Links</span> in the admin
           sidebar. Perfect for Google Drive, documentation, or other team resources.
         </p>
         <SettingsLinkManager
@@ -303,11 +303,12 @@ export default function AdminSettingsGeneral(): JSX.Element {
 
       {/* Maintenance Mode */}
       <section>
-        <h3 className="text-xl font-bold mb-3">Maintenance</h3>
-        <div className="flex items-center gap-2 mb-3">
+        <h3 className="mb-3 text-xl font-semibold text-yellow-200">Maintenance</h3>
+        <div className="mb-3 flex items-center gap-2 text-sm text-neutral-200">
           <input
             id="maint_enabled"
             type="checkbox"
+            className="h-4 w-4 accent-yellow-400"
             checked={local.maintenance_enabled}
             onChange={(event) => update("maintenance_enabled", event.target.checked)}
             disabled={disabled}
@@ -317,20 +318,21 @@ export default function AdminSettingsGeneral(): JSX.Element {
           </label>
         </div>
 
-        <label className="block mb-3">
-          <div className="font-semibold mb-1">Maintenance Message</div>
+        <label className="mb-3 block text-sm">
+          <div className="mb-1 font-semibold text-neutral-200">Maintenance Message</div>
           <input
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            className="w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-400 focus:border-yellow-300 focus:outline-none focus:ring-0"
             value={local.maintenance_message}
             onChange={(event) => update("maintenance_message", event.target.value)}
             disabled={disabled}
           />
         </label>
 
-        <div className="flex items-center gap-2 mb-3">
+        <div className="mb-3 flex items-center gap-2 text-sm text-neutral-200">
           <input
             id="maint_schedule"
             type="checkbox"
+            className="h-4 w-4 accent-yellow-400"
             checked={local.maintenance_schedule_enabled}
             onChange={(event) => update("maintenance_schedule_enabled", event.target.checked)}
             disabled={disabled}
@@ -340,31 +342,31 @@ export default function AdminSettingsGeneral(): JSX.Element {
           </label>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-3">
-          <label className="block">
-            <div className="font-semibold mb-1">Daily Start (HH:MM)</div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="block text-sm">
+            <div className="mb-1 font-semibold text-neutral-200">Daily Start (HH:MM)</div>
             <input
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
               placeholder="02:00"
               value={local.maintenance_daily_start}
               onChange={(event) => update("maintenance_daily_start", event.target.value)}
               disabled={disabled}
             />
           </label>
-          <label className="block">
-            <div className="font-semibold mb-1">Daily End (HH:MM)</div>
+          <label className="block text-sm">
+            <div className="mb-1 font-semibold text-neutral-200">Daily End (HH:MM)</div>
             <input
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
               placeholder="02:30"
               value={local.maintenance_daily_end}
               onChange={(event) => update("maintenance_daily_end", event.target.value)}
               disabled={disabled}
             />
           </label>
-          <label className="block">
-            <div className="font-semibold mb-1">Timezone</div>
+          <label className="block text-sm">
+            <div className="mb-1 font-semibold text-neutral-200">Timezone</div>
             <input
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
               placeholder="America/Chicago"
               value={local.maintenance_timezone}
               onChange={(event) => update("maintenance_timezone", event.target.value)}
@@ -376,12 +378,12 @@ export default function AdminSettingsGeneral(): JSX.Element {
 
       {/* Admin Session Timeout */}
       <section>
-        <h3 className="text-xl font-bold mb-3">Admin Session Timeout</h3>
-        <p className="text-sm text-gray-600 mb-3">
+        <h3 className="mb-3 text-xl font-semibold text-yellow-200">Admin Session Timeout</h3>
+        <p className="mb-3 text-sm text-neutral-300">
           Draft edits are saved automatically before sessions expire. Choose how long admins remain logged in.
         </p>
         <select
-          className="border border-gray-300 rounded px-3 py-2 text-black bg-white"
+          className="rounded border border-neutral-700 !bg-neutral-900 px-3 py-2 text-sm !text-white focus:border-yellow-300 focus:outline-none focus:ring-0"
           value={local.session_timeout_minutes}
           onChange={(event) => update("session_timeout_minutes", Number(event.target.value))}
           disabled={disabled}

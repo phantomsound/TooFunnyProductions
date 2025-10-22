@@ -63,18 +63,18 @@ export default function SettingsLinkManager({
   };
 
   return (
-    <div className="space-y-4">
-      {label ? <div className="font-semibold">{label}</div> : null}
+    <div className="space-y-4 text-sm text-neutral-100">
+      {label ? <div className="text-sm font-semibold uppercase tracking-wide text-neutral-300">{label}</div> : null}
       {links.length === 0 ? (
-        <p className="text-sm text-gray-500">No links yet. Use the button below to add one.</p>
+        <p className="text-sm text-neutral-400">No links yet. Use the button below to add one.</p>
       ) : (
         <div className="space-y-4">
           {links.map((link, index) => (
-            <div key={index} className="grid md:grid-cols-[1fr_1fr_auto] gap-3 items-start">
-              <label className="block">
-                <div className="text-xs font-semibold uppercase tracking-wide mb-1">Label</div>
+            <div key={index} className="grid items-start gap-3 md:grid-cols-[1fr_1fr_auto]">
+              <label className="block text-xs uppercase tracking-wide">
+                <div className="mb-1 font-semibold text-neutral-300">Label</div>
                 <input
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+                  className="w-full rounded border border-neutral-700 bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
                   placeholder="Navigation Label"
                   value={link.label}
                   onChange={(e) => updateLink(index, { label: e.target.value })}
@@ -82,10 +82,10 @@ export default function SettingsLinkManager({
                 />
               </label>
 
-              <label className="block">
-                <div className="text-xs font-semibold uppercase tracking-wide mb-1">URL</div>
+              <label className="block text-xs uppercase tracking-wide">
+                <div className="mb-1 font-semibold text-neutral-300">URL</div>
                 <input
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+                  className="w-full rounded border border-neutral-700 bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
                   placeholder="https://example.com"
                   value={link.url}
                   onChange={(e) => updateLink(index, { url: e.target.value })}
@@ -97,10 +97,10 @@ export default function SettingsLinkManager({
                 type="button"
                 onClick={() => removeLink(index)}
                 disabled={disabled}
-                className={`self-center px-3 py-2 text-sm font-semibold rounded ${
+                className={`self-center rounded px-3 py-2 text-sm font-semibold transition ${
                   disabled
-                    ? "bg-red-300 text-white/80 cursor-not-allowed"
-                    : "bg-red-500 text-white hover:bg-red-600"
+                    ? "cursor-not-allowed bg-neutral-700 text-neutral-500"
+                    : "bg-red-500 text-white hover:bg-red-400"
                 }`}
               >
                 Remove
@@ -114,10 +114,10 @@ export default function SettingsLinkManager({
         type="button"
         onClick={addLink}
         disabled={disabled || maxReached}
-        className={`px-4 py-2 font-semibold rounded ${
+        className={`rounded px-4 py-2 font-semibold transition ${
           disabled || maxReached
-            ? "bg-blue-300 text-white/80 cursor-not-allowed"
-            : "bg-blue-600 text-white hover:bg-blue-700"
+            ? "cursor-not-allowed bg-neutral-700 text-neutral-500"
+            : "bg-yellow-400 text-black hover:bg-yellow-300"
         }`}
       >
         {maxReached ? "Link limit reached" : addLabel}

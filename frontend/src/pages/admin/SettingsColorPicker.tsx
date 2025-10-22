@@ -36,9 +36,9 @@ const contrastLabel = (ratio: number): { label: string; tone: "good" | "ok" | "b
 };
 
 const toneClass = (tone: "good" | "ok" | "bad") => {
-  if (tone === "good") return "text-emerald-600";
-  if (tone === "ok") return "text-amber-600";
-  return "text-red-600";
+  if (tone === "good") return "text-emerald-300";
+  if (tone === "ok") return "text-amber-300";
+  return "text-red-300";
 };
 
 const quickAdjustments = (hex: string) => [
@@ -136,24 +136,24 @@ export default function SettingsColorPicker({
 
   return (
     <div
-      className={`flex h-full flex-col gap-4 rounded-lg border border-gray-200 bg-white/95 p-4 shadow-sm transition ${
-        disabled ? "opacity-60" : "hover:border-gray-300"
+      className={`flex h-full flex-col gap-4 rounded-lg border border-neutral-800 bg-neutral-900/80 p-4 text-neutral-100 shadow-sm transition ${
+        disabled ? "opacity-60" : "hover:border-yellow-400/60"
       }`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-col items-center gap-2">
-          <label className="text-sm font-semibold uppercase tracking-wide text-gray-600">{label}</label>
+          <label className="text-sm font-semibold uppercase tracking-wide text-neutral-300">{label}</label>
           <input
             type="color"
             value={appliedHex}
             onChange={handleColorChange}
-            className="h-14 w-20 cursor-pointer rounded border border-gray-300 bg-white shadow"
+            className="h-14 w-20 cursor-pointer rounded border border-neutral-700 bg-neutral-950 shadow"
             disabled={disabled}
             aria-label={label}
           />
         </div>
         <div className="flex-1">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Hex value</label>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-400">Hex value</label>
           <div className="mt-1 flex items-center gap-2">
             <input
               type="text"
@@ -161,7 +161,7 @@ export default function SettingsColorPicker({
               onChange={handleTextChange}
               onBlur={handleBlur}
               disabled={disabled}
-              className="w-full rounded border border-gray-300 px-3 py-2 font-mono text-sm uppercase tracking-wider text-black shadow-sm focus:border-amber-400 focus:outline-none"
+              className="w-full rounded border border-neutral-700 !bg-neutral-950 px-3 py-2 font-mono text-sm uppercase tracking-wider !text-white shadow-sm focus:border-yellow-300 focus:outline-none"
               placeholder="#000000"
               inputMode="text"
             />
@@ -169,32 +169,32 @@ export default function SettingsColorPicker({
               type="button"
               onClick={handleCopy}
               disabled={disabled}
-              className="inline-flex items-center rounded border border-gray-300 px-2.5 py-2 text-xs font-semibold uppercase tracking-wider text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center rounded border border-neutral-700 px-2.5 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Copy
             </button>
           </div>
           {touched && !hasValidInput ? (
-            <p className="mt-1 text-xs text-red-600">Enter a 3- or 6-digit hex value such as #FFAA00.</p>
+            <p className="mt-1 text-xs text-red-400">Enter a 3- or 6-digit hex value such as #FFAA00.</p>
           ) : copied ? (
-            <p className="mt-1 text-xs text-emerald-600">Copied to clipboard.</p>
+            <p className="mt-1 text-xs text-emerald-300">Copied to clipboard.</p>
           ) : null}
         </div>
       </div>
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Quick adjustments</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Quick adjustments</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {adjustments.map((option) => (
             <button
               key={`${option.label}-${option.value}`}
               type="button"
-              className="flex items-center gap-2 rounded-md border border-gray-200 bg-white/80 px-2 py-1 text-xs font-semibold shadow-sm transition hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex items-center gap-2 rounded-md border border-neutral-700 bg-neutral-950/60 px-2 py-1 text-xs font-semibold shadow-sm transition hover:border-yellow-300 hover:text-yellow-200 disabled:cursor-not-allowed disabled:opacity-70"
               onClick={() => handleSwatch(option.value)}
               disabled={disabled}
             >
               <span
-                className="h-5 w-5 rounded border border-black/10 shadow-inner"
+                className="h-5 w-5 rounded border border-white/10 shadow-inner"
                 style={{ backgroundColor: option.value }}
                 aria-hidden
               />
@@ -205,7 +205,7 @@ export default function SettingsColorPicker({
       </div>
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tonal palette</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Tonal palette</p>
         <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {tonalScale.map((tone) => (
             <button
@@ -213,10 +213,10 @@ export default function SettingsColorPicker({
               type="button"
               onClick={() => handleSwatch(tone.value)}
               disabled={disabled}
-              className="flex items-center gap-2 rounded-md border border-gray-200 px-2 py-1 text-xs font-semibold shadow-sm transition hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex items-center gap-2 rounded-md border border-neutral-700 px-2 py-1 text-xs font-semibold shadow-sm transition hover:border-yellow-300 hover:text-yellow-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span
-                className="flex h-6 w-6 items-center justify-center rounded border border-black/10"
+                className="flex h-6 w-6 items-center justify-center rounded border border-white/10"
                 style={{ backgroundColor: tone.value, color: tone.text }}
               >
                 ●
@@ -227,8 +227,8 @@ export default function SettingsColorPicker({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white/80">
-        <div className="border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-800 bg-neutral-950/60">
+        <div className="border-b border-neutral-800 bg-neutral-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Preview
         </div>
         <div className="space-y-3 px-4 pb-4 pt-3" style={{ backgroundColor: previewSurface, color: previewSurfaceText }}>
@@ -238,11 +238,11 @@ export default function SettingsColorPicker({
           >
             Accent button
           </div>
-          <p className="text-xs" style={{ color: previewText }}>
-            Sample text on this color has <span className="font-semibold">{contrastTag}</span> contrast.
+          <p className="text-xs">
+            Sample text on this color has <span className="font-semibold text-yellow-200">{contrastTag}</span> contrast.
           </p>
         </div>
-        <div className="border-t border-gray-200 px-3 py-2 text-xs text-gray-600">
+        <div className="border-t border-neutral-800 px-3 py-2 text-xs text-neutral-300">
           Contrast ratio with auto text color: {" "}
           <span className={`font-semibold ${toneClass(tone)}`}>{contrast.toFixed(2)}:1</span> ({contrastTag})
         </div>

@@ -39,12 +39,12 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
   }, [reload, acquireLock]);
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-neutral-300 bg-white/80 p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="max-w-xl space-y-1">
-            <h2 className="text-2xl font-bold text-neutral-900">General Settings</h2>
-            <p className="text-sm text-neutral-600">
+    <div className="space-y-6 text-neutral-100">
+      <section className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="max-w-xl space-y-2">
+            <h2 className="text-2xl font-semibold text-yellow-300">General Settings</h2>
+            <p className="text-sm text-neutral-300">
               Tune the global look and feel of Too Funny Productions. Update the brand copy, upload logos, and manage
               color themes that cascade across every page unless a page override is configured.
             </p>
@@ -52,10 +52,12 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-col gap-1 text-right">
-              <label className="text-xs uppercase tracking-wide text-gray-500">Draft lock</label>
+              <label className="text-xs uppercase tracking-[0.18em] text-neutral-500">Draft lock</label>
               <div className="flex items-center justify-end gap-2">
                 <span
-                  className={`text-sm ${hasLock ? "text-green-500" : lockedByOther ? "text-red-500" : "text-gray-600"}`}
+                  className={`text-sm ${
+                    hasLock ? "text-emerald-400" : lockedByOther ? "text-red-400" : "text-neutral-400"
+                  }`}
                 >
                   {lockStatus}
                 </span>
@@ -63,7 +65,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
                   <button
                     onClick={() => releaseLock({ silent: false })}
                     disabled={lockLoading}
-                    className="rounded border border-red-400 bg-red-50 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded border border-red-500/60 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-300 transition hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Release
                   </button>
@@ -71,19 +73,19 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
                   <button
                     onClick={() => acquireLock({ silent: false })}
                     disabled={lockLoading || stage !== "draft"}
-                    className="rounded border border-blue-500 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded border border-blue-500/60 bg-blue-500/10 px-2 py-1 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Acquire
                   </button>
                 )}
               </div>
-              {lockError ? <span className="text-xs text-red-500">{lockError}</span> : null}
+              {lockError ? <span className="text-xs text-red-400">{lockError}</span> : null}
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="text-sm opacity-80">View:</label>
+              <label className="text-sm text-neutral-300">View:</label>
               <select
-                className="rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="rounded border border-neutral-700 !bg-neutral-900 px-2 py-1 text-sm text-neutral-100 focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-300"
                 value={stage}
                 onChange={(event) => setStage(event.target.value as "live" | "draft")}
               >
@@ -95,10 +97,10 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
             <button
               onClick={() => save()}
               disabled={stage !== "draft" || !isDirty || saving || lockedByOther}
-              className={`rounded px-3 py-1 font-semibold focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+              className={`rounded px-3 py-1 font-semibold transition focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900 ${
                 stage !== "draft" || !isDirty || saving || lockedByOther
-                  ? "cursor-not-allowed bg-gray-300 text-gray-600"
-                  : "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-300"
+                  ? "cursor-not-allowed bg-neutral-700 text-neutral-500"
+                  : "bg-yellow-400 text-black hover:bg-yellow-300"
               }`}
               title="Save changes to Draft"
             >
@@ -109,7 +111,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
               onClick={async () => {
                 await pullLive();
               }}
-              className="rounded border border-blue-500 bg-blue-50 px-3 py-1 font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded border border-blue-500/60 bg-blue-500/10 px-3 py-1 font-semibold text-blue-200 transition hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={lockLoading || lockedByOther}
               title="Copy current Live settings into Draft (does not publish)"
             >
@@ -118,7 +120,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
 
             <button
               onClick={() => window.open(previewUrl, "_blank")}
-              className="rounded border border-neutral-400 bg-neutral-100 px-3 py-1 font-semibold text-neutral-800 hover:bg-neutral-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-neutral-400"
+              className="rounded border border-neutral-700 !bg-neutral-900 px-3 py-1 font-semibold text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300/40 focus:ring-offset-2 focus:ring-offset-neutral-900"
               title="Open the public site with the draft values"
             >
               Preview Draft
@@ -126,7 +128,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
 
             <button
               onClick={() => setShowSnapshots(true)}
-              className="rounded border border-purple-500 bg-purple-50 px-3 py-1 font-semibold text-purple-700 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-300"
+              className="rounded border border-purple-500/70 bg-purple-500/10 px-3 py-1 font-semibold text-purple-200 transition hover:bg-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:ring-offset-2 focus:ring-offset-neutral-900"
               title="Manage saved draft snapshots"
             >
               Snapshots
@@ -134,7 +136,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
 
             <button
               onClick={publish}
-              className="rounded bg-yellow-400 px-3 py-1 font-semibold text-black hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded bg-yellow-400 px-3 py-1 font-semibold text-black transition hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-200 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={lockLoading || lockedByOther}
               title="Copy the current Draft into Live"
             >
@@ -144,14 +146,14 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
         </div>
       </section>
 
-      <section className="rounded-lg bg-white p-6 shadow-md">
-        <p className="text-sm text-neutral-600">
-          Looking for per-page tweaks? Jump over to <span className="font-semibold">Page Configurations</span> from the
-          sidebar to adjust individual layouts once your global styles are locked in.
+      <section className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-sm backdrop-blur">
+        <p className="text-sm text-neutral-300">
+          Looking for per-page tweaks? Jump over to <span className="font-semibold text-yellow-200">Page Configurations</span>
+          from the sidebar to adjust individual layouts once your global styles are locked in.
         </p>
       </section>
 
-      <section className="rounded-lg bg-white p-6 shadow-md">
+      <section className="rounded-xl border border-neutral-800 bg-neutral-900/80 p-6 shadow-lg backdrop-blur">
         <AdminSettingsGeneral />
       </section>
 
