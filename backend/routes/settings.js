@@ -5,10 +5,41 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
 
 const router = Router();
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DATA_DIR = join(__dirname, "..", "data");
+const DEFAULT_SETTINGS_PATH = join(DATA_DIR, "settings.json");
+const LOCAL_SETTINGS_PATH = join(DATA_DIR, "settings.local.json");
+
+async function readJsonFile(path) {
+  try {
+    const raw = await readFile(path, "utf8");
+    return JSON.parse(raw);
+  } catch (err) {
+    if (err && (err.code === "ENOENT" || err.name === "SyntaxError")) {
+      if (err.code !== "ENOENT") {
+        const message = err?.message ? `: ${err.message}` : "";
+        console.warn(`⚠️ Failed to parse ${path}${message}; ignoring override.`);
+      }
+      return null;
+    }
+    throw err;
+  }
+}
+
+async function loadLocalSettings() {
+  const override = await readJsonFile(LOCAL_SETTINGS_PATH);
+  if (override && typeof override === "object") return override;
+  const fallback = await readJsonFile(DEFAULT_SETTINGS_PATH);
+  return (fallback && typeof fallback === "object" ? fallback : {}) ?? {};
+}
 
 const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -174,7 +205,10 @@ async function ensureSingleton(stage) {
 // GET /api/settings?stage=live|draft (default live)
 router.get("/", async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!supabase) {
+      const localSettings = await loadLocalSettings();
+      return res.json(stripMetaFields(localSettings));
+    }
     const stage = req.query.stage === "draft" ? "draft" : "live";
     const table = TBL(stage);
 
@@ -613,7 +647,10 @@ router.delete("/versions/:id", requireAdmin, async (req, res) => {
 // GET /api/settings/preview – read draft row for /?stage=draft
 router.get("/preview", async (_req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!supabase) {
+      const localSettings = await loadLocalSettings();
+      return res.json(stripMetaFields(localSettings));
+    }
     const sel = await supabase
       .from("settings_draft")
       .select("*")

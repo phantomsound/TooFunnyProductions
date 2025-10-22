@@ -8,6 +8,7 @@ frontend/package-lock.json
 !*/.env.example
 dist/
 build/
+backend/data/settings.local.json
 
 # editors/OS
 .vscode/
