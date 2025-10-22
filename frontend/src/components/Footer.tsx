@@ -47,14 +47,14 @@ const Footer: React.FC = () => {
     : [];
 
   return (
-    <footer className="bg-brandDark text-white">
+    <footer className="bg-theme-footer text-theme-footer">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12">
         <div className="grid gap-10 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="space-y-4">
-            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-yellow-200/80">
+            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-theme-accent-soft">
               Sitemap
             </p>
-            <ul className="grid gap-3 text-sm text-white/75 sm:grid-cols-2">
+            <ul className="grid gap-3 text-sm sm:grid-cols-2 text-theme-footer-muted">
               {sitemapLinks.map((item) => {
                 const isExternal = /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(item.to);
                 if (isExternal) {
@@ -64,7 +64,7 @@ const Footer: React.FC = () => {
                         href={item.to}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="transition hover:text-white"
+                        className="footer-link-theme"
                       >
                         {item.label}
                       </a>
@@ -75,7 +75,7 @@ const Footer: React.FC = () => {
                 const to = item.preserveStage ? `${item.to}${stageSuffix}` : item.to;
                 return (
                   <li key={item.label}>
-                    <Link to={to} className="transition hover:text-white">
+                    <Link to={to} className="footer-link-theme">
                       {item.label}
                     </Link>
                   </li>
@@ -86,17 +86,17 @@ const Footer: React.FC = () => {
 
           {footerLinks.length > 0 ? (
             <div className="space-y-4">
-              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-yellow-200/80">
+              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-theme-accent-soft">
                 Connect
               </p>
-              <ul className="flex flex-wrap gap-3 text-sm text-white/70">
+              <ul className="flex flex-wrap gap-3 text-sm text-theme-footer-muted">
                 {footerLinks.map((link, idx) => {
                   const href = normalizeHref(link.url as string);
                   return (
                     <li key={`${link.url}-${idx}`}>
                       <a
                         href={href}
-                        className="transition hover:text-white"
+                        className="footer-link-theme"
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -110,7 +110,7 @@ const Footer: React.FC = () => {
           ) : null}
         </div>
 
-        <p className="text-center text-xs text-white/50">{footerText}</p>
+        <p className="text-center text-xs text-theme-footer-muted">{footerText}</p>
       </div>
     </footer>
   );

@@ -35,7 +35,7 @@ export default function App() {
         <ThemeProvider>
           <DevErrorBoundary>
             <MaintenanceGate>
-              <div className="min-h-screen bg-neutral-900 text-white">
+              <div className="min-h-screen">
                 <Navbar />
                 <SessionTimeoutOverlay />
 

@@ -22,39 +22,39 @@ export default function About() {
   const team = Array.isArray(settings?.about_team) ? settings.about_team : [];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 text-white">
-      <h1 className="text-3xl font-bold text-yellow-400 mb-6">{title}</h1>
-      <p className="opacity-80 mb-10 whitespace-pre-wrap">{body}</p>
+    <div className="mx-auto max-w-6xl px-4 py-10 text-theme-base">
+      <h1 className="mb-6 text-3xl font-bold text-theme-accent">{title}</h1>
+      <p className="mb-10 whitespace-pre-wrap text-theme-muted">{body}</p>
 
       <section className="mb-12 grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-2xl font-semibold mb-2 text-yellow-300">{missionTitle}</h2>
-          <p className="opacity-90 whitespace-pre-wrap">{missionBody}</p>
+        <div className="rounded-2xl border border-theme-surface bg-theme-surface p-6">
+          <h2 className="mb-2 text-2xl font-semibold text-theme-accent">{missionTitle}</h2>
+          <p className="whitespace-pre-wrap text-theme-muted">{missionBody}</p>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h3 className="text-xl font-semibold mb-2 text-yellow-200">What drives us</h3>
-          <p className="opacity-90">
+        <div className="rounded-2xl border border-theme-surface bg-theme-surface p-6">
+          <h3 className="mb-2 text-xl font-semibold text-theme-accent">What drives us</h3>
+          <p className="text-theme-muted">
             Too Funny Productions is a collaborative crew of comedians, directors, editors, and techs obsessed with creating
             unforgettable sketch and improv experiences.
           </p>
         </div>
       </section>
 
-      <h2 className="text-2xl font-semibold mb-2">Meet the Team</h2>
-      <p className="opacity-75 mb-6 whitespace-pre-wrap">{teamIntro}</p>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <h2 className="mb-2 text-2xl font-semibold text-theme-accent">Meet the Team</h2>
+      <p className="mb-6 whitespace-pre-wrap text-theme-muted">{teamIntro}</p>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {team.map((m: any, i: number) => (
-          <div key={i} className="bg-[#111] rounded-lg p-4">
-            {m.photo_url && <img src={m.photo_url} alt={m.name} className="w-full h-48 object-cover rounded mb-3" />}
-            <div className="text-lg font-semibold">{m.name}</div>
-            <div className="text-sm opacity-80">{m.title}</div>
-            {m.bio ? <p className="mt-2 text-sm opacity-80 whitespace-pre-wrap">{m.bio}</p> : null}
+          <div key={i} className="rounded-lg border border-theme-surface bg-theme-surface p-4">
+            {m.photo_url && <img src={m.photo_url} alt={m.name} className="mb-3 h-48 w-full rounded object-cover" />}
+            <div className="text-lg font-semibold text-theme-base">{m.name}</div>
+            <div className="text-sm text-theme-muted">{m.title}</div>
+            {m.bio ? <p className="mt-2 text-sm text-theme-muted whitespace-pre-wrap">{m.bio}</p> : null}
             {m.socials && (
               <div className="mt-2 flex gap-3 text-sm">
                 {Object.entries(m.socials)
                   .filter(([, url]) => typeof url === "string" && url)
                   .map(([network, url]: [string, string]) => (
-                    <a key={network} href={url} target="_blank" rel="noopener noreferrer" className="underline">
+                    <a key={network} href={url} target="_blank" rel="noopener noreferrer" className="text-theme-accent hover:text-theme-accent">
                       {network.charAt(0).toUpperCase() + network.slice(1)}
                     </a>
                   ))}

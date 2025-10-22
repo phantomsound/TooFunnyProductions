@@ -69,55 +69,55 @@ export default function Home() {
   const hasEvents = upcoming.length > 0;
 
   return (
-    <main className="bg-[#050505] text-white">
+    <main className="bg-theme-background text-theme-base">
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-12">
-        <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-neutral-900/90 via-neutral-950 to-black p-8 shadow-2xl lg:p-14">
+        <section className="overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-8 shadow-2xl lg:p-14">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start">
             <div className="flex flex-col gap-10">
               <header className="space-y-4">
-                <span className="inline-flex items-center gap-2 rounded-full border border-yellow-400/40 bg-yellow-400/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-yellow-200/90">
+                <span className="theme-accent-chip inline-flex items-center gap-2 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em]">
                   Too Funny Productions
                 </span>
-                <h1 className="text-3xl font-bold leading-tight text-yellow-200 sm:text-4xl lg:text-[2.75rem]">
+                <h1 className="text-3xl font-bold leading-tight text-theme-accent sm:text-4xl lg:text-[2.75rem]">
                   {heroTitle}
                 </h1>
-                <p className="max-w-xl text-base text-neutral-200/90 sm:text-lg">{heroSubtext}</p>
+                <p className="max-w-xl text-base text-theme-muted sm:text-lg">{heroSubtext}</p>
               </header>
 
               <div className="flex flex-wrap gap-4">
                 <Link
                   to={`/events${stageSuffix}`}
-                  className="rounded-full bg-yellow-300 px-6 py-2.5 text-sm font-semibold text-black transition hover:bg-yellow-200"
+                  className="theme-accent-button rounded-full px-6 py-2.5 text-sm font-semibold transition"
                 >
                   Get Tickets
                 </Link>
                 <Link
                   to={`/media${stageSuffix}`}
-                  className="rounded-full border border-yellow-400/70 px-6 py-2.5 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-300 hover:text-black"
+                  className="theme-accent-outline rounded-full px-6 py-2.5 text-sm font-semibold"
                 >
                   Watch a Clip
                 </Link>
                 <Link
                   to={`/contact${stageSuffix}`}
-                  className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
+                  className="theme-neutral-outline rounded-full px-6 py-2.5 text-sm font-semibold"
                 >
                   Contact Us
                 </Link>
               </div>
 
               {hasEvents ? (
-                <div className="rounded-3xl border border-yellow-400/20 bg-yellow-400/5 p-6 shadow-inner">
+                <div className="theme-accent-panel rounded-3xl p-6 shadow-inner">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
-                      <p className="text-xs uppercase tracking-[0.4em] text-yellow-200/70">Next up</p>
-                      <h2 className="text-lg font-semibold text-yellow-100">{upcoming[0]?.title || "Live show"}</h2>
-                      <p className="text-sm text-neutral-100/80">
+                      <p className="text-xs uppercase tracking-[0.4em] text-theme-accent-soft">Next up</p>
+                      <h2 className="text-lg font-semibold text-theme-accent">{upcoming[0]?.title || "Live show"}</h2>
+                      <p className="text-sm text-theme-base">
                         {(upcoming[0]?.date || "Date TBA") + " • " + (upcoming[0]?.venue || "Venue TBA")}
                       </p>
                     </div>
                     <Link
                       to={`/events${stageSuffix}`}
-                      className="inline-flex items-center justify-center rounded-full border border-yellow-300/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-yellow-100 transition hover:border-yellow-200 hover:text-yellow-50"
+                      className="theme-accent-outline inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em]"
                     >
                       View All
                     </Link>
@@ -127,44 +127,35 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col gap-6">
-              <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/60 p-4 shadow-2xl">
-                <div className="pointer-events-none absolute left-6 top-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-4 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-yellow-200/90">
+              <div className="relative overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-2xl">
+                <div className="pointer-events-none absolute left-6 top-6 inline-flex items-center gap-2 theme-accent-chip px-4 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.4em]">
                   Featured Video
                 </div>
-                <div className="aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black/80">
+                <div className="aspect-video overflow-hidden rounded-2xl border border-theme-surface bg-theme-background">
                   {heroVideo ? (
-                    <video
-                      src={heroVideo}
-                      controls
-                      preload="metadata"
-                      className="h-full w-full object-cover"
-                    />
+                    <video src={heroVideo} controls preload="metadata" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center px-6 text-center text-xs text-white/60">
+                    <div className="flex h-full w-full items-center justify-center px-6 text-center text-xs text-theme-muted">
                       Add a featured video in the admin panel to showcase your latest work.
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-black/45 p-6 shadow-xl">
+              <div className="rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-xl">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/70 sm:w-48 sm:flex-shrink-0">
+                  <div className="overflow-hidden rounded-2xl border border-theme-surface bg-theme-background sm:w-48 sm:flex-shrink-0">
                     {heroImage ? (
-                      <img
-                        src={heroImage}
-                        alt="Too Funny Productions"
-                        className="h-full w-full object-cover"
-                      />
+                      <img src={heroImage} alt="Too Funny Productions" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-36 items-center justify-center px-4 text-center text-xs text-white/60">
+                      <div className="flex h-36 items-center justify-center px-4 text-center text-xs text-theme-muted">
                         Add a hero image in the admin panel to complete the look.
                       </div>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.35em] text-white/40">Hero Spotlight</p>
-                    <p className="text-sm text-neutral-300">
+                    <p className="text-xs uppercase tracking-[0.35em] text-theme-muted">Hero Spotlight</p>
+                    <p className="text-sm text-theme-muted">
                       Pair your headline clip with a bold still or promo shot to set the tone for the page.
                     </p>
                   </div>
@@ -175,36 +166,38 @@ export default function Home() {
         </section>
 
         <section className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
-          <div className="rounded-3xl border border-white/10 bg-neutral-900/80 p-8 shadow-lg">
+          <div className="rounded-3xl border border-theme-surface bg-theme-surface p-8 shadow-lg">
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.4em] text-yellow-200/70">Who We Are</p>
-                <h2 className="text-2xl font-semibold text-yellow-200">{whoTitle}</h2>
+                <p className="text-xs uppercase tracking-[0.4em] text-theme-accent-soft">Who We Are</p>
+                <h2 className="text-2xl font-semibold text-theme-accent">{whoTitle}</h2>
               </div>
-              <p className="text-neutral-200/90 leading-relaxed">{whoBody}</p>
+              <p className="leading-relaxed text-theme-muted">{whoBody}</p>
               <div className="flex flex-wrap gap-3">
-                {whoCtaUrl ? (
-                  whoIsExternal ? (
-                    <a
-                      href={whoCtaUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-full bg-yellow-300 px-4 py-2 text-sm font-semibold text-black transition hover:bg-yellow-200"
-                    >
-                      {whoCtaLabel}
-                    </a>
-                  ) : (
-                    <Link
-                      to={`${whoCtaUrl}${stageSuffix}`}
-                      className="rounded-full bg-yellow-300 px-4 py-2 text-sm font-semibold text-black transition hover:bg-yellow-200"
-                    >
-                      {whoCtaLabel}
-                    </Link>
-                  )
-                ) : null}
+                {whoCtaUrl
+                  ? whoIsExternal
+                    ? (
+                        <a
+                          href={whoCtaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="theme-accent-button rounded-full px-4 py-2 text-sm font-semibold transition"
+                        >
+                          {whoCtaLabel}
+                        </a>
+                      )
+                    : (
+                        <Link
+                          to={`${whoCtaUrl}${stageSuffix}`}
+                          className="theme-accent-button rounded-full px-4 py-2 text-sm font-semibold transition"
+                        >
+                          {whoCtaLabel}
+                        </Link>
+                      )
+                  : null}
                 <Link
                   to={`/contact${stageSuffix}`}
-                  className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
+                  className="theme-neutral-outline rounded-full px-4 py-2 text-sm font-semibold"
                 >
                   Book the Crew
                 </Link>
@@ -213,15 +206,15 @@ export default function Home() {
           </div>
 
           <div className="space-y-6">
-            <section className="rounded-3xl border border-white/10 bg-neutral-900/70 p-6 shadow-lg">
+            <section className="rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-semibold text-yellow-200">Upcoming Shows</h2>
-                  <p className="text-sm text-neutral-300">Fresh chaos, fresh cities—see where we’re headed.</p>
+                  <h2 className="text-xl font-semibold text-theme-accent">Upcoming Shows</h2>
+                  <p className="text-sm text-theme-muted">Fresh chaos, fresh cities—see where we’re headed.</p>
                 </div>
                 <Link
                   to={`/events${stageSuffix}`}
-                  className="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white/70 transition hover:border-white hover:text-white"
+                  className="theme-neutral-outline rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em]"
                 >
                   All Shows
                 </Link>
@@ -235,21 +228,21 @@ export default function Home() {
                     return (
                       <article
                         key={`${event?.title || "event"}-${index}`}
-                        className="flex flex-col gap-2 rounded-2xl border border-white/5 bg-black/40 p-4 transition hover:border-yellow-200/40"
+                        className="flex flex-col gap-2 rounded-2xl border border-theme-surface bg-theme-background p-4 transition hover:border-theme-accent"
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <p className="text-xs uppercase tracking-[0.4em] text-white/35">
+                          <p className="text-xs uppercase tracking-[0.4em] text-theme-muted">
                             {event?.date || "Date TBA"}
                           </p>
-                          <span className="text-xs text-neutral-400">{event?.venue || "Venue TBA"}</span>
+                          <span className="text-xs text-theme-muted">{event?.venue || "Venue TBA"}</span>
                         </div>
-                        <h3 className="text-lg font-semibold text-yellow-100">{event?.title || "Untitled Show"}</h3>
+                        <h3 className="text-lg font-semibold text-theme-accent">{event?.title || "Untitled Show"}</h3>
                         {hasLink ? (
                           <a
                             href={link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-sm font-semibold text-yellow-300 transition hover:text-yellow-200"
+                            className="inline-flex items-center gap-2 text-sm font-semibold text-theme-accent hover:text-theme-accent"
                           >
                             Get Tickets
                             <span aria-hidden>→</span>
@@ -260,23 +253,23 @@ export default function Home() {
                   })}
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-neutral-400">
+                <p className="mt-4 text-sm text-theme-muted">
                   No shows are on the calendar yet—check back soon or follow us on social for updates.
                 </p>
               )}
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-neutral-900/70 p-6 shadow-lg">
+            <section className="rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-yellow-200">Media Spotlight</h2>
-                  <p className="text-sm text-neutral-300">
+                  <h2 className="text-xl font-semibold text-theme-accent">Media Spotlight</h2>
+                  <p className="text-sm text-theme-muted">
                     Dive into sketches, behind-the-scenes clips, and the latest Too Funny chaos.
                   </p>
                 </div>
                 <Link
                   to={`/media${stageSuffix}`}
-                  className="inline-flex items-center justify-center rounded-full bg-yellow-300 px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-yellow-200"
+                  className="theme-accent-button inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition"
                 >
                   Visit Media Page
                 </Link>

@@ -65,7 +65,7 @@ export default function AdminSettingsHome() {
           Draft is currently locked by another editor. Fields are read-only until the lock is released.
         </p>
       ) : stage !== "draft" ? (
-        <p className="mb-2 rounded border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-200">
+        <p className="mb-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Switch to the Draft view to edit the home page content.
         </p>
       ) : null}

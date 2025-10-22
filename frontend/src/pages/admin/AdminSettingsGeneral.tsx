@@ -31,6 +31,7 @@ interface GeneralSettings {
   theme_bg: string;
   header_bg: string;
   footer_bg: string;
+  theme_use_global: boolean;
 
   maintenance_enabled: boolean;
   maintenance_message: string;
@@ -88,6 +89,7 @@ const sanitizeSettings = (raw: unknown): GeneralSettings => {
     theme_bg: coerceColor(safe.theme_bg, "#111111"),
     header_bg: coerceColor(safe.header_bg, "#000000"),
     footer_bg: coerceColor(safe.footer_bg, "#000000"),
+    theme_use_global: coerceBool(safe.theme_use_global) !== false,
 
     maintenance_enabled: coerceBool(safe.maintenance_enabled),
     maintenance_message: coerceText(safe.maintenance_message, "We’ll be right back…"),
@@ -121,6 +123,7 @@ export default function AdminSettingsGeneral(): JSX.Element {
   };
 
   const footerLinks = local.footer_links;
+  const usingGlobalTheme = local.theme_use_global;
 
   return (
     <div className="space-y-10">
@@ -129,7 +132,7 @@ export default function AdminSettingsGeneral(): JSX.Element {
           Draft is locked by another editor. Fields are read-only until they release the lock.
         </div>
       ) : stage !== "draft" ? (
-        <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-[13px] font-semibold uppercase tracking-wide text-yellow-100">
+        <div className="rounded border border-amber-300 bg-amber-50 p-3 text-[13px] font-semibold uppercase tracking-wide text-amber-900">
           Switch to the Draft view to edit these fields.
         </div>
       ) : null}
@@ -196,35 +199,55 @@ export default function AdminSettingsGeneral(): JSX.Element {
 
       {/* Theme Colors */}
       <section>
-        <h3 className="text-xl font-bold mb-3">Theme Colors</h3>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-bold mb-1">Theme Colors</h3>
+            <p className="text-sm text-gray-600">
+              Use these pickers to set the accent and background colors that appear across the public site. Toggle the switch to
+              allow each page to manage its own palette instead.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={usingGlobalTheme}
+              onChange={(event) => update("theme_use_global", event.target.checked)}
+              disabled={disabled}
+            />
+            <span>Apply theme colors site-wide</span>
+          </label>
+        </div>
         <div className="grid md:grid-cols-2 gap-4">
           <SettingsColorPicker
             label="Accent Color"
             value={local.theme_accent}
             onChange={(value: string) => update("theme_accent", value)}
-            disabled={disabled}
+            disabled={disabled || !usingGlobalTheme}
           />
           <SettingsColorPicker
             label="Page Background"
             value={local.theme_bg}
             onChange={(value: string) => update("theme_bg", value)}
-            disabled={disabled}
+            disabled={disabled || !usingGlobalTheme}
           />
           <SettingsColorPicker
             label="Header Background"
             value={local.header_bg}
             onChange={(value: string) => update("header_bg", value)}
-            disabled={disabled}
+            disabled={disabled || !usingGlobalTheme}
           />
           <SettingsColorPicker
             label="Footer Background"
             value={local.footer_bg}
             onChange={(value: string) => update("footer_bg", value)}
-            disabled={disabled}
+            disabled={disabled || !usingGlobalTheme}
           />
         </div>
-        <p className="text-xs opacity-80 mt-2">
-          We can add per-page color overrides later (About/Events/etc.) if you want distinct looks.
+        <p className="mt-2 text-xs opacity-80">
+          {usingGlobalTheme
+            ? "These colors instantly theme the navigation, footer, and global accents."
+            : "With the global theme disabled, colors fall back to each page’s defaults so you can customize them individually."}
         </p>
       </section>
 

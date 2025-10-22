@@ -49,17 +49,19 @@ export default function UploadFromComputerButton({
     }
   };
 
+  const isDisabled = disabled || uploading;
+
   return (
     <div className="flex min-w-[170px] flex-col gap-1 text-sm">
       <button
         type="button"
         onClick={handleClick}
-        disabled={disabled || uploading}
+        disabled={isDisabled}
         className={`rounded border px-3 py-2 font-semibold transition ${
-          disabled || uploading
-            ? "cursor-not-allowed border-gray-200 text-gray-400"
+          isDisabled
+            ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-500"
             : "border-gray-300 bg-white hover:bg-gray-100"
-        } ${className}`.trim()}
+        } ${isDisabled ? "" : className}`.trim()}
       >
         {uploading ? "Uploading…" : children}
       </button>

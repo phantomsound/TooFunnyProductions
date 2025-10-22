@@ -6,6 +6,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import { useAuth } from "../hooks/useAuth";
+import { blendColors, normalizeHex, pickTextColor } from "./color";
 
 const isEventLike = (value: unknown): value is { nativeEvent?: unknown; preventDefault?: () => void } => {
   if (!value || typeof value !== "object") return false;
@@ -71,6 +72,46 @@ const sanitizeSettings = (value: Settings | null | undefined): Settings => {
 
 type Stage = "live" | "draft";
 type Settings = Record<string, any>;
+
+const DEFAULT_THEME = {
+  accent: "#FFD700",
+  background: "#050505",
+  header: "#000000",
+  footer: "#000000",
+};
+
+const computeTheme = (settings: Settings | null) => {
+  const useGlobal = settings?.theme_use_global !== false;
+  const accent = normalizeHex(useGlobal ? settings?.theme_accent : null, DEFAULT_THEME.accent);
+  const background = normalizeHex(useGlobal ? settings?.theme_bg : null, DEFAULT_THEME.background);
+  const header = normalizeHex(useGlobal ? settings?.header_bg : null, DEFAULT_THEME.header);
+  const footer = normalizeHex(useGlobal ? settings?.footer_bg : null, DEFAULT_THEME.footer);
+
+  const onAccent = pickTextColor(accent);
+  const onBackground = pickTextColor(background);
+  const onHeader = pickTextColor(header);
+  const onFooter = pickTextColor(footer);
+
+  return {
+    accent,
+    accentHover: blendColors(accent, onAccent, 0.15),
+    accentBorder: blendColors(accent, background, 0.55),
+    accentSoft: blendColors(background, accent, 0.12),
+    accentText: onAccent,
+    accentTextSoft: blendColors(onAccent, background, 0.35),
+    background,
+    backgroundText: onBackground,
+    backgroundTextMuted: blendColors(onBackground, background, 0.55),
+    surface: blendColors(background, onBackground, 0.08),
+    surfaceBorder: blendColors(onBackground, background, 0.82),
+    header,
+    headerText: onHeader,
+    headerTextMuted: blendColors(onHeader, header, 0.55),
+    footer,
+    footerText: onFooter,
+    footerTextMuted: blendColors(onFooter, footer, 0.55),
+  };
+};
 
 type LockState = {
   holder_email: string | null;
@@ -167,6 +208,36 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       document.title = title;
     }
   }, [settings?.favicon_url, settings?.site_title]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const theme = computeTheme(settings);
+    const root = document.documentElement;
+    const setVar = (name: string, value: string) => {
+      root.style.setProperty(name, value);
+    };
+
+    setVar("--tf-accent", theme.accent);
+    setVar("--tf-accent-hover", theme.accentHover);
+    setVar("--tf-accent-border", theme.accentBorder);
+    setVar("--tf-accent-soft", theme.accentSoft);
+    setVar("--tf-accent-text", theme.accentText);
+    setVar("--tf-accent-text-soft", theme.accentTextSoft);
+
+    setVar("--tf-bg", theme.background);
+    setVar("--tf-on-bg", theme.backgroundText);
+    setVar("--tf-on-bg-muted", theme.backgroundTextMuted);
+    setVar("--tf-surface", theme.surface);
+    setVar("--tf-surface-border", theme.surfaceBorder);
+
+    setVar("--tf-header", theme.header);
+    setVar("--tf-on-header", theme.headerText);
+    setVar("--tf-on-header-muted", theme.headerTextMuted);
+
+    setVar("--tf-footer", theme.footer);
+    setVar("--tf-on-footer", theme.footerText);
+    setVar("--tf-on-footer-muted", theme.footerTextMuted);
+  }, [settings]);
 
   const isDirty = useMemo(() => {
     if (!settings || !initial) return false;

@@ -20,17 +20,14 @@ export default function Navbar() {
       : null;
 
   const Item: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
-    <Link
-      to={`${to}${stageSuffix}`}
-      className="px-3 py-2 text-sm opacity-90 hover:opacity-100"
-    >
+    <Link to={`${to}${stageSuffix}`} className="nav-link-theme px-3 py-2 text-sm">
       {children}
     </Link>
   );
 
   return (
-    <nav className="w-full bg-neutral-900/95 backdrop-blur border-b border-white/10">
-      <div className="mx-auto max-w-6xl h-12 flex items-center justify-between px-4">
+    <nav className="w-full border-b border-theme-surface bg-theme-header backdrop-blur">
+      <div className="mx-auto flex h-12 max-w-6xl items-center justify-between px-4 text-theme-header">
         <Link to={`/${stageSuffix}`} className="flex items-center gap-2">
           {logoUrl ? (
             <img
@@ -39,7 +36,7 @@ export default function Navbar() {
               className="h-9 w-auto max-w-[150px] object-contain"
             />
           ) : (
-            <span className="text-yellow-400 font-semibold">Too Funny Productions</span>
+            <span className="font-semibold text-theme-accent">Too Funny Productions</span>
           )}
         </Link>
 
