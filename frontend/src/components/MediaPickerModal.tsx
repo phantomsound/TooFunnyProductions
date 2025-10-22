@@ -1,87 +1,168 @@
-import React, { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import React, { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
+
+import { api } from "../lib/api";
+
+export type MediaPickerItem = {
+  name: string;
+  path: string;
+  url: string;
+  mime_type: string | null;
+  size: number | null;
+  updated_at?: string | null;
+};
+
+type MediaPickerKind = "image" | "video" | "any";
 
 interface MediaPickerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (url: string) => void;
+  onSelect: (item: MediaPickerItem) => void;
+  kind?: MediaPickerKind;
 }
 
-const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
-  isOpen,
-  onClose,
-  onSelect,
-}) => {
-  const [files, setFiles] = useState<{ name: string; url: string }[]>([]);
-  const [loading, setLoading] = useState(true);
+const matchesKind = (item: MediaPickerItem, kind: MediaPickerKind) => {
+  if (kind === "any") return true;
+  const name = item.name.toLowerCase();
+  const type = item.mime_type?.toLowerCase() || "";
+  if (kind === "image") {
+    return type.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg)$/i.test(name);
+  }
+  if (kind === "video") {
+    return type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(name);
+  }
+  return true;
+};
+
+const MediaPickerModal: React.FC<MediaPickerModalProps> = ({ isOpen, onClose, onSelect, kind = "any" }) => {
+  const [items, setItems] = useState<MediaPickerItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    if (isOpen) fetchFiles();
-  }, [isOpen]);
+    if (!isOpen) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          sort: "updated_at",
+          direction: "desc",
+        });
+        if (search.trim()) params.set("q", search.trim());
+        const response = await fetch(api(`/api/storage/list?${params.toString()}`), {
+          credentials: "include",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error || `List failed: ${response.status}`);
+        if (!cancelled) {
+          const list = Array.isArray(payload.items) ? (payload.items as MediaPickerItem[]) : [];
+          setItems(list);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : "Failed to load media";
+          setError(message);
+          setItems([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, search]);
 
-  const fetchFiles = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.storage.from("media").list("uploads", { limit: 100 });
-    if (error) {
-      console.error("Error loading media:", error);
-      setLoading(false);
-      return;
-    }
-
-    const urls = data.map((f) => ({
-      name: f.name,
-      url: supabase.storage.from("media").getPublicUrl(`uploads/${f.name}`).data.publicUrl,
-    }));
-
-    setFiles(urls);
-    setLoading(false);
-  };
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => matchesKind(item, kind));
+  }, [items, kind]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg w-[90%] max-w-4xl p-6 shadow-lg relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+      <div className="relative w-full max-w-4xl rounded-xl bg-neutral-900 text-neutral-100 shadow-2xl">
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-black"
+          className="absolute right-3 top-3 rounded-full p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+          aria-label="Close picker"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
 
-        <h3 className="text-xl font-bold mb-4 text-center">Select Media</h3>
+        <div className="border-b border-neutral-800 px-6 py-4">
+          <h3 className="text-lg font-semibold">Select media</h3>
+          <p className="text-xs text-neutral-400">
+            Showing files from the media bucket. Use search to narrow results.
+          </p>
+        </div>
 
-        {loading ? (
-          <p className="text-center text-gray-500">Loading...</p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {files.map((file) => (
-              <div
-                key={file.url}
-                className="border rounded-lg overflow-hidden hover:ring-2 hover:ring-yellow-400 cursor-pointer"
-                onClick={() => {
-                  onSelect(file.url);
-                  onClose();
-                }}
-              >
-                {file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                  <img
-                    src={file.url}
-                    alt={file.name}
-                    className="object-cover w-full h-32"
-                  />
-                ) : (
-                  <video
-                    src={file.url}
-                    className="object-cover w-full h-32"
-                  ></video>
-                )}
-                <p className="text-sm text-center mt-1 truncate px-1">{file.name}</p>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="px-6 py-4 space-y-4">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search filenames…"
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:border-yellow-400 focus:outline-none"
+            autoFocus
+          />
+
+          {error ? (
+            <div className="rounded border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {error}
+            </div>
+          ) : null}
+
+          {loading ? (
+            <div className="py-10 text-center text-sm text-neutral-400">Loading media…</div>
+          ) : filteredItems.length === 0 ? (
+            <div className="py-10 text-center text-sm text-neutral-400">No media files found.</div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredItems.map((item) => (
+                <button
+                  key={item.path}
+                  type="button"
+                  onClick={() => {
+                    onSelect(item);
+                    onClose();
+                  }}
+                  className="group overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/60 text-left transition hover:border-yellow-400"
+                >
+                  <div className="flex h-40 items-center justify-center bg-neutral-900">
+                    {matchesKind(item, "image") ? (
+                      <img
+                        src={item.url}
+                        alt={item.name}
+                        className="max-h-40 w-full object-contain"
+                      />
+                    ) : matchesKind(item, "video") ? (
+                      <video
+                        src={item.url}
+                        className="max-h-40 w-full object-contain"
+                        controls={false}
+                        preload="metadata"
+                      />
+                    ) : (
+                      <span className="truncate px-4 text-xs text-neutral-400">{item.name}</span>
+                    )}
+                  </div>
+                  <div className="space-y-1 px-4 py-3 text-sm">
+                    <div className="truncate font-semibold text-neutral-100 group-hover:text-yellow-300">
+                      {item.name}
+                    </div>
+                    <div className="text-xs text-neutral-500">
+                      {item.size ? `${Math.round(item.size / 1024)} KB` : ""}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
