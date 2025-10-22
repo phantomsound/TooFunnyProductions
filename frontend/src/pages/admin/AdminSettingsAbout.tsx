@@ -110,19 +110,21 @@ export default function AdminSettingsAbout(): JSX.Element {
 
   const updateMember = <K extends keyof TeamMember>(index: number, key: K, value: TeamMember[K]) => {
     if (disabled) return;
+    let nextTeam: TeamMember[] = [];
     setLocal((prev) => {
-      const nextTeam = prev.about_team.map((member, idx) =>
+      nextTeam = prev.about_team.map((member, idx) =>
         idx === index ? { ...member, [key]: value } : member
       );
-      setField("about_team", nextTeam);
       return { ...prev, about_team: nextTeam };
     });
+    setField("about_team", nextTeam);
   };
 
   const updateSocial = (index: number, key: keyof SocialLinks, value: string) => {
     if (disabled) return;
+    let nextTeam: TeamMember[] = [];
     setLocal((prev) => {
-      const nextTeam = prev.about_team.map((member, idx) => {
+      nextTeam = prev.about_team.map((member, idx) => {
         if (idx !== index) return member;
         const socials = { ...member.socials };
         if (value.trim()) {
@@ -132,9 +134,9 @@ export default function AdminSettingsAbout(): JSX.Element {
         }
         return { ...member, socials };
       });
-      setField("about_team", nextTeam);
       return { ...prev, about_team: nextTeam };
     });
+    setField("about_team", nextTeam);
   };
 
   const addMember = () => {
