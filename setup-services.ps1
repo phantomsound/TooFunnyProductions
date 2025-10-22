@@ -16,11 +16,11 @@ $logsRoot                = 'C:\Apps\Logs'
 $toolsRoot               = 'C:\Apps\Tools'
 $nssmExe                 = Join-Path $toolsRoot 'nssm\nssm.exe'
 $cloudflaredExe          = Join-Path $toolsRoot 'cloudflared\cloudflared.exe'
-$nodeServiceName         = 'TFP-TooFunnyProductions-App'
-$nodeDisplayName         = 'TFP Too Funny Productions Admin'
-$cloudflareServiceName   = 'TFP-TooFunnyProductions-Tunnel'
-$cloudflareDisplayName   = 'TFP Too Funny Productions Cloudflare Tunnel'
-$cloudflareTunnelName    = 'tunnel-name-from-cloudflare'
+$nodeServiceName         = 'TFPService'
+$nodeDisplayName         = 'Too Funny Productions Admin (TFPService)'
+$cloudflareServiceName   = 'TFPService-Tunnel'
+$cloudflareDisplayName   = 'TFPService Cloudflare Tunnel'
+$cloudflareTunnelName    = 'MikoCFTunnel'
 $cloudflareTunnelConfig  = Join-Path $repoRoot 'cloudflared.yml'
 
 function Ensure-Path {
@@ -31,6 +31,10 @@ function Ensure-Path {
 }
 
 Ensure-Path $logsRoot
+
+if (-not (Test-Path $cloudflareTunnelConfig)) {
+    Write-Warning "Cloudflare tunnel config not found at $cloudflareTunnelConfig. Update cloudflared.yml before running install."
+}
 
 switch ($Action) {
     'install' {
@@ -45,6 +49,7 @@ switch ($Action) {
         & $nssmExe set $nodeServiceName AppRotateOnline 1
         & $nssmExe set $nodeServiceName AppRotateSeconds 86400
         & $nssmExe set $nodeServiceName AppRotateBytes 10485760
+        & $nssmExe set $nodeServiceName AppEnvironmentExtra "PORT=8081`nNODE_ENV=production"
         & $nssmExe set $nodeServiceName Start SERVICE_AUTO_START
 
         & $nssmExe install $cloudflareServiceName $cloudflaredExe "tunnel run $cloudflareTunnelName --config `"$cloudflareTunnelConfig`""
