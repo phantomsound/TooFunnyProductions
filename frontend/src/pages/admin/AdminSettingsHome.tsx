@@ -9,6 +9,7 @@ import { useSettings } from "../../lib/SettingsContext";
 import MediaPickerModal from "../../components/MediaPickerModal";
 import UploadFromComputerButton from "../../components/admin/UploadFromComputerButton";
 import { normalizeAdminUrl } from "../../utils/url";
+import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
 type HomeSettings = {
   hero_title: string;
@@ -350,6 +351,8 @@ export default function AdminSettingsHome() {
           </p>
         </div>
       </section>
+
+      <AdminPageThemeOverride prefix="home" pageName="Home" />
     </div>
   );
 }

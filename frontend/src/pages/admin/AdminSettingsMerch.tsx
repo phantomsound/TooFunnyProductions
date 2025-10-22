@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSettings } from "../../lib/SettingsContext";
 import SettingsUploader from "./SettingsUploader";
 import { normalizeAdminUrl } from "../../utils/url";
+import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
 type MerchItem = {
   title: string;
@@ -231,6 +232,8 @@ export default function AdminSettingsMerch(): JSX.Element {
           ))}
         </div>
       )}
+
+      <AdminPageThemeOverride prefix="merch" pageName="Merch" />
     </div>
   );
 }

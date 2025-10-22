@@ -11,6 +11,7 @@ import MediaPickerModal, {
 } from "../../components/MediaPickerModal";
 import UploadFromComputerButton from "../../components/admin/UploadFromComputerButton";
 import { normalizeAdminUrl } from "../../utils/url";
+import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
 type MediaItem = {
   type: "image" | "video";
@@ -558,6 +559,8 @@ export default function AdminSettingsMedia(): JSX.Element {
           </div>
         </div>
       ) : null}
+
+      <AdminPageThemeOverride prefix="media" pageName="Media" />
 
       <MediaPickerModal
         isOpen={picker !== null && !disabled}
