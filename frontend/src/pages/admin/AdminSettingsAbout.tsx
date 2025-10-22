@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSettings } from "../../lib/SettingsContext";
 import SettingsUploader from "./SettingsUploader";
 import { normalizeAdminUrl } from "../../utils/url";
+import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
 type SocialLinks = {
   instagram?: string;
@@ -333,6 +334,8 @@ export default function AdminSettingsAbout(): JSX.Element {
           </div>
         )}
       </section>
+
+      <AdminPageThemeOverride prefix="about" pageName="About" />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
 import { normalizeAdminUrl } from "../../utils/url";
+import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
 type ContactCard = {
   title: string;
@@ -297,6 +298,8 @@ export default function AdminSettingsContact(): JSX.Element {
           ))}
         </div>
       </section>
+
+      <AdminPageThemeOverride prefix="contact" pageName="Contact" />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { useSettings } from "../../lib/SettingsContext";
 import MediaPickerModal from "../../components/MediaPickerModal";
 import UploadFromComputerButton from "../../components/admin/UploadFromComputerButton";
 import { normalizeAdminUrl } from "../../utils/url";
+import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
 type HomeSettings = {
   hero_title: string;
@@ -85,6 +86,9 @@ export default function AdminSettingsHome() {
             disabled={disabled}
             placeholder="Comedy that's Too Funny"
           />
+          <p className="mt-1 text-xs text-gray-500">
+            Appears as the large headline in the hero banner on the public home page.
+          </p>
         </div>
 
         <div>
@@ -97,12 +101,18 @@ export default function AdminSettingsHome() {
             disabled={disabled}
             placeholder="Original sketch, live shows, and shamelessly fun chaos."
           />
+          <p className="mt-1 text-xs text-gray-500">
+            Short supporting copy that sits directly beneath the hero headline.
+          </p>
         </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-3">
           <label className="block text-sm font-semibold">Featured Video</label>
+          <p className="text-xs text-gray-500">
+            This optional clip displays in the “Featured Video” card to highlight your latest reel or teaser.
+          </p>
           <div className="space-y-2">
             <input
               className="w-full border border-gray-300 rounded px-3 py-2 text-black"
@@ -160,6 +170,9 @@ export default function AdminSettingsHome() {
 
         <div className="space-y-3">
           <label className="block text-sm font-semibold">Hero Image</label>
+          <p className="text-xs text-gray-500">
+            Shown alongside the hero text as a bold still image. Horizontal images (3:2) work best.
+          </p>
           <div className="space-y-2">
             <input
               className="w-full border border-gray-300 rounded px-3 py-2 text-black"
@@ -320,6 +333,9 @@ export default function AdminSettingsHome() {
             disabled={disabled}
             placeholder="/about"
           />
+          <p className="text-xs text-gray-500">
+            The label and link power the primary button beneath the Who We Are copy. Use internal paths (e.g. /about) or full URLs.
+          </p>
         </div>
         <div>
           <label className="block text-sm font-semibold">Who We Are — Body</label>
@@ -335,6 +351,8 @@ export default function AdminSettingsHome() {
           </p>
         </div>
       </section>
+
+      <AdminPageThemeOverride prefix="home" pageName="Home" />
     </div>
   );
 }

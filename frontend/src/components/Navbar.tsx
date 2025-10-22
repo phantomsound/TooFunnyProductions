@@ -49,18 +49,26 @@ export default function Navbar() {
           <Item to="/contact">Contact</Item>
         </div>
 
-        <div className="h-8 w-8 flex items-center justify-center">
-          {user?.picture && !pathname.startsWith("/admin") ? (
-            <img
-              src={user.picture}
-              alt=""
-              className="h-8 w-8 rounded-full border border-white/20 object-cover"
-              onError={(event) => {
-                const target = event.currentTarget;
-                target.remove();
-              }}
-            />
+        <div className="flex items-center gap-3">
+          {user ? (
+            <span className="hidden sm:inline-flex items-center gap-2 rounded-full border border-theme-surface bg-theme-surface/60 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-theme-accent">
+              Admin Mode
+            </span>
           ) : null}
+
+          <div className="flex h-8 w-8 items-center justify-center">
+            {user?.picture && !pathname.startsWith("/admin") ? (
+              <img
+                src={user.picture}
+                alt=""
+                className="h-8 w-8 rounded-full border border-white/20 object-cover"
+                onError={(event) => {
+                  const target = event.currentTarget;
+                  target.remove();
+                }}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
     </nav>

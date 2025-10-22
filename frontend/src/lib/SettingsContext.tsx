@@ -4,6 +4,7 @@
    Draft/Live context with save draft, pull live, publish, reload and stage.
    ========================================================================= */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "./api";
 import { useAuth } from "../hooks/useAuth";
 import { blendColors, normalizeHex, pickTextColor } from "./color";
@@ -80,12 +81,40 @@ const DEFAULT_THEME = {
   footer: "#000000",
 };
 
-const computeTheme = (settings: Settings | null) => {
+const coerceHex = (value: unknown, fallback: string) => {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+};
+
+const resolveThemePrefix = (pathname: string): string => {
+  if (pathname.startsWith("/about")) return "about";
+  if (pathname.startsWith("/events")) return "events";
+  if (pathname.startsWith("/media")) return "media";
+  if (pathname.startsWith("/merch")) return "merch";
+  if (pathname.startsWith("/contact")) return "contact";
+  return "home";
+};
+
+const computeTheme = (settings: Settings | null, pathname: string) => {
   const useGlobal = settings?.theme_use_global !== false;
-  const accent = normalizeHex(useGlobal ? settings?.theme_accent : null, DEFAULT_THEME.accent);
-  const background = normalizeHex(useGlobal ? settings?.theme_bg : null, DEFAULT_THEME.background);
-  const header = normalizeHex(useGlobal ? settings?.header_bg : null, DEFAULT_THEME.header);
-  const footer = normalizeHex(useGlobal ? settings?.footer_bg : null, DEFAULT_THEME.footer);
+  const source = (settings || {}) as Record<string, unknown>;
+  const prefix = resolveThemePrefix(pathname);
+
+  const fallbackAccent = coerceHex(source.theme_accent, DEFAULT_THEME.accent);
+  const fallbackBackground = coerceHex(source.theme_bg, DEFAULT_THEME.background);
+  const fallbackHeader = coerceHex(source.header_bg, DEFAULT_THEME.header);
+  const fallbackFooter = coerceHex(source.footer_bg, DEFAULT_THEME.footer);
+
+  const accentRaw = useGlobal ? source.theme_accent : source[`${prefix}_theme_accent`];
+  const backgroundRaw = useGlobal ? source.theme_bg : source[`${prefix}_theme_bg`];
+  const headerRaw = useGlobal ? source.header_bg : source[`${prefix}_header_bg`];
+  const footerRaw = useGlobal ? source.footer_bg : source[`${prefix}_footer_bg`];
+
+  const accent = normalizeHex(coerceHex(accentRaw, fallbackAccent), DEFAULT_THEME.accent);
+  const background = normalizeHex(coerceHex(backgroundRaw, fallbackBackground), DEFAULT_THEME.background);
+  const header = normalizeHex(coerceHex(headerRaw, fallbackHeader), DEFAULT_THEME.header);
+  const footer = normalizeHex(coerceHex(footerRaw, fallbackFooter), DEFAULT_THEME.footer);
 
   const onAccent = pickTextColor(accent);
   const onBackground = pickTextColor(background);
@@ -153,6 +182,7 @@ type Ctx = {
 const SettingsContext = createContext<Ctx | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
   const { user } = useAuth();
   const myEmail = user?.email ? user.email.toLowerCase() : null;
 
@@ -211,7 +241,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    const theme = computeTheme(settings);
+    const theme = computeTheme(settings, location.pathname || "/");
     const root = document.documentElement;
     const setVar = (name: string, value: string) => {
       root.style.setProperty(name, value);
@@ -237,7 +267,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setVar("--tf-footer", theme.footer);
     setVar("--tf-on-footer", theme.footerText);
     setVar("--tf-on-footer-muted", theme.footerTextMuted);
-  }, [settings]);
+  }, [settings, location.pathname]);
 
   const isDirty = useMemo(() => {
     if (!settings || !initial) return false;

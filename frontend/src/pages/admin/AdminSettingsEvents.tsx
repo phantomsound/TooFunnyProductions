@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
 import { normalizeAdminUrl } from "../../utils/url";
+import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
 type EventEntry = {
   title: string;
@@ -218,6 +219,8 @@ export default function AdminSettingsEvents(): JSX.Element {
 
       {renderList("events_upcoming", "Upcoming events")}
       {renderList("events_past", "Past events")}
+
+      <AdminPageThemeOverride prefix="events" pageName="Events" />
     </div>
   );
 }

@@ -72,7 +72,7 @@ export default function Home() {
     <main className="bg-theme-background text-theme-base">
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-12">
         <section className="overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-8 shadow-2xl lg:p-14">
-          <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
             <div className="flex flex-col gap-10">
               <header className="space-y-4">
                 <span className="theme-accent-chip inline-flex items-center gap-2 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em]">
@@ -126,8 +126,24 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="flex flex-col gap-6">
-              <div className="relative overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-2xl">
+            <div className="grid gap-6">
+              <div className="rounded-3xl border border-theme-surface bg-theme-surface p-5 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] lg:p-8">
+                <div className="overflow-hidden rounded-2xl border border-theme-surface bg-theme-background h-[260px] sm:h-[320px] lg:h-[430px]">
+                  {heroImage ? (
+                    <img
+                      src={heroImage}
+                      alt={heroTitle || "Too Funny Productions hero"}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-4 text-center text-xs text-theme-muted">
+                      Add a hero image in the admin panel to complete the look.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="relative overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl lg:p-6">
                 <div className="pointer-events-none absolute left-6 top-6 inline-flex items-center gap-2 theme-accent-chip px-4 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.4em]">
                   Featured Video
                 </div>
@@ -139,26 +155,6 @@ export default function Home() {
                       Add a featured video in the admin panel to showcase your latest work.
                     </div>
                   )}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-xl">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <div className="overflow-hidden rounded-2xl border border-theme-surface bg-theme-background sm:w-48 sm:flex-shrink-0">
-                    {heroImage ? (
-                      <img src={heroImage} alt="Too Funny Productions" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-36 items-center justify-center px-4 text-center text-xs text-theme-muted">
-                        Add a hero image in the admin panel to complete the look.
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.35em] text-theme-muted">Hero Spotlight</p>
-                    <p className="text-sm text-theme-muted">
-                      Pair your headline clip with a bold still or promo shot to set the tone for the page.
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -269,7 +265,7 @@ export default function Home() {
                 </div>
                 <Link
                   to={`/media${stageSuffix}`}
-                  className="theme-accent-button inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition"
+                  className="theme-accent-button inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition whitespace-nowrap"
                 >
                   Visit Media Page
                 </Link>
