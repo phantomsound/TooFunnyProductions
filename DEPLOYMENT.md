@@ -104,4 +104,15 @@ To keep the service alive on your PC you can:
 2. Make sure the backend listens on the same origin (`FRONTEND_URL` and `CORS_ORIGIN` above) so cookies and OAuth callbacks succeed.
 3. Update your Google OAuth client to use the production callback URL shown above.
 
+### Mapping Cloudflare Tunnel hostnames
+
+The `setup-services.ps1` installer now looks at `cloudflared.yml` and calls `cloudflared tunnel route dns` for every `hostname` entry it finds. This automatically creates (or updates) the CNAME records for your tunnel. To take advantage of it:
+
+1. Run `cloudflared login` once on the machine so the CLI has permission to manage DNS for your zone.
+2. Edit `cloudflared.yml` with the public hostnames you want to serve through the tunnel (each under an `ingress` entry).
+3. Execute `./setup-services.ps1` (or `./setup-services.ps1 -Action install`). During installation the script will create the Windows services and attempt to map each hostname via the Cloudflare API.
+4. If a hostname fails to map (for example because it already exists or because additional permissions are required) the script will emit a warning. In that case re-run the command manually: `cloudflared tunnel route dns MikoCFTunnel your.hostname.example`.
+
+> The DNS automation is idempotent: existing records pointing at the tunnel are left in place, so you can rerun the installer whenever you change hostnames.
+
 Once the admin settings are saved in Draft mode you can preview via the “Preview Draft” button and publish when ready. The General Settings page now shows inline success/error feedback and requires you to switch to Draft before saving, keeping the workflow predictable.
