@@ -20,7 +20,8 @@ $nodeServiceName         = 'TFPService'
 $nodeDisplayName         = 'Too Funny Productions Admin (TFPService)'
 $cloudflareServiceName   = 'TFPService-Tunnel'
 $cloudflareDisplayName   = 'TFPService Cloudflare Tunnel'
-$cloudflareTunnelName    = 'MikoCFTunnel'
+$defaultTunnelName       = 'MikoHomeTunnel'
+$cloudflareTunnelName    = $defaultTunnelName
 $cloudflareTunnelConfig  = Join-Path $repoRoot 'cloudflared.yml'
 
 function Remove-ServiceIfExists {
@@ -47,6 +48,21 @@ function Get-IngressHostnames {
         ForEach-Object { $_.Matches[0].Groups[1].Value }
 }
 
+function Get-TunnelNameFromConfig {
+    if (-not (Test-Path $cloudflareTunnelConfig)) {
+        return $null
+    }
+
+    $match = Select-String -Path $cloudflareTunnelConfig -Pattern '^\s*tunnel:\s*(\S+)' -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($match) {
+        return $match.Matches[0].Groups[1].Value
+    }
+
+    return $null
+}
+
 function Ensure-Path {
     param([string]$Path)
     if (-not (Test-Path $Path)) {
@@ -56,10 +72,17 @@ function Ensure-Path {
 
 Ensure-Path $logsRoot
 
+$tunnelNameFromConfig = Get-TunnelNameFromConfig
+if ($tunnelNameFromConfig) {
+    $cloudflareTunnelName = $tunnelNameFromConfig
+}
+
 $ingressHostnames = Get-IngressHostnames
 
 if (-not (Test-Path $cloudflareTunnelConfig)) {
     Write-Warning "Cloudflare tunnel config not found at $cloudflareTunnelConfig. Update cloudflared.yml before running install."
+} elseif (-not $tunnelNameFromConfig) {
+    Write-Warning "No tunnel name found in cloudflared.yml. DNS routes will default to $cloudflareTunnelName until you set the `tunnel:` field."
 } elseif ($ingressHostnames.Count -eq 0) {
     Write-Warning "No ingress hostnames were detected in cloudflared.yml. DNS routes will not be created automatically."
 }
