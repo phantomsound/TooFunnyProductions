@@ -33,7 +33,7 @@ function Remove-ServiceIfExists {
         try {
             Stop-Service -Name $ServiceName -Force -ErrorAction Stop
         } catch {
-            Write-Warning "Failed to stop $ServiceName: $($_.Exception.Message)"
+            Write-Warning "Failed to stop ${ServiceName}: $($_.Exception.Message)"
         }
         & $nssmExe remove $ServiceName confirm | Out-Null
     }
@@ -129,13 +129,13 @@ switch ($Action) {
         try {
             Start-Service $cloudflareServiceName
         } catch {
-            Write-Warning "Failed to start $cloudflareServiceName: $($_.Exception.Message)"
+            Write-Warning "Failed to start ${cloudflareServiceName}: $($_.Exception.Message)"
         }
 
         try {
             Start-Service $nodeServiceName
         } catch {
-            Write-Warning "Failed to start $nodeServiceName: $($_.Exception.Message)"
+            Write-Warning "Failed to start ${nodeServiceName}: $($_.Exception.Message)"
         }
 
         Write-Host "Services installed and started."
