@@ -1,0 +1,21 @@
+# Cloudflare Tunnel configuration for KBBG Broadcasting and Too Funny Productions
+# Update hostnames only when you add or remove a site; the setup script will reuse this tunnel for both apps.
+
+tunnel: MikoHomeTunnel
+credentials-file: C:\Apps\Config\cloudflared\20b316d7-3fc4-4481-a7e6-1f6dc40d4d51.json
+
+ingress:
+  # KBBG site
+  - hostname: www.kbbgbroadcasting.com
+    service: http://localhost:8080
+  - hostname: kbbg.kbbgbroadcasting.com
+    service: http://localhost:8080
+
+  # Too Funny Productions site
+  - hostname: toofunnyproductions.com
+    service: http://localhost:8081
+  - hostname: www.toofunnyproductions.com
+    service: http://localhost:8081
+
+  # Catch-all
+  - service: http_status:404

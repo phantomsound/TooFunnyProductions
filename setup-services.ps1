@@ -16,12 +16,52 @@ $logsRoot                = 'C:\Apps\Logs'
 $toolsRoot               = 'C:\Apps\Tools'
 $nssmExe                 = Join-Path $toolsRoot 'nssm\nssm.exe'
 $cloudflaredExe          = Join-Path $toolsRoot 'cloudflared\cloudflared.exe'
-$nodeServiceName         = 'TFP-TooFunnyProductions-App'
-$nodeDisplayName         = 'TFP Too Funny Productions Admin'
-$cloudflareServiceName   = 'TFP-TooFunnyProductions-Tunnel'
-$cloudflareDisplayName   = 'TFP Too Funny Productions Cloudflare Tunnel'
-$cloudflareTunnelName    = 'tunnel-name-from-cloudflare'
+$nodeServiceName         = 'TFPService'
+$nodeDisplayName         = 'Too Funny Productions Admin (TFPService)'
+$cloudflareServiceName   = 'TFPService-Tunnel'
+$cloudflareDisplayName   = 'TFPService Cloudflare Tunnel'
+$defaultTunnelName       = 'MikoHomeTunnel'
+$cloudflareTunnelName    = $defaultTunnelName
 $cloudflareTunnelConfig  = Join-Path $repoRoot 'cloudflared.yml'
+
+function Remove-ServiceIfExists {
+    param([string]$ServiceName)
+
+    $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if ($existingService) {
+        Write-Host "Service $ServiceName already exists. Removing before reinstall..."
+        try {
+            Stop-Service -Name $ServiceName -Force -ErrorAction Stop
+        } catch {
+            Write-Warning "Failed to stop $ServiceName: $($_.Exception.Message)"
+        }
+        & $nssmExe remove $ServiceName confirm | Out-Null
+    }
+}
+
+function Get-IngressHostnames {
+    if (-not (Test-Path $cloudflareTunnelConfig)) {
+        return @()
+    }
+
+    Select-String -Path $cloudflareTunnelConfig -Pattern '^\s*-\s*hostname:\s*(\S+)$' |
+        ForEach-Object { $_.Matches[0].Groups[1].Value }
+}
+
+function Get-TunnelNameFromConfig {
+    if (-not (Test-Path $cloudflareTunnelConfig)) {
+        return $null
+    }
+
+    $match = Select-String -Path $cloudflareTunnelConfig -Pattern '^\s*tunnel:\s*(\S+)' -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($match) {
+        return $match.Matches[0].Groups[1].Value
+    }
+
+    return $null
+}
 
 function Ensure-Path {
     param([string]$Path)
@@ -32,10 +72,26 @@ function Ensure-Path {
 
 Ensure-Path $logsRoot
 
+$tunnelNameFromConfig = Get-TunnelNameFromConfig
+if ($tunnelNameFromConfig) {
+    $cloudflareTunnelName = $tunnelNameFromConfig
+}
+
+$ingressHostnames = Get-IngressHostnames
+
+if (-not (Test-Path $cloudflareTunnelConfig)) {
+    Write-Warning "Cloudflare tunnel config not found at $cloudflareTunnelConfig. Update cloudflared.yml before running install."
+} elseif (-not $tunnelNameFromConfig) {
+    Write-Warning "No tunnel name found in cloudflared.yml. DNS routes will default to $cloudflareTunnelName until you set the `tunnel:` field."
+} elseif ($ingressHostnames.Count -eq 0) {
+    Write-Warning "No ingress hostnames were detected in cloudflared.yml. DNS routes will not be created automatically."
+}
+
 switch ($Action) {
     'install' {
         Write-Host "Installing NSSM services..."
 
+        Remove-ServiceIfExists -ServiceName $nodeServiceName
         & $nssmExe install $nodeServiceName "$env:ComSpec" "/c npm run start"
         & $nssmExe set $nodeServiceName DisplayName $nodeDisplayName
         & $nssmExe set $nodeServiceName AppDirectory $repoRoot
@@ -45,8 +101,10 @@ switch ($Action) {
         & $nssmExe set $nodeServiceName AppRotateOnline 1
         & $nssmExe set $nodeServiceName AppRotateSeconds 86400
         & $nssmExe set $nodeServiceName AppRotateBytes 10485760
+        & $nssmExe set $nodeServiceName AppEnvironmentExtra "PORT=8081`nNODE_ENV=production"
         & $nssmExe set $nodeServiceName Start SERVICE_AUTO_START
 
+        Remove-ServiceIfExists -ServiceName $cloudflareServiceName
         & $nssmExe install $cloudflareServiceName $cloudflaredExe "tunnel run $cloudflareTunnelName --config `"$cloudflareTunnelConfig`""
         & $nssmExe set $cloudflareServiceName DisplayName $cloudflareDisplayName
         & $nssmExe set $cloudflareServiceName AppDirectory (Split-Path $cloudflaredExe -Parent)
@@ -58,8 +116,27 @@ switch ($Action) {
         & $nssmExe set $cloudflareServiceName AppRotateBytes 10485760
         & $nssmExe set $cloudflareServiceName Start SERVICE_AUTO_START
 
-        Start-Service $cloudflareServiceName
-        Start-Service $nodeServiceName
+        if ($ingressHostnames.Count -gt 0) {
+            foreach ($hostname in $ingressHostnames) {
+                Write-Host "Ensuring Cloudflare DNS route for $hostname..."
+                & $cloudflaredExe tunnel route dns $cloudflareTunnelName $hostname
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Warning "Failed to map $hostname. Run `cloudflared tunnel route dns $cloudflareTunnelName $hostname` manually after authenticating."
+                }
+            }
+        }
+
+        try {
+            Start-Service $cloudflareServiceName
+        } catch {
+            Write-Warning "Failed to start $cloudflareServiceName: $($_.Exception.Message)"
+        }
+
+        try {
+            Start-Service $nodeServiceName
+        } catch {
+            Write-Warning "Failed to start $nodeServiceName: $($_.Exception.Message)"
+        }
 
         Write-Host "Services installed and started."
     }
