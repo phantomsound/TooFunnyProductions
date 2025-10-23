@@ -51,6 +51,7 @@ $cloudflareDisplayName   = 'TFPService Cloudflare Tunnel'
 $defaultTunnelName       = 'MikoHomeTunnel'
 $cloudflareTunnelName    = $defaultTunnelName
 $cloudflareTunnelConfig  = Join-Path $repoRoot 'cloudflared.yml'
+$tfpHostnameRegex        = [regex]'(^|\.)toofunnyproductions\.com$'
 
 function Remove-ServiceIfExists {
     param([string]$ServiceName)
@@ -138,6 +139,7 @@ if ($tunnelNameFromConfig) {
 }
 
 $ingressHostnames = Get-IngressHostnames
+$tfpHostnames = $ingressHostnames | Where-Object { $tfpHostnameRegex.IsMatch($_) }
 
 if (-not (Test-Path $cloudflareTunnelConfig)) {
     Write-Warning "Cloudflare tunnel config not found at $cloudflareTunnelConfig. Update cloudflared.yml before running install."
@@ -145,6 +147,8 @@ if (-not (Test-Path $cloudflareTunnelConfig)) {
     Write-Warning "No tunnel name found in cloudflared.yml. DNS routes will default to $cloudflareTunnelName until you set the `tunnel:` field."
 } elseif ($ingressHostnames.Count -eq 0) {
     Write-Warning "No ingress hostnames were detected in cloudflared.yml. DNS routes will not be created automatically."
+} elseif ($tfpHostnames.Count -eq 0) {
+    Write-Warning "No Too Funny Productions hostnames detected in cloudflared.yml. DNS routes for TFP will be skipped."
 }
 
 switch ($Action) {
@@ -176,14 +180,16 @@ switch ($Action) {
         & $nssmExe set $cloudflareServiceName AppRotateBytes 10485760
         & $nssmExe set $cloudflareServiceName Start SERVICE_AUTO_START
 
-        if ($ingressHostnames.Count -gt 0) {
-            foreach ($hostname in $ingressHostnames) {
+        if ($tfpHostnames.Count -gt 0) {
+            foreach ($hostname in $tfpHostnames) {
                 Write-Host "Ensuring Cloudflare DNS route for $hostname..."
                 & $cloudflaredExe tunnel route dns $cloudflareTunnelName $hostname
                 if ($LASTEXITCODE -ne 0) {
                     Write-Warning "Failed to map $hostname. Run `cloudflared tunnel route dns $cloudflareTunnelName $hostname` manually after authenticating."
                 }
             }
+        } elseif ($ingressHostnames.Count -gt 0) {
+            Write-Warning "Skipping Cloudflare DNS automation for ingress hostnames that are not part of toofunnyproductions.com."
         }
 
         $cloudflareStarted = Start-ServiceAndConfirm -ServiceName $cloudflareServiceName -DisplayName $cloudflareDisplayName
