@@ -11,6 +11,34 @@ param(
     [string]$Action = 'install'
 )
 
+function Ensure-Elevation {
+    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
+
+    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Warning 'Administrator access is required to install or manage Windows services.'
+
+        $shell = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell' }
+        $argumentList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
+
+        if ($Action) {
+            $argumentList += @('-Action', $Action)
+        }
+
+        Write-Host "Re-launching $shell with elevated privileges..."
+
+        try {
+            Start-Process -FilePath $shell -Verb RunAs -ArgumentList $argumentList | Out-Null
+        } catch {
+            throw "Unable to restart setup-services.ps1 with elevated privileges: $($_.Exception.Message)"
+        }
+
+        exit
+    }
+}
+
+Ensure-Elevation
+
 $repoRoot                = 'C:\Apps\TooFunnyProductions'
 $logsRoot                = 'C:\Apps\Logs'
 $toolsRoot               = 'C:\Apps\Tools'
@@ -33,10 +61,42 @@ function Remove-ServiceIfExists {
         try {
             Stop-Service -Name $ServiceName -Force -ErrorAction Stop
         } catch {
-            Write-Warning "Failed to stop ${ServiceName}: $($_.Exception.Message)"
+            Write-Warning "Failed to stop $ServiceName: $($_.Exception.Message)"
         }
         & $nssmExe remove $ServiceName confirm | Out-Null
     }
+}
+
+function Start-ServiceAndConfirm {
+    param(
+        [string]$ServiceName,
+        [string]$DisplayName,
+        [int]$TimeoutSeconds = 30
+    )
+
+    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if (-not $service) {
+        Write-Warning "Service $ServiceName is not installed."
+        return $false
+    }
+
+    try {
+        Start-Service -Name $ServiceName -ErrorAction Stop
+    } catch {
+        Write-Warning "Failed to start $DisplayName: $($_.Exception.Message)"
+        return $false
+    }
+
+    $service.Refresh()
+
+    try {
+        $service.WaitForStatus('Running', [TimeSpan]::FromSeconds($TimeoutSeconds))
+    } catch {
+        Write-Warning "Service $DisplayName did not reach the Running state within $TimeoutSeconds seconds."
+        return $false
+    }
+
+    return $true
 }
 
 function Get-IngressHostnames {
@@ -126,19 +186,14 @@ switch ($Action) {
             }
         }
 
-        try {
-            Start-Service $cloudflareServiceName
-        } catch {
-            Write-Warning "Failed to start ${cloudflareServiceName}: $($_.Exception.Message)"
-        }
+        $cloudflareStarted = Start-ServiceAndConfirm -ServiceName $cloudflareServiceName -DisplayName $cloudflareDisplayName
+        $nodeStarted = Start-ServiceAndConfirm -ServiceName $nodeServiceName -DisplayName $nodeDisplayName
 
-        try {
-            Start-Service $nodeServiceName
-        } catch {
-            Write-Warning "Failed to start ${nodeServiceName}: $($_.Exception.Message)"
+        if ($cloudflareStarted -and $nodeStarted) {
+            Write-Host "Services installed and started."
+        } else {
+            Write-Warning "Services were installed, but one or more failed to start. Check the NSSM logs in $logsRoot for details."
         }
-
-        Write-Host "Services installed and started."
     }
     'remove' {
         Write-Host "Stopping and removing NSSM services..."
