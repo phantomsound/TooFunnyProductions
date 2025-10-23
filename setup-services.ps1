@@ -51,6 +51,7 @@ $cloudflareDisplayName   = 'MikoCFTunnel'
 $defaultTunnelName       = 'MikoHomeTunnel'
 $cloudflareTunnelName    = $defaultTunnelName
 $cloudflareTunnelConfig  = Join-Path $repoRoot 'cloudflared.yml'
+$servicePort             = '8082'
 $tfpHostnameRegex        = [regex]'(^|\.)toofunnyproductions\.com$'
 $legacyTunnelServiceNames = @('TFPService-Tunnel')
 $nodeExecutable          = $null
@@ -307,12 +308,14 @@ switch ($Action) {
         & $nssmExe set $nodeServiceName AppRotateSeconds 86400
         & $nssmExe set $nodeServiceName AppRotateBytes 10485760
         $pathEnv = $env:PATH
-        $envExtras = @('PORT=8081', 'NODE_ENV=production')
+        $envExtras = @("PORT=$servicePort", 'NODE_ENV=production')
         if ($pathEnv) {
             $envExtras += "PATH=$pathEnv"
         }
         & $nssmExe set $nodeServiceName AppEnvironmentExtra ($envExtras -join "`n")
         & $nssmExe set $nodeServiceName Start SERVICE_AUTO_START
+        & $nssmExe set $nodeServiceName AppExit Default Restart
+        & $nssmExe set $nodeServiceName AppNoConsole 1
 
         foreach ($legacyName in $legacyTunnelServiceNames) {
             if ($legacyName -and $legacyName -ne $cloudflareServiceName) {

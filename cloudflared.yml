@@ -13,9 +13,9 @@ ingress:
 
   # Too Funny Productions site
   - hostname: toofunnyproductions.com
-    service: http://localhost:8081
+    service: http://localhost:8082
   - hostname: www.toofunnyproductions.com
-    service: http://localhost:8081
+    service: http://localhost:8082
 
   # Catch-all
   - service: http_status:404

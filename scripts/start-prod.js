@@ -11,7 +11,11 @@ const child = spawn(
   ["--prefix", "backend", "run", "start"],
   {
     stdio: "inherit",
-    env: { ...process.env, NODE_ENV: process.env.NODE_ENV || "production" },
+    env: {
+      ...process.env,
+      NODE_ENV: process.env.NODE_ENV || "production",
+      PORT: process.env.PORT || "8082",
+    },
     shell: isWindows,
   }
 );
