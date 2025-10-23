@@ -11,6 +11,34 @@ param(
     [string]$Action = 'install'
 )
 
+function Ensure-Elevation {
+    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
+
+    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Warning 'Administrator access is required to install or manage Windows services.'
+
+        $shell = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell' }
+        $argumentList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
+
+        if ($Action) {
+            $argumentList += @('-Action', $Action)
+        }
+
+        Write-Host "Re-launching $shell with elevated privileges..."
+
+        try {
+            Start-Process -FilePath $shell -Verb RunAs -ArgumentList $argumentList | Out-Null
+        } catch {
+            throw "Unable to restart setup-services.ps1 with elevated privileges: $($_.Exception.Message)"
+        }
+
+        exit
+    }
+}
+
+Ensure-Elevation
+
 $repoRoot                = 'C:\Apps\TooFunnyProductions'
 $logsRoot                = 'C:\Apps\Logs'
 $toolsRoot               = 'C:\Apps\Tools'
