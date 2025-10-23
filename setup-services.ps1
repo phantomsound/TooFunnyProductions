@@ -46,12 +46,66 @@ $nssmExe                 = Join-Path $toolsRoot 'nssm\nssm.exe'
 $cloudflaredExe          = Join-Path $toolsRoot 'cloudflared\cloudflared.exe'
 $nodeServiceName         = 'TFPService'
 $nodeDisplayName         = 'Too Funny Productions Admin (TFPService)'
-$cloudflareServiceName   = 'TFPService-Tunnel'
-$cloudflareDisplayName   = 'TFPService Cloudflare Tunnel'
+$cloudflareServiceName   = 'MikoCFTunnel'
+$cloudflareDisplayName   = 'MikoCFTunnel'
 $defaultTunnelName       = 'MikoHomeTunnel'
 $cloudflareTunnelName    = $defaultTunnelName
 $cloudflareTunnelConfig  = Join-Path $repoRoot 'cloudflared.yml'
 $tfpHostnameRegex        = [regex]'(^|\.)toofunnyproductions\.com$'
+$legacyTunnelServiceNames = @('TFPService-Tunnel')
+
+function Invoke-NpmCommand {
+    param(
+        [string[]]$Arguments,
+        [string]$WorkingDirectory = $repoRoot,
+        [string]$Description
+    )
+
+    $npmExecutable = if ($env:OS -eq 'Windows_NT') { 'npm.cmd' } else { 'npm' }
+    if (-not (Get-Command $npmExecutable -ErrorAction SilentlyContinue)) {
+        throw 'Unable to locate npm. Install Node.js 18+ and ensure npm (or npm.cmd) is available on PATH.'
+    }
+
+    if (-not $Description) {
+        $Description = "npm $($Arguments -join ' ')"
+    }
+
+    Write-Host "Running $Description..."
+
+    Push-Location $WorkingDirectory
+    try {
+        & $npmExecutable @Arguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "Command '$Description' failed with exit code $LASTEXITCODE."
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
+function Ensure-NodeDependencies {
+    $backendModulesPath = Join-Path (Join-Path $repoRoot 'backend') 'node_modules'
+    $dotenvModulePath = Join-Path $backendModulesPath 'dotenv'
+
+    if (Test-Path $dotenvModulePath) {
+        Write-Host 'Detected backend Node.js dependencies (dotenv). Skipping npm install.'
+        return
+    }
+
+    Invoke-NpmCommand -Arguments @('install', '--omit=dev') -Description 'npm install --omit=dev (workspace root)'
+}
+
+function Ensure-FrontendBuild {
+    $frontendDist = Join-Path (Join-Path $repoRoot 'frontend') 'dist'
+    $frontendIndex = Join-Path $frontendDist 'index.html'
+
+    if (Test-Path $frontendIndex) {
+        Write-Host 'Found frontend/dist/index.html. Skipping production build.'
+        return
+    }
+
+    Invoke-NpmCommand -Arguments @('--prefix', 'frontend', 'run', 'build') -Description 'npm --prefix frontend run build'
+}
 
 function Remove-ServiceIfExists {
     param([string]$ServiceName)
@@ -155,6 +209,9 @@ switch ($Action) {
     'install' {
         Write-Host "Installing NSSM services..."
 
+        Ensure-NodeDependencies
+        Ensure-FrontendBuild
+
         Remove-ServiceIfExists -ServiceName $nodeServiceName
         & $nssmExe install $nodeServiceName "$env:ComSpec" "/c npm run start"
         & $nssmExe set $nodeServiceName DisplayName $nodeDisplayName
@@ -167,6 +224,12 @@ switch ($Action) {
         & $nssmExe set $nodeServiceName AppRotateBytes 10485760
         & $nssmExe set $nodeServiceName AppEnvironmentExtra "PORT=8081`nNODE_ENV=production"
         & $nssmExe set $nodeServiceName Start SERVICE_AUTO_START
+
+        foreach ($legacyName in $legacyTunnelServiceNames) {
+            if ($legacyName -and $legacyName -ne $cloudflareServiceName) {
+                Remove-ServiceIfExists -ServiceName $legacyName
+            }
+        }
 
         Remove-ServiceIfExists -ServiceName $cloudflareServiceName
         & $nssmExe install $cloudflareServiceName $cloudflaredExe '--config' $cloudflareTunnelConfig 'tunnel' 'run' $cloudflareTunnelName
@@ -204,14 +267,13 @@ switch ($Action) {
     'remove' {
         Write-Host "Stopping and removing NSSM services..."
 
-        if (Get-Service -Name $nodeServiceName -ErrorAction SilentlyContinue) {
-            Stop-Service $nodeServiceName -ErrorAction SilentlyContinue
-            & $nssmExe remove $nodeServiceName confirm
-        }
+        Remove-ServiceIfExists -ServiceName $nodeServiceName
+        Remove-ServiceIfExists -ServiceName $cloudflareServiceName
 
-        if (Get-Service -Name $cloudflareServiceName -ErrorAction SilentlyContinue) {
-            Stop-Service $cloudflareServiceName -ErrorAction SilentlyContinue
-            & $nssmExe remove $cloudflareServiceName confirm
+        foreach ($legacyName in $legacyTunnelServiceNames) {
+            if ($legacyName -and $legacyName -ne $cloudflareServiceName) {
+                Remove-ServiceIfExists -ServiceName $legacyName
+            }
         }
 
         Write-Host "Services removed."
