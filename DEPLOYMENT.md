@@ -110,7 +110,7 @@ The `setup-services.ps1` installer now looks at `cloudflared.yml` and calls `clo
 
 1. Run `cloudflared login` once on the machine so the CLI has permission to manage DNS for your zone.
 2. Edit `cloudflared.yml` with the public hostnames you want to serve through the tunnel (each under an `ingress` entry). Hostnames that point to other services on the same machine (like the existing KBBG site on port `8080`) can stay in the file—the script only manages the DNS CNAMEs and leaves the `service:` targets untouched.
-3. When you are ready (for a fresh install or to pick up changes) run `./setup-services.ps1` from the repo root. The script will stop any existing `TFPService` / `TFPService-Tunnel` pair, reinstall them, read the `tunnel:` name from `cloudflared.yml`, and then attempt to map each hostname via the Cloudflare API.
+3. When you are ready (for a fresh install or to pick up changes) run `./setup-services.ps1` from the repo root. The script will stop the `TFPService` web process, reinstall it, ensure the Cloudflare tunnel runs under the `MikoCFTunnel` service (cleaning up the legacy `TFPService-Tunnel` name if it still exists), read the `tunnel:` name from `cloudflared.yml`, and then attempt to map each hostname via the Cloudflare API.
 4. If a hostname fails to map (for example because it already exists or because additional permissions are required) the script will emit a warning. In that case re-run the command manually with the same tunnel name you set in `cloudflared.yml`: `cloudflared tunnel route dns <tunnel-name> your.hostname.example`.
 
 > The DNS automation is idempotent: existing records pointing at the tunnel are left in place, so you can rerun the installer whenever you change hostnames.

@@ -46,12 +46,13 @@ $nssmExe                 = Join-Path $toolsRoot 'nssm\nssm.exe'
 $cloudflaredExe          = Join-Path $toolsRoot 'cloudflared\cloudflared.exe'
 $nodeServiceName         = 'TFPService'
 $nodeDisplayName         = 'Too Funny Productions Admin (TFPService)'
-$cloudflareServiceName   = 'TFPService-Tunnel'
-$cloudflareDisplayName   = 'TFPService Cloudflare Tunnel'
+$cloudflareServiceName   = 'MikoCFTunnel'
+$cloudflareDisplayName   = 'MikoCFTunnel'
 $defaultTunnelName       = 'MikoHomeTunnel'
 $cloudflareTunnelName    = $defaultTunnelName
 $cloudflareTunnelConfig  = Join-Path $repoRoot 'cloudflared.yml'
 $tfpHostnameRegex        = [regex]'(^|\.)toofunnyproductions\.com$'
+$legacyTunnelServiceNames = @('TFPService-Tunnel')
 
 function Remove-ServiceIfExists {
     param([string]$ServiceName)
@@ -168,6 +169,12 @@ switch ($Action) {
         & $nssmExe set $nodeServiceName AppEnvironmentExtra "PORT=8081`nNODE_ENV=production"
         & $nssmExe set $nodeServiceName Start SERVICE_AUTO_START
 
+        foreach ($legacyName in $legacyTunnelServiceNames) {
+            if ($legacyName -and $legacyName -ne $cloudflareServiceName) {
+                Remove-ServiceIfExists -ServiceName $legacyName
+            }
+        }
+
         Remove-ServiceIfExists -ServiceName $cloudflareServiceName
         & $nssmExe install $cloudflareServiceName $cloudflaredExe '--config' $cloudflareTunnelConfig 'tunnel' 'run' $cloudflareTunnelName
         & $nssmExe set $cloudflareServiceName DisplayName $cloudflareDisplayName
@@ -204,14 +211,13 @@ switch ($Action) {
     'remove' {
         Write-Host "Stopping and removing NSSM services..."
 
-        if (Get-Service -Name $nodeServiceName -ErrorAction SilentlyContinue) {
-            Stop-Service $nodeServiceName -ErrorAction SilentlyContinue
-            & $nssmExe remove $nodeServiceName confirm
-        }
+        Remove-ServiceIfExists -ServiceName $nodeServiceName
+        Remove-ServiceIfExists -ServiceName $cloudflareServiceName
 
-        if (Get-Service -Name $cloudflareServiceName -ErrorAction SilentlyContinue) {
-            Stop-Service $cloudflareServiceName -ErrorAction SilentlyContinue
-            & $nssmExe remove $cloudflareServiceName confirm
+        foreach ($legacyName in $legacyTunnelServiceNames) {
+            if ($legacyName -and $legacyName -ne $cloudflareServiceName) {
+                Remove-ServiceIfExists -ServiceName $legacyName
+            }
         }
 
         Write-Host "Services removed."
