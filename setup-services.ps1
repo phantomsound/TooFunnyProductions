@@ -46,12 +46,81 @@ $nssmExe                 = Join-Path $toolsRoot 'nssm\nssm.exe'
 $cloudflaredExe          = Join-Path $toolsRoot 'cloudflared\cloudflared.exe'
 $nodeServiceName         = 'TFPService'
 $nodeDisplayName         = 'Too Funny Productions Admin (TFPService)'
-$cloudflareServiceName   = 'TFPService-Tunnel'
-$cloudflareDisplayName   = 'TFPService Cloudflare Tunnel'
+$cloudflareServiceName   = 'MikoCFTunnel'
+$cloudflareDisplayName   = 'MikoCFTunnel'
 $defaultTunnelName       = 'MikoHomeTunnel'
 $cloudflareTunnelName    = $defaultTunnelName
 $cloudflareTunnelConfig  = Join-Path $repoRoot 'cloudflared.yml'
 $tfpHostnameRegex        = [regex]'(^|\.)toofunnyproductions\.com$'
+$legacyTunnelServiceNames = @('TFPService-Tunnel')
+$nodeExecutable          = $null
+
+function Resolve-NodeExecutable {
+    if ($script:nodeExecutable) {
+        return $script:nodeExecutable
+    }
+
+    try {
+        $command = Get-Command node -ErrorAction Stop
+        $script:nodeExecutable = $command.Source
+        return $script:nodeExecutable
+    } catch {
+        throw 'Unable to locate the Node.js runtime. Install Node.js 18+ and ensure node.exe is on PATH.'
+    }
+}
+
+function Invoke-NpmCommand {
+    param(
+        [string[]]$Arguments,
+        [string]$WorkingDirectory = $repoRoot,
+        [string]$Description
+    )
+
+    $npmExecutable = if ($env:OS -eq 'Windows_NT') { 'npm.cmd' } else { 'npm' }
+    if (-not (Get-Command $npmExecutable -ErrorAction SilentlyContinue)) {
+        throw 'Unable to locate npm. Install Node.js 18+ and ensure npm (or npm.cmd) is available on PATH.'
+    }
+
+    if (-not $Description) {
+        $Description = "npm $($Arguments -join ' ')"
+    }
+
+    Write-Host "Running $Description..."
+
+    Push-Location $WorkingDirectory
+    try {
+        & $npmExecutable @Arguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "Command '$Description' failed with exit code $LASTEXITCODE."
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
+function Ensure-NodeDependencies {
+    $backendModulesPath = Join-Path (Join-Path $repoRoot 'backend') 'node_modules'
+    $dotenvModulePath = Join-Path $backendModulesPath 'dotenv'
+
+    if (Test-Path $dotenvModulePath) {
+        Write-Host 'Detected backend Node.js dependencies (dotenv). Skipping npm install.'
+        return
+    }
+
+    Invoke-NpmCommand -Arguments @('install', '--omit=dev') -Description 'npm install --omit=dev (workspace root)'
+}
+
+function Ensure-FrontendBuild {
+    $frontendDist = Join-Path (Join-Path $repoRoot 'frontend') 'dist'
+    $frontendIndex = Join-Path $frontendDist 'index.html'
+
+    if (Test-Path $frontendIndex) {
+        Write-Host 'Found frontend/dist/index.html. Skipping production build.'
+        return
+    }
+
+    Invoke-NpmCommand -Arguments @('--prefix', 'frontend', 'run', 'build') -Description 'npm --prefix frontend run build'
+}
 
 function Remove-ServiceIfExists {
     param([string]$ServiceName)
@@ -109,6 +178,69 @@ function Get-IngressHostnames {
         ForEach-Object { $_.Matches[0].Groups[1].Value }
 }
 
+function Get-ExistingDnsRoutes {
+    try {
+        $output = & $cloudflaredExe tunnel route dns list $cloudflareTunnelName 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Unable to list Cloudflare DNS routes for $cloudflareTunnelName (exit $LASTEXITCODE)."
+            return @()
+        }
+    } catch {
+        Write-Warning "Failed to list Cloudflare DNS routes: $($_.Exception.Message)"
+        return @()
+    }
+
+    $hostnames = @()
+    foreach ($line in $output) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed) { continue }
+        if ($trimmed -like 'ID*') { continue }
+
+        $parts = $trimmed -split '\s+'
+        if ($parts.Length -ge 3 -and $parts[1] -match '^[A-Za-z0-9._-]+$') {
+            $hostnames += $parts[1]
+        }
+    }
+
+    return $hostnames
+}
+
+function Sync-DnsRoutes {
+    param(
+        [string[]]$DesiredHostnames
+    )
+
+    if (-not $DesiredHostnames -or $DesiredHostnames.Count -eq 0) {
+        return
+    }
+
+    $existing = Get-ExistingDnsRoutes
+    $desiredSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($hostname in $DesiredHostnames) {
+        if ($hostname) { $desiredSet.Add($hostname) | Out-Null }
+    }
+
+    foreach ($hostname in $existing) {
+        if (-not $hostname) { continue }
+        if ($tfpHostnameRegex.IsMatch($hostname) -and -not $desiredSet.Contains($hostname)) {
+            Write-Host "Removing stale Cloudflare DNS route for $hostname..."
+            & $cloudflaredExe tunnel route dns delete $cloudflareTunnelName $hostname
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Failed to remove DNS route for $hostname. Remove manually after authenticating."
+            }
+        }
+    }
+
+    foreach ($hostname in $DesiredHostnames) {
+        if (-not $hostname) { continue }
+        Write-Host "Ensuring Cloudflare DNS route for $hostname..."
+        & $cloudflaredExe tunnel route dns $cloudflareTunnelName $hostname
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Failed to map $hostname. Run `cloudflared tunnel route dns $cloudflareTunnelName $hostname` manually after authenticating."
+        }
+    }
+}
+
 function Get-TunnelNameFromConfig {
     if (-not (Test-Path $cloudflareTunnelConfig)) {
         return $null
@@ -155,8 +287,17 @@ switch ($Action) {
     'install' {
         Write-Host "Installing NSSM services..."
 
+        Ensure-NodeDependencies
+        Ensure-FrontendBuild
+
+        $nodeExe = Resolve-NodeExecutable
+        $startScript = Join-Path $repoRoot 'scripts\start-prod.js'
+        if (-not (Test-Path $startScript)) {
+            throw "Start script not found at $startScript. Run the deployment from the repo root."
+        }
+
         Remove-ServiceIfExists -ServiceName $nodeServiceName
-        & $nssmExe install $nodeServiceName "$env:ComSpec" "/c npm run start"
+        & $nssmExe install $nodeServiceName $nodeExe $startScript
         & $nssmExe set $nodeServiceName DisplayName $nodeDisplayName
         & $nssmExe set $nodeServiceName AppDirectory $repoRoot
         & $nssmExe set $nodeServiceName AppStdout (Join-Path $logsRoot 'toofunny-app.out.log')
@@ -165,8 +306,19 @@ switch ($Action) {
         & $nssmExe set $nodeServiceName AppRotateOnline 1
         & $nssmExe set $nodeServiceName AppRotateSeconds 86400
         & $nssmExe set $nodeServiceName AppRotateBytes 10485760
-        & $nssmExe set $nodeServiceName AppEnvironmentExtra "PORT=8081`nNODE_ENV=production"
+        $pathEnv = $env:PATH
+        $envExtras = @('PORT=8081', 'NODE_ENV=production')
+        if ($pathEnv) {
+            $envExtras += "PATH=$pathEnv"
+        }
+        & $nssmExe set $nodeServiceName AppEnvironmentExtra ($envExtras -join "`n")
         & $nssmExe set $nodeServiceName Start SERVICE_AUTO_START
+
+        foreach ($legacyName in $legacyTunnelServiceNames) {
+            if ($legacyName -and $legacyName -ne $cloudflareServiceName) {
+                Remove-ServiceIfExists -ServiceName $legacyName
+            }
+        }
 
         Remove-ServiceIfExists -ServiceName $cloudflareServiceName
         & $nssmExe install $cloudflareServiceName $cloudflaredExe '--config' $cloudflareTunnelConfig 'tunnel' 'run' $cloudflareTunnelName
@@ -181,13 +333,7 @@ switch ($Action) {
         & $nssmExe set $cloudflareServiceName Start SERVICE_AUTO_START
 
         if ($tfpHostnames.Count -gt 0) {
-            foreach ($hostname in $tfpHostnames) {
-                Write-Host "Ensuring Cloudflare DNS route for $hostname..."
-                & $cloudflaredExe tunnel route dns $cloudflareTunnelName $hostname
-                if ($LASTEXITCODE -ne 0) {
-                    Write-Warning "Failed to map $hostname. Run `cloudflared tunnel route dns $cloudflareTunnelName $hostname` manually after authenticating."
-                }
-            }
+            Sync-DnsRoutes -DesiredHostnames $tfpHostnames
         } elseif ($ingressHostnames.Count -gt 0) {
             Write-Warning "Skipping Cloudflare DNS automation for ingress hostnames that are not part of toofunnyproductions.com."
         }
@@ -204,14 +350,13 @@ switch ($Action) {
     'remove' {
         Write-Host "Stopping and removing NSSM services..."
 
-        if (Get-Service -Name $nodeServiceName -ErrorAction SilentlyContinue) {
-            Stop-Service $nodeServiceName -ErrorAction SilentlyContinue
-            & $nssmExe remove $nodeServiceName confirm
-        }
+        Remove-ServiceIfExists -ServiceName $nodeServiceName
+        Remove-ServiceIfExists -ServiceName $cloudflareServiceName
 
-        if (Get-Service -Name $cloudflareServiceName -ErrorAction SilentlyContinue) {
-            Stop-Service $cloudflareServiceName -ErrorAction SilentlyContinue
-            & $nssmExe remove $cloudflareServiceName confirm
+        foreach ($legacyName in $legacyTunnelServiceNames) {
+            if ($legacyName -and $legacyName -ne $cloudflareServiceName) {
+                Remove-ServiceIfExists -ServiceName $legacyName
+            }
         }
 
         Write-Host "Services removed."
