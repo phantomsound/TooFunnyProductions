@@ -57,11 +57,11 @@ function Remove-ServiceIfExists {
 
     $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
-        Write-Host "Service $ServiceName already exists. Removing before reinstall..."
+        Write-Host "Service ${ServiceName} already exists. Removing before reinstall..."
         try {
             Stop-Service -Name $ServiceName -Force -ErrorAction Stop
         } catch {
-            Write-Warning "Failed to stop $ServiceName: $($_.Exception.Message)"
+            Write-Warning "Failed to stop ${ServiceName}: $($_.Exception.Message)"
         }
         & $nssmExe remove $ServiceName confirm | Out-Null
     }
@@ -76,14 +76,14 @@ function Start-ServiceAndConfirm {
 
     $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     if (-not $service) {
-        Write-Warning "Service $ServiceName is not installed."
+        Write-Warning "Service ${ServiceName} is not installed."
         return $false
     }
 
     try {
         Start-Service -Name $ServiceName -ErrorAction Stop
     } catch {
-        Write-Warning "Failed to start $DisplayName: $($_.Exception.Message)"
+        Write-Warning "Failed to start ${DisplayName}: $($_.Exception.Message)"
         return $false
     }
 
@@ -92,7 +92,7 @@ function Start-ServiceAndConfirm {
     try {
         $service.WaitForStatus('Running', [TimeSpan]::FromSeconds($TimeoutSeconds))
     } catch {
-        Write-Warning "Service $DisplayName did not reach the Running state within $TimeoutSeconds seconds."
+        Write-Warning "Service ${DisplayName} did not reach the Running state within $TimeoutSeconds seconds."
         return $false
     }
 
@@ -165,7 +165,7 @@ switch ($Action) {
         & $nssmExe set $nodeServiceName Start SERVICE_AUTO_START
 
         Remove-ServiceIfExists -ServiceName $cloudflareServiceName
-        & $nssmExe install $cloudflareServiceName $cloudflaredExe "tunnel run $cloudflareTunnelName --config `"$cloudflareTunnelConfig`""
+        & $nssmExe install $cloudflareServiceName $cloudflaredExe '--config' $cloudflareTunnelConfig 'tunnel' 'run' $cloudflareTunnelName
         & $nssmExe set $cloudflareServiceName DisplayName $cloudflareDisplayName
         & $nssmExe set $cloudflareServiceName AppDirectory (Split-Path $cloudflaredExe -Parent)
         & $nssmExe set $cloudflareServiceName AppStdout (Join-Path $logsRoot 'cloudflared.out.log')
