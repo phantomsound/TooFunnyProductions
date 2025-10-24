@@ -41,7 +41,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
   return (
     <div className="space-y-6 text-neutral-100">
       <section className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-sm backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-xl space-y-2">
             <h2 className="text-2xl font-semibold text-yellow-300">General Settings</h2>
             <p className="text-sm text-neutral-300">
@@ -50,7 +50,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
             <div className="flex flex-col gap-1 text-right">
               <label className="text-xs uppercase tracking-[0.18em] text-neutral-500">Draft lock</label>
               <div className="flex items-center justify-end gap-2">
@@ -82,7 +82,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
               {lockError ? <span className="text-xs text-red-400">{lockError}</span> : null}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 lg:ml-auto">
               <label className="text-sm text-neutral-300">View:</label>
               <select
                 className="rounded border border-neutral-700 !bg-neutral-900 px-2 py-1 text-sm text-neutral-100 focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-300"
@@ -94,54 +94,56 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
               </select>
             </div>
 
-            <button
-              onClick={() => save()}
-              disabled={stage !== "draft" || !isDirty || saving || lockedByOther}
-              className={`rounded px-3 py-1 font-semibold transition focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900 ${
-                stage !== "draft" || !isDirty || saving || lockedByOther
-                  ? "cursor-not-allowed bg-neutral-700 text-neutral-500"
-                  : "bg-yellow-400 text-black hover:bg-yellow-300"
-              }`}
-              title="Save changes to Draft"
-            >
-              {saving ? "Saving…" : "Save Draft"}
-            </button>
+            <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+              <button
+                onClick={() => save()}
+                disabled={stage !== "draft" || !isDirty || saving || lockedByOther}
+                className={`rounded px-3 py-1 font-semibold transition focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900 ${
+                  stage !== "draft" || !isDirty || saving || lockedByOther
+                    ? "cursor-not-allowed bg-neutral-700 text-neutral-500"
+                    : "bg-yellow-400 text-black hover:bg-yellow-300"
+                }`}
+                title="Save changes to Draft"
+              >
+                {saving ? "Saving…" : "Save Draft"}
+              </button>
 
-            <button
-              onClick={async () => {
-                await pullLive();
-              }}
-              className="rounded border border-blue-500/60 bg-blue-500/10 px-3 py-1 font-semibold text-blue-200 transition hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={lockLoading || lockedByOther}
-              title="Copy current Live settings into Draft (does not publish)"
-            >
-              Pull Current Live
-            </button>
+              <button
+                onClick={async () => {
+                  await pullLive();
+                }}
+                className="rounded border border-blue-500/60 bg-blue-500/10 px-3 py-1 font-semibold text-blue-200 transition hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={lockLoading || lockedByOther}
+                title="Copy current Live settings into Draft (does not publish)"
+              >
+                Pull Current Live
+              </button>
 
-            <button
-              onClick={() => window.open(previewUrl, "_blank")}
-              className="rounded border border-neutral-700 !bg-neutral-900 px-3 py-1 font-semibold text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300/40 focus:ring-offset-2 focus:ring-offset-neutral-900"
-              title="Open the public site with the draft values"
-            >
-              Preview Draft
-            </button>
+              <button
+                onClick={() => window.open(previewUrl, "_blank")}
+                className="rounded border border-neutral-700 !bg-neutral-900 px-3 py-1 font-semibold text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300/40 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                title="Open the public site with the draft values"
+              >
+                Preview Draft
+              </button>
 
-            <button
-              onClick={() => setShowSnapshots(true)}
-              className="rounded border border-purple-500/70 bg-purple-500/10 px-3 py-1 font-semibold text-purple-200 transition hover:bg-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:ring-offset-2 focus:ring-offset-neutral-900"
-              title="Manage saved draft snapshots"
-            >
-              Snapshots
-            </button>
+              <button
+                onClick={() => setShowSnapshots(true)}
+                className="rounded border border-purple-500/70 bg-purple-500/10 px-3 py-1 font-semibold text-purple-200 transition hover:bg-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                title="Manage saved draft snapshots"
+              >
+                Snapshots
+              </button>
 
-            <button
-              onClick={publish}
-              className="rounded bg-yellow-400 px-3 py-1 font-semibold text-black transition hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-200 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={lockLoading || lockedByOther}
-              title="Copy the current Draft into Live"
-            >
-              Publish to Live
-            </button>
+              <button
+                onClick={publish}
+                className="rounded bg-yellow-400 px-3 py-1 font-semibold text-black transition hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-200 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={lockLoading || lockedByOther}
+                title="Copy the current Draft into Live"
+              >
+                Publish to Live
+              </button>
+            </div>
           </div>
         </div>
       </section>

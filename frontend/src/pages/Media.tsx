@@ -20,9 +20,9 @@ export default function Media() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 text-theme-base">
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 text-theme-base sm:px-6 sm:py-12 lg:px-8">
       <h1 className="mb-3 text-3xl font-bold text-theme-accent">{title}</h1>
-      <p className="mb-8 whitespace-pre-wrap text-theme-muted">{intro}</p>
+      <p className="mb-8 whitespace-pre-wrap break-words text-theme-muted">{intro}</p>
 
       {visibleSections.map((s: any, idx: number) => (
         <div key={idx} className="mb-10">
@@ -37,7 +37,7 @@ export default function Media() {
                 ) : (
                   <img src={it.url} alt={it.title || ""} className="mb-2 h-48 w-full rounded object-cover" />
                 )}
-                {it.title && <div className="text-sm text-theme-muted">{it.title}</div>}
+                {it.title && <div className="break-words text-sm text-theme-muted">{it.title}</div>}
               </div>
             ))}
           </div>

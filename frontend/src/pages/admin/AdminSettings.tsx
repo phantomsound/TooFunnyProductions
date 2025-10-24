@@ -74,9 +74,9 @@ export default function AdminSettings() {
     <div className="min-h-screen bg-gray-100 text-black">
       <div className="mx-auto max-w-6xl px-4 py-6">
         {/* Header actions */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <h2 className="text-2xl font-bold">Page Configurations</h2>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
             <div className="flex flex-col gap-1 text-right">
               <label className="text-xs uppercase tracking-wide text-gray-500">Draft lock</label>
               <div className="flex items-center justify-end gap-2">
@@ -108,7 +108,7 @@ export default function AdminSettings() {
               {lockError ? <span className="text-xs text-red-500">{lockError}</span> : null}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 lg:ml-auto">
               <label className="text-sm opacity-80">View:</label>
               <select
                 className="rounded border border-gray-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -120,52 +120,54 @@ export default function AdminSettings() {
               </select>
             </div>
 
-            <button
-              onClick={() => save()}
-              disabled={stage !== "draft" || !isDirty || saving || lockedByOther}
-              className={`px-3 py-1 rounded font-semibold focus:outline-none focus:ring-2 focus:ring-offset-1 ${
-                stage !== "draft" || !isDirty || saving || lockedByOther
-                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-300"
-              }`}
-              title="Save changes to Draft"
-            >
-              {saving ? "Saving…" : "Save Draft"}
-            </button>
+            <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+              <button
+                onClick={() => save()}
+                disabled={stage !== "draft" || !isDirty || saving || lockedByOther}
+                className={`px-3 py-1 rounded font-semibold focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+                  stage !== "draft" || !isDirty || saving || lockedByOther
+                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-300"
+                }`}
+                title="Save changes to Draft"
+              >
+                {saving ? "Saving…" : "Save Draft"}
+              </button>
 
-            <button
-              onClick={async () => { await pullLive(); }}
-              className="px-3 py-1 rounded border border-blue-500 bg-blue-50 font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={lockLoading || lockedByOther}
-              title="Copy current Live settings into Draft (does not publish)"
-            >
-              Pull Current Live
-            </button>
+              <button
+                onClick={async () => { await pullLive(); }}
+                className="px-3 py-1 rounded border border-blue-500 bg-blue-50 font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={lockLoading || lockedByOther}
+                title="Copy current Live settings into Draft (does not publish)"
+              >
+                Pull Current Live
+              </button>
 
-            <button
-              onClick={() => window.open(previewUrl, "_blank")}
-              className="px-3 py-1 rounded border border-neutral-400 bg-neutral-100 font-semibold text-neutral-800 hover:bg-neutral-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-neutral-400"
-              title="Open the public site with the draft values"
-            >
-              Preview Draft
-            </button>
+              <button
+                onClick={() => window.open(previewUrl, "_blank")}
+                className="px-3 py-1 rounded border border-neutral-400 bg-neutral-100 font-semibold text-neutral-800 hover:bg-neutral-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-neutral-400"
+                title="Open the public site with the draft values"
+              >
+                Preview Draft
+              </button>
 
-            <button
-              onClick={() => setShowSnapshots(true)}
-              className="px-3 py-1 rounded border border-purple-500 bg-purple-50 font-semibold text-purple-700 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-300"
-              title="Manage saved draft snapshots"
-            >
-              Snapshots
-            </button>
+              <button
+                onClick={() => setShowSnapshots(true)}
+                className="px-3 py-1 rounded border border-purple-500 bg-purple-50 font-semibold text-purple-700 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-300"
+                title="Manage saved draft snapshots"
+              >
+                Snapshots
+              </button>
 
-            <button
-              onClick={publish}
-              className="px-3 py-1 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={lockLoading || lockedByOther}
-              title="Copy the current Draft into Live"
-            >
-              Publish to Live
-            </button>
+              <button
+                onClick={publish}
+                className="px-3 py-1 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={lockLoading || lockedByOther}
+                title="Copy the current Draft into Live"
+              >
+                Publish to Live
+              </button>
+            </div>
           </div>
         </div>
 
