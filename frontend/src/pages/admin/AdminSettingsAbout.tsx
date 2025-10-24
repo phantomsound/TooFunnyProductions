@@ -161,6 +161,25 @@ export default function AdminSettingsAbout(): JSX.Element {
     setField("about_team", next);
   };
 
+  const moveMember = (index: number, direction: "up" | "down") => {
+    if (disabled) return;
+    let nextTeam: TeamMember[] | null = null;
+    setLocal((prev) => {
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.about_team.length) {
+        nextTeam = null;
+        return prev;
+      }
+      nextTeam = [...prev.about_team];
+      const [moved] = nextTeam.splice(index, 1);
+      nextTeam.splice(targetIndex, 0, moved);
+      return { ...prev, about_team: nextTeam };
+    });
+    if (nextTeam) {
+      setField("about_team", nextTeam);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {lockedByOther ? (
@@ -255,9 +274,36 @@ export default function AdminSettingsAbout(): JSX.Element {
           </p>
         ) : (
           <div className="space-y-6">
-            {local.about_team.map((member, index) => (
-              <div key={index} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-4 md:flex-row">
+            {local.about_team.map((member, index) => {
+              const canMoveUp = index > 0;
+              const canMoveDown = index < local.about_team.length - 1;
+
+              return (
+                <div key={index} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Member {index + 1}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => moveMember(index, "up")}
+                        disabled={disabled || !canMoveUp}
+                        className="rounded border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Move up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveMember(index, "down")}
+                        disabled={disabled || !canMoveDown}
+                        className="rounded border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Move down
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-4 md:flex-row">
                   <div className="md:w-1/3">
                     <SettingsUploader
                       label="Portrait"
@@ -329,8 +375,9 @@ export default function AdminSettingsAbout(): JSX.Element {
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
