@@ -15,7 +15,7 @@ FRONTEND_URL=https://toofunnyproductions.com
 CORS_ORIGIN=https://toofunnyproductions.com
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
-GOOGLE_CALLBACK_URL=https://toofunnyproductions.com/api/auth/google/callback
+GOOGLE_CALLBACK_URL=/api/auth/google/callback
 ```
 
 > **Tip:** Use the SQL statements in `backend/docs/settings-columns.sql` inside Supabase’s SQL editor once so every new column used by the admin UI exists in both `settings_draft` and `settings_public`.
@@ -102,7 +102,9 @@ To keep the service alive on your PC you can:
 
 1. Point your domain’s A record to your PC’s public IP (or use Cloudflare Tunnel if you don’t want to expose your IP).
 2. Make sure the backend listens on the same origin (`FRONTEND_URL` and `CORS_ORIGIN` above) so cookies and OAuth callbacks succeed.
-3. Update your Google OAuth client to use the production callback URL shown above.
+3. Update your Google OAuth client to allow the callback URL for every host that should reach the admin panel. Leaving
+   `GOOGLE_CALLBACK_URL` as `/api/auth/google/callback` lets the server auto-detect the current hostname (both locally and in
+   production), but each resulting full URL still needs to be listed in the Google Cloud Console.
 
 ### Mapping Cloudflare Tunnel hostnames
 

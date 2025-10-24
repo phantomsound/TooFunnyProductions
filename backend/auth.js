@@ -5,6 +5,10 @@ import { logAdminAction } from "./lib/audit.js";
 
 const DEV_FALLBACK_FRONTEND = "http://localhost:5173";
 
+function getDevBackendFallback() {
+  return `http://localhost:${process.env.PORT || 5000}`;
+}
+
 function pickFirstConfiguredFrontend() {
   const envCandidates = [
     process.env.FRONTEND_URL,
@@ -31,6 +35,22 @@ function normalizeFrontendBase(value) {
     url.search = "";
     const pathname = url.pathname === "/" ? "" : url.pathname;
     return `${url.origin}${pathname}`.replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAbsoluteUrl(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (!/^https?:$/i.test(url.protocol)) return null;
+    url.hash = "";
+    url.search = "";
+    if (url.pathname !== "/" && url.pathname.endsWith("/")) {
+      url.pathname = url.pathname.replace(/\/+$/, "");
+    }
+    return url.toString();
   } catch {
     return null;
   }
@@ -68,6 +88,49 @@ function resolveFrontendUrl(req) {
   return DEV_FALLBACK_FRONTEND;
 }
 
+function resolveBackendBase(req) {
+  const envCandidates = [
+    process.env.BACKEND_URL,
+    process.env.PUBLIC_BACKEND_URL,
+    process.env.API_PUBLIC_URL,
+    process.env.API_URL,
+  ];
+
+  for (const candidate of envCandidates) {
+    const normalized = normalizeFrontendBase(candidate);
+    if (normalized) return normalized;
+  }
+
+  const forwardedProto = req?.headers?.["x-forwarded-proto"]?.split(",")?.[0];
+  const forwardedHost = req?.headers?.["x-forwarded-host"]?.split(",")?.[0];
+  const host = forwardedHost || req?.get?.("host");
+  const protocol = forwardedProto || req?.protocol;
+
+  if (protocol && host) {
+    const combined = normalizeFrontendBase(`${protocol}://${host}`);
+    if (combined) return combined;
+  }
+
+  return getDevBackendFallback();
+}
+
+function resolveGoogleCallback(req) {
+  const raw = process.env.GOOGLE_CALLBACK_URL?.trim();
+  if (raw) {
+    if (raw.startsWith("/")) {
+      return `${resolveBackendBase(req)}${raw}`;
+    }
+    const normalized = normalizeAbsoluteUrl(raw);
+    if (normalized) return normalized;
+    console.warn(
+      "⚠️ Ignoring invalid GOOGLE_CALLBACK_URL value. Falling back to auto-detected host.",
+      raw
+    );
+  }
+
+  return `${resolveBackendBase(req)}/api/auth/google/callback`;
+}
+
 function getAllowlist() {
   return (process.env.ALLOWLIST_EMAILS || "")
     .split(",")
@@ -84,7 +147,6 @@ export function initAuth(app) {
   const requiredGoogleEnv = [
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
-    "GOOGLE_CALLBACK_URL",
   ];
   const missingGoogleEnv = requiredGoogleEnv.filter((key) => !process.env[key]);
   const hasGoogleStrategy = missingGoogleEnv.length === 0;
@@ -103,7 +165,6 @@ export function initAuth(app) {
         {
           clientID: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          callbackURL: process.env.GOOGLE_CALLBACK_URL,
         },
         async (_accessToken, _refreshToken, profile, done) => {
           try {
@@ -127,35 +188,44 @@ export function initAuth(app) {
 
   if (hasGoogleStrategy) {
     // Begin OAuth
-    app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+    app.get("/api/auth/google", (req, res, next) => {
+      passport.authenticate("google", {
+        scope: ["profile", "email"],
+        callbackURL: resolveGoogleCallback(req),
+      })(req, res, next);
+    });
 
     // OAuth callback → redirect to SPA
     app.get("/api/auth/google/callback", (req, res, next) => {
       const frontendUrl = resolveFrontendUrl(req);
 
-      passport.authenticate("google", (err, user) => {
-        if (err || !user) {
-          if (err) {
-            console.error("Google OAuth error", err);
-          }
-          return res.redirect(`${frontendUrl}/admin?auth=failed`);
-        }
-
-        req.logIn(user, async (loginErr) => {
-          if (loginErr) {
-            console.error("Google OAuth session error", loginErr);
+      passport.authenticate(
+        "google",
+        { callbackURL: resolveGoogleCallback(req) },
+        (err, user) => {
+          if (err || !user) {
+            if (err) {
+              console.error("Google OAuth error", err);
+            }
             return res.redirect(`${frontendUrl}/admin?auth=failed`);
           }
 
-          const email = (req.user?.email || user.email || "").toLowerCase();
-          const allowed = getAllowlist().includes(email);
-          try {
-            await logAdminAction(email || "unknown", allowed ? "login" : "login_denied");
-          } catch {}
-          if (!allowed) return res.redirect(`${frontendUrl}/admin?auth=denied`);
-          res.redirect(`${frontendUrl}/admin`);
-        });
-      })(req, res, next);
+          req.logIn(user, async (loginErr) => {
+            if (loginErr) {
+              console.error("Google OAuth session error", loginErr);
+              return res.redirect(`${frontendUrl}/admin?auth=failed`);
+            }
+
+            const email = (req.user?.email || user.email || "").toLowerCase();
+            const allowed = getAllowlist().includes(email);
+            try {
+              await logAdminAction(email || "unknown", allowed ? "login" : "login_denied");
+            } catch {}
+            if (!allowed) return res.redirect(`${frontendUrl}/admin?auth=denied`);
+            res.redirect(`${frontendUrl}/admin`);
+          });
+        }
+      )(req, res, next);
     });
   } else {
     const missingPayload = {
