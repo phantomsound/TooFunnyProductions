@@ -1,7 +1,7 @@
 // frontend/src/components/Navbar.tsx
 // ──────────────────────────────────────────────────────────────
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import useAuth from "../hooks/useAuth";
@@ -18,6 +18,21 @@ export default function Navbar() {
     typeof settings?.logo_url === "string" && settings.logo_url.trim().length > 0
       ? settings.logo_url
       : null;
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname, stageSuffix]);
+
+  const navLinks = [
+    { label: "Home", to: "/" },
+    { label: "About", to: "/about" },
+    { label: "Events", to: "/events" },
+    { label: "Media", to: "/media" },
+    { label: "Merch", to: "/merch" },
+    { label: "Contact", to: "/contact" },
+  ];
 
   const Item: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
     <Link to={`${to}${stageSuffix}`} className="nav-link-theme px-3 py-2 text-sm">
@@ -40,13 +55,35 @@ export default function Navbar() {
           )}
         </Link>
 
-        <div className="flex items-center gap-1">
-          <Item to="/">Home</Item>
-          <Item to="/about">About</Item>
-          <Item to="/events">Events</Item>
-          <Item to="/media">Media</Item>
-          <Item to="/merch">Merch</Item>
-          <Item to="/contact">Contact</Item>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-md p-2 text-theme-header focus:outline-none focus:ring-2 focus:ring-theme-accent md:hidden"
+          onClick={() => setIsMobileMenuOpen((open) => !open)}
+          aria-expanded={isMobileMenuOpen}
+          aria-label="Toggle navigation menu"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="h-6 w-6"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d={isMobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25"}
+            />
+          </svg>
+        </button>
+
+        <div className="hidden items-center gap-1 md:flex">
+          {navLinks.map((link) => (
+            <Item key={link.label} to={link.to}>
+              {link.label}
+            </Item>
+          ))}
         </div>
 
         <div className="flex items-center gap-3">
@@ -71,6 +108,22 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {isMobileMenuOpen ? (
+        <div className="border-t border-theme-surface bg-theme-header text-theme-header md:hidden">
+          <div className="mx-auto flex max-w-6xl flex-col px-4 py-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                to={`${link.to}${stageSuffix}`}
+                className="nav-link-theme w-full rounded-md px-3 py-2 text-sm"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </nav>
   );
 }
