@@ -8,8 +8,10 @@ import { Link, useLocation } from "react-router-dom";
 
 import { useSettings } from "../lib/SettingsContext";
 import { api } from "../lib/api";
+import { blendColors, normalizeHex, pickTextColor } from "../lib/color";
 
 type SizeOption = "small" | "medium" | "large";
+type BadgeVariant = "soft" | "bold";
 
 type Settings = {
   hero_title?: string;
@@ -21,9 +23,24 @@ type Settings = {
   who_cta_label?: string;
   who_cta_url?: string;
   who_image_url?: string;
+  who_label?: string;
+  who_show_label?: boolean;
+  who_label_size?: SizeOption;
+  who_title_size?: SizeOption;
+  who_body_size?: SizeOption;
   hero_title_size?: SizeOption;
   hero_subtext_size?: SizeOption;
   hero_badge_size?: SizeOption;
+  hero_badge_enabled?: boolean;
+  hero_badge_label?: string;
+  hero_badge_variant?: BadgeVariant;
+  hero_badge_use_theme_color?: boolean;
+  hero_badge_color?: string;
+  hero_badge_text_color?: string;
+  site_title?: string;
+  theme_accent?: string;
+  theme_use_global?: boolean;
+  home_theme_accent?: string;
 };
 
 const resolveSize = (value: unknown): SizeOption => {
@@ -34,6 +51,14 @@ const resolveSize = (value: unknown): SizeOption => {
     }
   }
   return "medium";
+};
+
+const resolveVariant = (value: unknown): BadgeVariant => (value === "bold" ? "bold" : "soft");
+
+const resolveBool = (value: unknown, fallback: boolean): boolean => {
+  if (value === true) return true;
+  if (value === false) return false;
+  return fallback;
 };
 
 const HERO_TITLE_CLASSES: Record<SizeOption, string> = {
@@ -52,6 +77,24 @@ const HERO_BADGE_CLASSES: Record<SizeOption, string> = {
   small: "px-3 py-1 text-[0.55rem] tracking-[0.28em]",
   medium: "px-4 py-1 text-[0.65rem] tracking-[0.3em]",
   large: "px-5 py-1 text-[0.75rem] tracking-[0.32em]",
+};
+
+const WHO_LABEL_CLASSES: Record<SizeOption, string> = {
+  small: "text-[0.55rem] tracking-[0.32em]",
+  medium: "text-xs tracking-[0.36em]",
+  large: "text-sm tracking-[0.4em]",
+};
+
+const WHO_TITLE_CLASSES: Record<SizeOption, string> = {
+  small: "text-xl",
+  medium: "text-2xl",
+  large: "text-3xl",
+};
+
+const WHO_BODY_CLASSES: Record<SizeOption, string> = {
+  small: "text-sm",
+  medium: "text-base",
+  large: "text-lg",
 };
 
 export default function Home() {
@@ -90,9 +133,55 @@ export default function Home() {
   const heroTitleSize = resolveSize(settings?.hero_title_size);
   const heroSubtextSize = resolveSize(settings?.hero_subtext_size);
   const heroBadgeSize = resolveSize(settings?.hero_badge_size);
+  const heroBadgeVariant = resolveVariant(settings?.hero_badge_variant);
+  const heroBadgeEnabled = resolveBool(settings?.hero_badge_enabled, true);
+  const heroBadgeUseTheme = resolveBool(settings?.hero_badge_use_theme_color, true);
+  const siteTitle = settings?.site_title?.trim() || "Too Funny Productions";
+  const heroBadgeLabel = settings?.hero_badge_label?.trim() || siteTitle;
   const heroTitleClass = HERO_TITLE_CLASSES[heroTitleSize];
   const heroSubtextClass = HERO_SUBTEXT_CLASSES[heroSubtextSize];
   const heroBadgeClass = HERO_BADGE_CLASSES[heroBadgeSize];
+  const themeUsesGlobal = settings?.theme_use_global !== false;
+  const themeAccentSource = (() => {
+    const globalAccent = settings?.theme_accent?.trim();
+    if (themeUsesGlobal) return globalAccent;
+    const homeAccent = (settings as any)?.home_theme_accent;
+    if (typeof homeAccent === "string" && homeAccent.trim()) return homeAccent.trim();
+    return globalAccent;
+  })();
+  const themeAccent = normalizeHex(themeAccentSource || "#FFD700", "#FFD700");
+  const customBadgeColor = heroBadgeUseTheme
+    ? themeAccent
+    : normalizeHex(settings?.hero_badge_color || themeAccent, themeAccent);
+  const customBadgeText = heroBadgeUseTheme
+    ? pickTextColor(customBadgeColor)
+    : normalizeHex(settings?.hero_badge_text_color || pickTextColor(customBadgeColor), pickTextColor(customBadgeColor));
+  const heroBadgeStyle = useMemo(() => {
+    if (!heroBadgeEnabled) return undefined;
+    if (heroBadgeUseTheme) return undefined;
+    if (heroBadgeVariant === "bold") {
+      return {
+        backgroundColor: customBadgeColor,
+        color: customBadgeText,
+        borderColor: blendColors(customBadgeColor, "#000000", 0.25),
+      } as React.CSSProperties;
+    }
+    const softBackground = blendColors(customBadgeColor, "#FFFFFF", 0.82);
+    const softBorder = blendColors(customBadgeColor, "#000000", 0.3);
+    return {
+      backgroundColor: softBackground,
+      color: customBadgeText,
+      borderColor: softBorder,
+    } as React.CSSProperties;
+  }, [customBadgeColor, customBadgeText, heroBadgeEnabled, heroBadgeUseTheme, heroBadgeVariant]);
+  const heroBadgeClasses = useMemo(() => {
+    if (!heroBadgeEnabled) return "";
+    const base = `inline-flex items-center gap-2 font-semibold uppercase ${heroBadgeClass}`;
+    if (heroBadgeUseTheme) {
+      return `${heroBadgeVariant === "bold" ? "theme-accent-button" : "theme-accent-chip"} ${base}`;
+    }
+    return `${base} border`;
+  }, [heroBadgeClass, heroBadgeEnabled, heroBadgeUseTheme, heroBadgeVariant]);
   const whoTitle = settings?.who_title?.trim() || "Who We Are";
   const whoBody =
     settings?.who_body?.trim() ||
@@ -100,6 +189,17 @@ export default function Home() {
   const whoCtaLabel = settings?.who_cta_label?.trim() || "Meet the Team";
   const whoCtaUrl = settings?.who_cta_url?.trim() || "/about";
   const whoIsExternal = /^https?:/i.test(whoCtaUrl);
+  const whoLabelRaw = settings?.who_label?.trim() || "Who We Are";
+  const whoShowLabel = resolveBool(settings?.who_show_label, true);
+  const whoLabelSize = resolveSize(settings?.who_label_size);
+  const whoTitleSize = resolveSize(settings?.who_title_size);
+  const whoBodySize = resolveSize(settings?.who_body_size);
+  const whoLabelClass = WHO_LABEL_CLASSES[whoLabelSize];
+  const whoTitleClass = WHO_TITLE_CLASSES[whoTitleSize];
+  const whoBodyClass = WHO_BODY_CLASSES[whoBodySize];
+  const normalizedLabel = whoLabelRaw.toLowerCase();
+  const normalizedTitle = whoTitle.toLowerCase();
+  const renderWhoLabel = whoShowLabel && whoLabelRaw && normalizedLabel !== normalizedTitle;
 
   const upcoming = useMemo(() => {
     if (!settings || !Array.isArray((settings as any).events_upcoming)) return [] as any[];
@@ -114,11 +214,11 @@ export default function Home() {
           <div className="grid gap-9 sm:gap-11 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:items-start lg:gap-12">
             <div className="flex min-w-0 flex-col gap-10">
               <header className="space-y-4">
-                <span
-                  className={`theme-accent-chip inline-flex items-center gap-2 font-semibold uppercase ${heroBadgeClass}`}
-                >
-                  Too Funny Productions
-                </span>
+                {heroBadgeEnabled ? (
+                  <span className={heroBadgeClasses} style={heroBadgeStyle}>
+                    {heroBadgeLabel}
+                  </span>
+                ) : null}
                 <h1 className={`font-bold leading-tight text-theme-accent ${heroTitleClass}`}>
                   {heroTitle}
                 </h1>
@@ -215,10 +315,12 @@ export default function Home() {
           <div className="min-w-0 w-full rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg sm:p-7 md:p-8">
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.4em] text-theme-accent-soft">Who We Are</p>
-                <h2 className="text-2xl font-semibold text-theme-accent">{whoTitle}</h2>
+                {renderWhoLabel ? (
+                  <p className={`uppercase text-theme-accent-soft ${whoLabelClass}`}>{whoLabelRaw}</p>
+                ) : null}
+                <h2 className={`font-semibold text-theme-accent ${whoTitleClass}`}>{whoTitle}</h2>
               </div>
-              <p className="break-words leading-relaxed text-theme-muted">{whoBody}</p>
+              <p className={`break-words leading-relaxed text-theme-muted ${whoBodyClass}`}>{whoBody}</p>
               <div className="flex flex-wrap gap-3">
                 {whoCtaUrl
                   ? whoIsExternal

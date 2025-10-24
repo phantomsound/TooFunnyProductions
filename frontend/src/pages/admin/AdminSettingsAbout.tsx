@@ -16,6 +16,7 @@ type SocialLinks = {
   youtube?: string;
   tiktok?: string;
   website?: string;
+  linktree?: string;
 };
 
 type TeamMember = {
@@ -39,7 +40,7 @@ const sanitizeSocials = (value: unknown): SocialLinks => {
   if (!value || typeof value !== "object") return {};
   const obj = value as Record<string, unknown>;
   const socials: SocialLinks = {};
-  for (const key of ["instagram", "twitter", "youtube", "tiktok", "website"] as const) {
+  for (const key of ["instagram", "twitter", "youtube", "tiktok", "website", "linktree"] as const) {
     const raw = obj[key];
     if (typeof raw === "string" && raw.trim()) socials[key] = raw.trim();
   }
@@ -100,6 +101,15 @@ export default function AdminSettingsAbout(): JSX.Element {
 
   const [local, setLocal] = useState<AboutSettings>(safe);
 
+  const applyTeamUpdate = (recipe: (team: TeamMember[]) => TeamMember[]) => {
+    if (disabled) return;
+    setLocal((prev) => {
+      const nextTeam = recipe(prev.about_team);
+      setField("about_team", nextTeam);
+      return { ...prev, about_team: nextTeam };
+    });
+  };
+
   useEffect(() => {
     setLocal(safe);
   }, [safe]);
@@ -111,27 +121,21 @@ export default function AdminSettingsAbout(): JSX.Element {
   };
 
   const updateMember = <K extends keyof TeamMember>(index: number, key: K, value: TeamMember[K]) => {
-    if (disabled) return;
-    let nextTeam: TeamMember[] = [];
-    setLocal((prev) => {
-      nextTeam = prev.about_team.map((member, idx) => {
+    applyTeamUpdate((team) =>
+      team.map((member, idx) => {
         if (idx !== index) return member;
         const nextMember: TeamMember = { ...member, [key]: value };
         if (key === "photo_url" && typeof value === "string") {
           nextMember.photo_url = normalizeAdminUrl(value);
         }
         return nextMember;
-      });
-      return { ...prev, about_team: nextTeam };
-    });
-    setField("about_team", nextTeam);
+      })
+    );
   };
 
   const updateSocial = (index: number, key: keyof SocialLinks, value: string) => {
-    if (disabled) return;
-    let nextTeam: TeamMember[] = [];
-    setLocal((prev) => {
-      nextTeam = prev.about_team.map((member, idx) => {
+    applyTeamUpdate((team) =>
+      team.map((member, idx) => {
         if (idx !== index) return member;
         const socials = { ...member.socials };
         const trimmed = value.trim();
@@ -141,24 +145,16 @@ export default function AdminSettingsAbout(): JSX.Element {
           delete socials[key];
         }
         return { ...member, socials };
-      });
-      return { ...prev, about_team: nextTeam };
-    });
-    setField("about_team", nextTeam);
+      })
+    );
   };
 
   const addMember = () => {
-    if (disabled) return;
-    const next = [...local.about_team, { ...blankMember }];
-    setLocal((prev) => ({ ...prev, about_team: next }));
-    setField("about_team", next);
+    applyTeamUpdate((team) => [...team, { ...blankMember }]);
   };
 
   const removeMember = (index: number) => {
-    if (disabled) return;
-    const next = local.about_team.filter((_, idx) => idx !== index);
-    setLocal((prev) => ({ ...prev, about_team: next }));
-    setField("about_team", next);
+    applyTeamUpdate((team) => team.filter((_, idx) => idx !== index));
   };
 
   return (
@@ -303,7 +299,7 @@ export default function AdminSettingsAbout(): JSX.Element {
                     </label>
 
                     <div className="grid gap-3 md:grid-cols-2">
-                      {(["instagram", "twitter", "youtube", "tiktok", "website"] as const).map((network) => (
+                      {(["instagram", "twitter", "youtube", "tiktok", "website", "linktree"] as const).map((network) => (
                         <label key={network} className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                           {network}
                           <input
@@ -311,7 +307,13 @@ export default function AdminSettingsAbout(): JSX.Element {
                             value={member.socials[network] || ""}
                             onChange={(event) => updateSocial(index, network, event.target.value)}
                             disabled={disabled}
-                            placeholder={network === "website" ? "https://toofunnyproductions.com" : `https://…/${network}`}
+                            placeholder={
+                              network === "website"
+                                ? "https://toofunnyproductions.com"
+                                : network === "linktree"
+                                ? "https://linktr.ee/yourhandle"
+                                : `https://…/${network}`
+                            }
                           />
                         </label>
                       ))}
