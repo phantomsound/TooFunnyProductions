@@ -2,6 +2,7 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { logAdminAction } from "./lib/audit.js";
+import { getAllowlist } from "./lib/allowlist.js";
 
 const DEV_FALLBACK_FRONTEND = "http://localhost:5173";
 
@@ -156,13 +157,6 @@ function resolveGoogleCallback(req) {
   }
 
   return `${resolveBackendBase(req)}/api/auth/google/callback`;
-}
-
-function getAllowlist() {
-  return (process.env.ALLOWLIST_EMAILS || "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
 }
 
 passport.serializeUser((user, done) => done(null, user));

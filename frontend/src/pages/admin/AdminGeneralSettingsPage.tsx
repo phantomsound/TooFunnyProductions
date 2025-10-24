@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
 import AdminSettingsSnapshots from "./AdminSettingsSnapshots";
+import AdminAllowlistManager from "./AdminAllowlistManager";
 import AdminSettingsGeneral from "./AdminSettingsGeneral";
 
 export default function AdminGeneralSettingsPage(): JSX.Element {
@@ -156,6 +157,8 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
       <section className="rounded-xl border border-neutral-800 bg-neutral-900/80 p-6 shadow-lg backdrop-blur">
         <AdminSettingsGeneral />
       </section>
+
+      <AdminAllowlistManager />
 
       <AdminSettingsSnapshots
         open={showSnapshots}
