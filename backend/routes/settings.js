@@ -123,10 +123,28 @@ const ALLOWED = new Set([
   "updated_at"          // we set this on writes
 ]);
 
+const SIZE_FIELDS = new Set(["hero_title_size", "hero_subtext_size", "hero_badge_size"]);
+
+const coerceSize = (value) => {
+  if (value === null) return "medium";
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed === "small" || trimmed === "medium" || trimmed === "large") {
+      return trimmed;
+    }
+  }
+  return "medium";
+};
+
 function filterAllowed(obj) {
   const o = {};
   for (const [k, v] of Object.entries(obj || {})) {
-    if (v !== undefined && ALLOWED.has(k)) o[k] = v;
+    if (v === undefined || !ALLOWED.has(k)) continue;
+    if (SIZE_FIELDS.has(k)) {
+      o[k] = coerceSize(v);
+    } else {
+      o[k] = v;
+    }
   }
   o.updated_at = new Date().toISOString();
   return o;

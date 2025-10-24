@@ -13,8 +13,13 @@ import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
 type SizeOption = "small" | "medium" | "large";
 
-const coerceSize = (value: unknown): SizeOption => {
-  if (value === "small" || value === "medium" || value === "large") return value;
+const normalizeSize = (value: unknown): SizeOption => {
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed === "small" || trimmed === "medium" || trimmed === "large") {
+      return trimmed as SizeOption;
+    }
+  }
   return "medium";
 };
 
@@ -52,9 +57,9 @@ const sanitize = (raw: unknown): HomeSettings => {
     who_cta_label: typeof safe.who_cta_label === "string" ? safe.who_cta_label : "Meet the Team",
     who_cta_url: typeof safe.who_cta_url === "string" ? safe.who_cta_url : "/about",
     who_image_url: typeof safe.who_image_url === "string" ? safe.who_image_url : "",
-    hero_title_size: coerceSize(safe.hero_title_size),
-    hero_subtext_size: coerceSize(safe.hero_subtext_size),
-    hero_badge_size: coerceSize(safe.hero_badge_size),
+    hero_title_size: normalizeSize(safe.hero_title_size),
+    hero_subtext_size: normalizeSize(safe.hero_subtext_size),
+    hero_badge_size: normalizeSize(safe.hero_badge_size),
   };
 };
 
@@ -76,8 +81,12 @@ export default function AdminSettingsHome() {
   const update = <K extends keyof HomeSettings>(key: K, value: HomeSettings[K]) => {
     if (disabled) return;
     let nextValue = value;
-    if (typeof value === "string" && key.toString().includes("_url")) {
-      nextValue = normalizeAdminUrl(value) as HomeSettings[K];
+    if (typeof value === "string") {
+      if (key.toString().includes("_url")) {
+        nextValue = normalizeAdminUrl(value) as HomeSettings[K];
+      } else if (key.toString().endsWith("_size")) {
+        nextValue = normalizeSize(value) as HomeSettings[K];
+      }
     }
     setLocal((prev) => ({ ...prev, [key]: nextValue }));
     setField(key as string, nextValue);

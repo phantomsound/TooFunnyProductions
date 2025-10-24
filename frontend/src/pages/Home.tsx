@@ -27,7 +27,12 @@ type Settings = {
 };
 
 const resolveSize = (value: unknown): SizeOption => {
-  if (value === "small" || value === "medium" || value === "large") return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed === "small" || trimmed === "medium" || trimmed === "large") {
+      return trimmed as SizeOption;
+    }
+  }
   return "medium";
 };
 
