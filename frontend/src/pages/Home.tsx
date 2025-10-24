@@ -238,7 +238,7 @@ export default function Home() {
                   : null}
                 <Link
                   to={`/contact${stageSuffix}`}
-                  className="theme-neutral-outline rounded-full px-4 py-2 text-sm font-semibold"
+                  className="theme-accent-outline rounded-full px-4 py-2 text-sm font-semibold"
                 >
                   Book the Crew
                 </Link>
@@ -255,7 +255,7 @@ export default function Home() {
                 </div>
                 <Link
                   to={`/events${stageSuffix}`}
-                  className="theme-neutral-outline rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em]"
+                  className="theme-accent-button rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em]"
                 >
                   All Shows
                 </Link>
