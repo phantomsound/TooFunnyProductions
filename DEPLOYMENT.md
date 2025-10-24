@@ -104,7 +104,8 @@ To keep the service alive on your PC you can:
 2. Make sure the backend listens on the same origin (`FRONTEND_URL` and `CORS_ORIGIN` above) so cookies and OAuth callbacks succeed.
 3. Update your Google OAuth client to allow the callback URL for every host that should reach the admin panel. Leaving
    `GOOGLE_CALLBACK_URL` as `/api/auth/google/callback` lets the server auto-detect the current hostname (both locally and in
-   production), but each resulting full URL still needs to be listed in the Google Cloud Console.
+   production), but each resulting full URL still needs to be listed in the Google Cloud Console. If you override this setting
+   with a full URL make sure it uses your public domain—do not leave it pointing at `http://localhost` when deploying.
 
 ### Mapping Cloudflare Tunnel hostnames
 

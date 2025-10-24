@@ -114,6 +114,19 @@ function resolveBackendBase(req) {
   return getDevBackendFallback();
 }
 
+function isLoopbackHost(hostname) {
+  if (!hostname) return false;
+  const lower = hostname.trim().toLowerCase();
+  return ["localhost", "127.0.0.1", "::1"].includes(lower);
+}
+
+function isLoopbackRequest(req) {
+  const forwardedHost = req?.headers?.["x-forwarded-host"]?.split(",")?.[0];
+  const hostHeader = forwardedHost || req?.get?.("host") || "";
+  const hostname = hostHeader.split(":")?.[0];
+  return isLoopbackHost(hostname);
+}
+
 function resolveGoogleCallback(req) {
   const raw = process.env.GOOGLE_CALLBACK_URL?.trim();
   if (raw) {
@@ -121,7 +134,21 @@ function resolveGoogleCallback(req) {
       return `${resolveBackendBase(req)}${raw}`;
     }
     const normalized = normalizeAbsoluteUrl(raw);
-    if (normalized) return normalized;
+    if (normalized) {
+      try {
+        const url = new URL(normalized);
+        if (isLoopbackHost(url.hostname) && !isLoopbackRequest(req)) {
+          console.warn(
+            "⚠️ Ignoring GOOGLE_CALLBACK_URL pointing at localhost/loopback while serving a non-local request. Falling back to auto-detected host.",
+            normalized
+          );
+        } else {
+          return normalized;
+        }
+      } catch {
+        return normalized;
+      }
+    }
     console.warn(
       "⚠️ Ignoring invalid GOOGLE_CALLBACK_URL value. Falling back to auto-detected host.",
       raw
