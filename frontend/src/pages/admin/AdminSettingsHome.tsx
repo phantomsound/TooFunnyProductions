@@ -10,8 +10,10 @@ import MediaPickerModal from "../../components/MediaPickerModal";
 import UploadFromComputerButton from "../../components/admin/UploadFromComputerButton";
 import { normalizeAdminUrl } from "../../utils/url";
 import AdminPageThemeOverride from "./AdminPageThemeOverride";
+import SettingsColorPicker from "./SettingsColorPicker";
 
 type SizeOption = "small" | "medium" | "large";
+type BadgeVariant = "soft" | "bold";
 
 const normalizeSize = (value: unknown): SizeOption => {
   if (typeof value === "string") {
@@ -21,6 +23,14 @@ const normalizeSize = (value: unknown): SizeOption => {
     }
   }
   return "medium";
+};
+
+const normalizeVariant = (value: unknown): BadgeVariant => (value === "bold" ? "bold" : "soft");
+
+const normalizeBool = (value: unknown, fallback: boolean): boolean => {
+  if (value === true) return true;
+  if (value === false) return false;
+  return fallback;
 };
 
 const TEXT_SIZE_OPTIONS: { label: string; value: SizeOption }[] = [
@@ -39,13 +49,25 @@ type HomeSettings = {
   who_cta_label: string;
   who_cta_url: string;
   who_image_url: string;
+  who_label: string;
+  who_show_label: boolean;
+  who_label_size: SizeOption;
+  who_title_size: SizeOption;
+  who_body_size: SizeOption;
   hero_title_size: SizeOption;
   hero_subtext_size: SizeOption;
   hero_badge_size: SizeOption;
+  hero_badge_enabled: boolean;
+  hero_badge_label: string;
+  hero_badge_variant: BadgeVariant;
+  hero_badge_use_theme_color: boolean;
+  hero_badge_color: string;
+  hero_badge_text_color: string;
 };
 
 const sanitize = (raw: unknown): HomeSettings => {
   const safe = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const siteTitle = typeof safe.site_title === "string" ? safe.site_title : "Too Funny Productions";
   return {
     hero_title: typeof safe.hero_title === "string" ? safe.hero_title : "",
     hero_subtext: typeof safe.hero_subtext === "string" ? safe.hero_subtext : "",
@@ -57,9 +79,24 @@ const sanitize = (raw: unknown): HomeSettings => {
     who_cta_label: typeof safe.who_cta_label === "string" ? safe.who_cta_label : "Meet the Team",
     who_cta_url: typeof safe.who_cta_url === "string" ? safe.who_cta_url : "/about",
     who_image_url: typeof safe.who_image_url === "string" ? safe.who_image_url : "",
+    who_label: typeof safe.who_label === "string" ? safe.who_label : "Who We Are",
+    who_show_label: normalizeBool(safe.who_show_label, true),
+    who_label_size: normalizeSize(safe.who_label_size),
+    who_title_size: normalizeSize(safe.who_title_size),
+    who_body_size: normalizeSize(safe.who_body_size),
     hero_title_size: normalizeSize(safe.hero_title_size),
     hero_subtext_size: normalizeSize(safe.hero_subtext_size),
     hero_badge_size: normalizeSize(safe.hero_badge_size),
+    hero_badge_enabled: normalizeBool(safe.hero_badge_enabled, true),
+    hero_badge_label:
+      typeof safe.hero_badge_label === "string" && safe.hero_badge_label.trim().length > 0
+        ? safe.hero_badge_label
+        : siteTitle,
+    hero_badge_variant: normalizeVariant(safe.hero_badge_variant),
+    hero_badge_use_theme_color: normalizeBool(safe.hero_badge_use_theme_color, true),
+    hero_badge_color: typeof safe.hero_badge_color === "string" ? safe.hero_badge_color : "",
+    hero_badge_text_color:
+      typeof safe.hero_badge_text_color === "string" ? safe.hero_badge_text_color : "",
   };
 };
 
@@ -135,6 +172,93 @@ export default function AdminSettingsHome() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-gray-200 bg-white/60 p-4 shadow-sm space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800">Hero Highlight</h3>
+            <p className="mt-1 text-xs text-gray-600">
+              Control the badge that appears above the hero headline. Turn it off entirely or customize the tone and colors.
+            </p>
+          </div>
+          <label className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-400"
+              checked={local.hero_badge_enabled}
+              onChange={(event) => update("hero_badge_enabled", event.target.checked)}
+              disabled={disabled}
+            />
+            Show highlight
+          </label>
+        </div>
+
+        <div className={`grid gap-3 sm:grid-cols-2 ${local.hero_badge_enabled ? "" : "opacity-60"}`}>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Highlight Label
+            </label>
+            <input
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              value={local.hero_badge_label}
+              onChange={(event) => update("hero_badge_label", event.target.value)}
+              disabled={disabled || !local.hero_badge_enabled}
+              placeholder="Too Funny Productions"
+            />
+            <p className="text-[11px] text-gray-500">
+              Defaults to your site title. Keep it short so it stays on one line.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Highlight Weight
+            </label>
+            <select
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              value={local.hero_badge_variant}
+              onChange={(event) => update("hero_badge_variant", event.target.value as BadgeVariant)}
+              disabled={disabled || !local.hero_badge_enabled}
+            >
+              <option value="soft">Light</option>
+              <option value="bold">Bold</option>
+            </select>
+          </div>
+        </div>
+
+        <div className={`space-y-3 rounded-md border border-gray-200 bg-white/80 p-3 ${local.hero_badge_enabled ? "" : "opacity-60"}`}>
+          <label className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-400"
+              checked={local.hero_badge_use_theme_color}
+              onChange={(event) => update("hero_badge_use_theme_color", event.target.checked)}
+              disabled={disabled || !local.hero_badge_enabled}
+            />
+            Use theme accent colors
+          </label>
+          <p className="text-[11px] text-gray-500">
+            Turn this off to set a custom background and text color for the highlight badge.
+          </p>
+
+          {local.hero_badge_use_theme_color ? null : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <SettingsColorPicker
+                label="Badge background"
+                value={local.hero_badge_color || "#FFD700"}
+                onChange={(value) => update("hero_badge_color", value)}
+                disabled={disabled || !local.hero_badge_enabled}
+              />
+              <SettingsColorPicker
+                label="Badge text"
+                value={local.hero_badge_text_color || "#111111"}
+                onChange={(value) => update("hero_badge_text_color", value)}
+                disabled={disabled || !local.hero_badge_enabled}
+              />
+            </div>
+          )}
+        </div>
+      </section>
+
       <section className="rounded-lg border border-gray-200 bg-white/60 p-4 shadow-sm">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-gray-800">Hero Text Sizing</h3>
@@ -189,6 +313,68 @@ export default function AdminSettingsHome() {
             >
               {TEXT_SIZE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-gray-200 bg-white/60 p-4 shadow-sm">
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold text-gray-800">Who Section Text Sizing</h3>
+          <p className="mt-1 text-xs text-gray-600">
+            Tune the label, heading, and paragraph sizes that appear in the “Who We Are” spotlight.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Label
+            </label>
+            <select
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              value={local.who_label_size}
+              onChange={(event) => update("who_label_size", event.target.value as SizeOption)}
+              disabled={disabled}
+            >
+              {TEXT_SIZE_OPTIONS.map((option) => (
+                <option key={`who-label-${option.value}`} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Title
+            </label>
+            <select
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              value={local.who_title_size}
+              onChange={(event) => update("who_title_size", event.target.value as SizeOption)}
+              disabled={disabled}
+            >
+              {TEXT_SIZE_OPTIONS.map((option) => (
+                <option key={`who-title-${option.value}`} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Body Copy
+            </label>
+            <select
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              value={local.who_body_size}
+              onChange={(event) => update("who_body_size", event.target.value as SizeOption)}
+              disabled={disabled}
+            >
+              {TEXT_SIZE_OPTIONS.map((option) => (
+                <option key={`who-body-${option.value}`} value={option.value}>
                   {option.label}
                 </option>
               ))}
@@ -399,6 +585,32 @@ export default function AdminSettingsHome() {
 
       <section className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
+          <div className="flex flex-col gap-2 rounded border border-gray-200 bg-white/70 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-semibold">Who We Are — Label</label>
+              <label className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-400"
+                  checked={local.who_show_label}
+                  onChange={(event) => update("who_show_label", event.target.checked)}
+                  disabled={disabled}
+                />
+                Show label
+              </label>
+            </div>
+            <input
+              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              value={local.who_label}
+              onChange={(event) => update("who_label", event.target.value)}
+              disabled={disabled || !local.who_show_label}
+              placeholder="Who We Are"
+            />
+            <p className="text-xs text-gray-500">
+              If the label matches the title, the public page will hide the duplicate automatically.
+            </p>
+          </div>
+
           <label className="block text-sm font-semibold">Who We Are — Title</label>
           <input
             className="w-full border border-gray-300 rounded px-3 py-2 text-black"
