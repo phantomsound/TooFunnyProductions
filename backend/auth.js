@@ -3,9 +3,45 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { logAdminAction } from "./lib/audit.js";
 
+const DEV_FALLBACK_FRONTEND = "http://localhost:5173";
+
+function pickFirstConfiguredFrontend() {
+  const envCandidates = [
+    process.env.FRONTEND_URL,
+    ...(process.env.CORS_ORIGIN || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  ];
+
+  for (const candidate of envCandidates) {
+    const normalized = normalizeFrontendBase(candidate);
+    if (normalized) return normalized;
+  }
+
+  return null;
+}
+
+function normalizeFrontendBase(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (!/^https?:$/i.test(url.protocol)) return null;
+    url.hash = "";
+    url.search = "";
+    const pathname = url.pathname === "/" ? "" : url.pathname;
+    return `${url.origin}${pathname}`.replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
 function resolveFrontendUrl(req) {
-  const configured = (process.env.FRONTEND_URL || "").trim();
-  if (configured) return configured.replace(/\/$/, "");
+  const configured = pickFirstConfiguredFrontend();
+  if (configured) return configured;
+
+  const originHeader = normalizeFrontendBase(req?.headers?.origin);
+  if (originHeader) return originHeader;
 
   const forwardedProto = req?.headers?.["x-forwarded-proto"]?.split(",")?.[0];
   const forwardedHost = req?.headers?.["x-forwarded-host"];
@@ -13,10 +49,23 @@ function resolveFrontendUrl(req) {
   const protocol = forwardedProto || req?.protocol;
 
   if (protocol && host) {
-    return `${protocol}://${host}`.replace(/\/$/, "");
+    const combined = normalizeFrontendBase(`${protocol}://${host}`);
+    if (combined) {
+      try {
+        const url = new URL(combined);
+        const serverPort = Number(process.env.PORT || 5000);
+        const isLoopback = ["localhost", "127.0.0.1"].includes(url.hostname);
+        if (isLoopback && (!url.port || Number(url.port) === serverPort)) {
+          return DEV_FALLBACK_FRONTEND;
+        }
+      } catch {
+        // ignore and fall through to combined
+      }
+      return combined;
+    }
   }
 
-  return "http://localhost:5173";
+  return DEV_FALLBACK_FRONTEND;
 }
 
 function getAllowlist() {
