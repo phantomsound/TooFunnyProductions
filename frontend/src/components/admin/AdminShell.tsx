@@ -32,6 +32,7 @@ const navLinks = [
   { to: "/admin/general", label: "🎛 General Settings" },
   { to: "/admin/page-configurations", label: "🗂 Page Configurations" },
   { to: "/admin/media", label: "🎬 Media Manager" },
+  { to: "/admin/contact-responses", label: "✉️ Contact Responses" },
   { to: "/admin/audit", label: "🧾 Audit Log" },
 ];
 

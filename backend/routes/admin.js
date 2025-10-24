@@ -9,6 +9,11 @@ import {
   normalizeAllowlistInput,
   setEditableAllowlist,
 } from "../lib/allowlist.js";
+import {
+  exportContactResponses,
+  listContactResponses,
+  updateContactResponse,
+} from "../lib/contactResponses.js";
 
 const router = Router();
 
@@ -44,6 +49,71 @@ router.get("/audit", requireAdmin, async (req, res) => {
   } catch (err) {
     console.error("GET /api/admin/audit error:", err);
     res.status(500).json({ error: "Failed to load audit log" });
+  }
+});
+
+router.get("/contact-responses", requireAdmin, async (req, res) => {
+  try {
+    const { q, responded, limit, offset, sort, format } = req.query;
+    const options = {
+      search: q ? String(q) : undefined,
+      responded: responded ?? undefined,
+      limit: limit ?? undefined,
+      offset: offset ?? undefined,
+      sort: sort ?? undefined,
+    };
+
+    if (String(format).toLowerCase() === "csv") {
+      const csv = await exportContactResponses(options);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=contact-responses.csv");
+      return res.send(csv);
+    }
+
+    const payload = await listContactResponses(options);
+    res.json(payload);
+  } catch (err) {
+    console.error("GET /api/admin/contact-responses error:", err);
+    res.status(500).json({ error: "Failed to load contact responses" });
+  }
+});
+
+router.patch("/contact-responses/:id", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { responded, respondedAt, notes } = req.body || {};
+
+    if (!id) return res.status(400).json({ error: "Missing contact response id" });
+
+    const patch = {};
+    if (responded !== undefined) {
+      patch.responded = responded;
+      if (responded) {
+        patch.responded_by = req.user?.email || "unknown";
+        if (respondedAt) patch.responded_at = respondedAt;
+      }
+    }
+    if (notes !== undefined) patch.notes = notes;
+
+    const updated = await updateContactResponse(id, patch);
+
+    try {
+      await logAdminAction(req.user?.email || "unknown", "contact_response_update", {
+        id,
+        responded: updated.responded,
+        hasNotes: !!updated.notes,
+      });
+    } catch (err) {
+      console.warn("Failed to log contact response update", err?.message || err);
+    }
+
+    res.json({ item: updated });
+  } catch (err) {
+    console.error("PATCH /api/admin/contact-responses/:id error:", err);
+    if (err?.message === "Contact response not found") {
+      return res.status(404).json({ error: "Not found" });
+    }
+    res.status(500).json({ error: "Failed to update contact response" });
   }
 });
 

@@ -5,6 +5,8 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { noteDeliveryStatus, recordContactResponse } from "../lib/contactResponses.js";
+
 const router = Router();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -112,6 +114,22 @@ router.post("/", async (req, res) => {
 
   const toAddress = await resolveContactRecipient();
 
+  let savedRecord = null;
+  try {
+    savedRecord = await recordContactResponse({
+      name,
+      email: from,
+      message,
+      meta: {
+        ip: req.ip || null,
+        userAgent: req.get("user-agent") || null,
+        to: toAddress,
+      },
+    });
+  } catch (err) {
+    console.error("contact: failed to persist contact response:", err);
+  }
+
   // If SMTP envs are not set, just log and return 200 for dev convenience
   const {
     SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
@@ -119,6 +137,13 @@ router.post("/", async (req, res) => {
 
   if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
     console.log("📨 (dev) contact message:", { name, from, message, to: toAddress });
+    if (savedRecord) {
+      try {
+        await noteDeliveryStatus(savedRecord.id, "skipped");
+      } catch (err) {
+        console.warn("contact: failed to update delivery status for dev message:", err?.message || err);
+      }
+    }
     return res.json({ ok: true, dev: true });
   }
 
@@ -138,9 +163,24 @@ router.post("/", async (req, res) => {
       text: message,
     });
 
+    if (savedRecord) {
+      try {
+        await noteDeliveryStatus(savedRecord.id, "sent");
+      } catch (err) {
+        console.warn("contact: failed to update delivery status after send:", err?.message || err);
+      }
+    }
+
     res.json({ ok: true });
   } catch (e) {
     console.error("contact send failed:", e);
+    if (savedRecord) {
+      try {
+        await noteDeliveryStatus(savedRecord.id, "failed", e?.message || String(e));
+      } catch (err) {
+        console.warn("contact: failed to persist failed delivery status:", err?.message || err);
+      }
+    }
     res.status(500).json({ error: "Failed to send" });
   }
 });
