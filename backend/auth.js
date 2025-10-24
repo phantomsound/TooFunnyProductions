@@ -3,7 +3,21 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { logAdminAction } from "./lib/audit.js";
 
-const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+function resolveFrontendUrl(req) {
+  const configured = (process.env.FRONTEND_URL || "").trim();
+  if (configured) return configured.replace(/\/$/, "");
+
+  const forwardedProto = req?.headers?.["x-forwarded-proto"]?.split(",")?.[0];
+  const forwardedHost = req?.headers?.["x-forwarded-host"];
+  const host = forwardedHost || req?.get?.("host");
+  const protocol = forwardedProto || req?.protocol;
+
+  if (protocol && host) {
+    return `${protocol}://${host}`.replace(/\/$/, "");
+  }
+
+  return "http://localhost:5173";
+}
 
 function getAllowlist() {
   return (process.env.ALLOWLIST_EMAILS || "")
@@ -67,19 +81,33 @@ export function initAuth(app) {
     app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 
     // OAuth callback → redirect to SPA
-    app.get(
-      "/api/auth/google/callback",
-      passport.authenticate("google", { failureRedirect: `${frontendUrl}/admin?auth=failed` }),
-      async (req, res) => {
-        const email = (req.user?.email || "").toLowerCase();
-        const allowed = getAllowlist().includes(email);
-        try {
-          await logAdminAction(email || "unknown", allowed ? "login" : "login_denied");
-        } catch {}
-        if (!allowed) return res.redirect(`${frontendUrl}/admin?auth=denied`);
-        res.redirect(`${frontendUrl}/admin`);
-      }
-    );
+    app.get("/api/auth/google/callback", (req, res, next) => {
+      const frontendUrl = resolveFrontendUrl(req);
+
+      passport.authenticate("google", (err, user) => {
+        if (err || !user) {
+          if (err) {
+            console.error("Google OAuth error", err);
+          }
+          return res.redirect(`${frontendUrl}/admin?auth=failed`);
+        }
+
+        req.logIn(user, async (loginErr) => {
+          if (loginErr) {
+            console.error("Google OAuth session error", loginErr);
+            return res.redirect(`${frontendUrl}/admin?auth=failed`);
+          }
+
+          const email = (req.user?.email || user.email || "").toLowerCase();
+          const allowed = getAllowlist().includes(email);
+          try {
+            await logAdminAction(email || "unknown", allowed ? "login" : "login_denied");
+          } catch {}
+          if (!allowed) return res.redirect(`${frontendUrl}/admin?auth=denied`);
+          res.redirect(`${frontendUrl}/admin`);
+        });
+      })(req, res, next);
+    });
   } else {
     const missingPayload = {
       error: "Google OAuth is not configured",
