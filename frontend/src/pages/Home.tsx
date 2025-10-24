@@ -104,10 +104,10 @@ export default function Home() {
 
   return (
     <main className="bg-theme-background text-theme-base">
-      <div className="mx-auto w-full max-w-7xl px-4 pb-16 pt-12 sm:px-6 lg:px-8">
-        <section className="overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-2xl sm:p-8 lg:p-14">
-          <div className="grid gap-8 sm:gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start lg:gap-12">
-            <div className="flex flex-col gap-10">
+      <div className="mx-auto w-full max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pt-20 lg:max-w-7xl lg:px-8 xl:px-10">
+        <section className="overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-2xl sm:rounded-[2.25rem] sm:p-8 lg:p-14">
+          <div className="grid gap-9 sm:gap-11 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:items-start lg:gap-12">
+            <div className="flex min-w-0 flex-col gap-10">
               <header className="space-y-4">
                 <span
                   className={`theme-accent-chip inline-flex items-center gap-2 font-semibold uppercase ${heroBadgeClass}`}
@@ -162,32 +162,32 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="grid gap-5 sm:gap-6">
-              <div className="rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] sm:p-5 lg:p-8">
-                <div className="relative aspect-[3/2] w-full min-h-[240px] overflow-hidden rounded-2xl border border-theme-surface bg-theme-background sm:min-h-[280px] lg:min-h-[360px]">
+            <div className="grid min-w-0 gap-5 sm:gap-7">
+              <div className="w-full rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] sm:p-5 lg:p-8">
+                <div className="relative aspect-[3/2] min-h-[240px] w-full min-w-0 overflow-hidden rounded-2xl border border-theme-surface bg-theme-background sm:min-h-[280px] lg:min-h-[360px]">
                   {heroImage ? (
                     <img
                       src={heroImage}
                       alt={heroTitle || "Too Funny Productions hero"}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full max-w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center px-4 text-center text-xs text-theme-muted">
+                    <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-theme-muted">
                       Add a hero image in the admin panel to complete the look.
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="relative overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl sm:p-5 lg:p-6">
+              <div className="relative w-full overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl sm:p-5 lg:p-6">
                 <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-theme-accent-soft">
                   Featured Video
                 </p>
-                <div className="aspect-video overflow-hidden rounded-2xl border border-theme-surface bg-theme-background">
+                <div className="aspect-video w-full min-w-0 overflow-hidden rounded-2xl border border-theme-surface bg-theme-background">
                   {heroVideo ? (
-                    <video src={heroVideo} controls preload="metadata" className="h-full w-full object-cover" />
+                    <video src={heroVideo} controls preload="metadata" className="h-full w-full max-w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center px-6 text-center text-xs text-theme-muted">
+                    <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-theme-muted">
                       Add a featured video in the admin panel to showcase your latest work.
                     </div>
                   )}
@@ -197,8 +197,8 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mt-12 grid gap-8 sm:gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
-          <div className="rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg sm:p-7 md:p-8">
+        <section className="mt-16 grid gap-8 sm:mt-[4.5rem] sm:gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
+          <div className="min-w-0 w-full rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg sm:p-7 md:p-8">
             <div className="space-y-4">
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.4em] text-theme-accent-soft">Who We Are</p>
@@ -237,8 +237,8 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="space-y-5 sm:space-y-6">
-            <section className="rounded-3xl border border-theme-surface bg-theme-surface p-5 shadow-lg sm:p-6">
+          <div className="min-w-0 w-full space-y-5 sm:space-y-6">
+            <section className="w-full rounded-3xl border border-theme-surface bg-theme-surface p-5 shadow-lg sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-theme-accent">Upcoming Shows</h2>
@@ -291,7 +291,7 @@ export default function Home() {
               )}
             </section>
 
-            <section className="rounded-3xl border border-theme-surface bg-theme-surface p-5 shadow-lg sm:p-6">
+            <section className="w-full rounded-3xl border border-theme-surface bg-theme-surface p-5 shadow-lg sm:p-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-theme-accent">Media Spotlight</h2>

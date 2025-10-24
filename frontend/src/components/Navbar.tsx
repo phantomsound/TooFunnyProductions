@@ -95,15 +95,20 @@ export default function Navbar() {
 
           <div className="flex h-8 w-8 items-center justify-center">
             {user?.picture && !pathname.startsWith("/admin") ? (
-              <img
-                src={user.picture}
-                alt=""
-                className="h-8 w-8 rounded-full border border-white/20 object-cover"
-                onError={(event) => {
-                  const target = event.currentTarget;
-                  target.remove();
-                }}
-              />
+              <Link
+                to={`/admin${stageSuffix}`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20"
+              >
+                <img
+                  src={user.picture}
+                  alt="Navigate to admin dashboard"
+                  className="h-8 w-8 rounded-full object-cover"
+                  onError={(event) => {
+                    const target = event.currentTarget;
+                    target.remove();
+                  }}
+                />
+              </Link>
             ) : null}
           </div>
         </div>
