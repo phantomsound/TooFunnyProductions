@@ -44,13 +44,13 @@ export default function Contact() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 text-theme-base">
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 text-theme-base sm:px-6 sm:py-12 lg:px-8">
       <h1 className="mb-3 text-3xl font-bold text-theme-accent">{title}</h1>
-      <p className="mb-8 whitespace-pre-wrap text-theme-muted">{intro}</p>
+      <p className="mb-8 whitespace-pre-wrap break-words text-theme-muted">{intro}</p>
 
       <div className="grid gap-8 md:grid-cols-2">
         {/* Left: form */}
-        <form onSubmit={onSubmit} className="rounded border border-theme-surface bg-theme-surface p-5">
+        <form onSubmit={onSubmit} className="rounded border border-theme-surface bg-theme-surface p-5 sm:p-6">
           <div className="mb-4">
             <label className="mb-2 block text-sm font-semibold text-theme-base">Your Name</label>
             <input
@@ -98,7 +98,7 @@ export default function Contact() {
         </form>
 
         {/* Right: contact details + socials */}
-        <div className="rounded border border-theme-surface bg-theme-surface p-5">
+        <div className="rounded border border-theme-surface bg-theme-surface p-5 sm:p-6">
           <h2 className="mb-3 text-xl font-semibold text-theme-accent">Reach Us</h2>
           <div className="mb-6 space-y-1 text-theme-muted">
             {settings?.contactemail && (
@@ -114,7 +114,7 @@ export default function Contact() {
               {cards.map((card: any, index: number) => (
                 <div key={index} className="rounded border border-theme-surface bg-theme-background p-4">
                   <div className="mb-1 text-lg font-semibold text-theme-accent">{card.title}</div>
-                  <p className="mb-3 text-sm text-theme-muted whitespace-pre-wrap">{card.description}</p>
+                  <p className="mb-3 whitespace-pre-wrap break-words text-sm text-theme-muted">{card.description}</p>
                   {card.link_url ? (
                     <a
                       href={card.link_url}

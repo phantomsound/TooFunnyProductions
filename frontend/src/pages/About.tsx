@@ -22,18 +22,18 @@ export default function About() {
   const team = Array.isArray(settings?.about_team) ? settings.about_team : [];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 text-theme-base">
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 text-theme-base sm:px-6 sm:py-12 lg:px-8">
       <h1 className="mb-6 text-3xl font-bold text-theme-accent">{title}</h1>
-      <p className="mb-10 whitespace-pre-wrap text-theme-muted">{body}</p>
+      <p className="mb-10 whitespace-pre-wrap break-words text-theme-muted">{body}</p>
 
       <section className="mb-12 grid gap-6 md:grid-cols-2">
         <div className="rounded-2xl border border-theme-surface bg-theme-surface p-6">
           <h2 className="mb-2 text-2xl font-semibold text-theme-accent">{missionTitle}</h2>
-          <p className="whitespace-pre-wrap text-theme-muted">{missionBody}</p>
+          <p className="whitespace-pre-wrap break-words text-theme-muted">{missionBody}</p>
         </div>
         <div className="rounded-2xl border border-theme-surface bg-theme-surface p-6">
           <h3 className="mb-2 text-xl font-semibold text-theme-accent">What drives us</h3>
-          <p className="text-theme-muted">
+          <p className="break-words text-theme-muted">
             Too Funny Productions is a collaborative crew of comedians, directors, editors, and techs obsessed with creating
             unforgettable sketch and improv experiences.
           </p>
@@ -41,16 +41,16 @@ export default function About() {
       </section>
 
       <h2 className="mb-2 text-2xl font-semibold text-theme-accent">Meet the Team</h2>
-      <p className="mb-6 whitespace-pre-wrap text-theme-muted">{teamIntro}</p>
+      <p className="mb-6 whitespace-pre-wrap break-words text-theme-muted">{teamIntro}</p>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {team.map((m: any, i: number) => (
           <div key={i} className="rounded-lg border border-theme-surface bg-theme-surface p-4">
             {m.photo_url && <img src={m.photo_url} alt={m.name} className="mb-3 h-48 w-full rounded object-cover" />}
             <div className="text-lg font-semibold text-theme-base">{m.name}</div>
             <div className="text-sm text-theme-muted">{m.title}</div>
-            {m.bio ? <p className="mt-2 text-sm text-theme-muted whitespace-pre-wrap">{m.bio}</p> : null}
+            {m.bio ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-theme-muted">{m.bio}</p> : null}
             {m.socials && (
-              <div className="mt-2 flex gap-3 text-sm">
+              <div className="mt-2 flex flex-wrap gap-3 text-sm">
                 {Object.entries(m.socials)
                   .filter(([, url]) => typeof url === "string" && url)
                   .map(([network, url]: [string, string]) => (

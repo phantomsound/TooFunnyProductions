@@ -104,9 +104,9 @@ export default function Home() {
 
   return (
     <main className="bg-theme-background text-theme-base">
-      <div className="mx-auto max-w-7xl px-4 pb-16 pt-12">
-        <section className="overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-8 shadow-2xl lg:p-14">
-          <div className="grid gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
+      <div className="mx-auto w-full max-w-7xl px-4 pb-16 pt-12 sm:px-6 lg:px-8">
+        <section className="overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-2xl sm:p-8 lg:p-14">
+          <div className="grid gap-8 sm:gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start lg:gap-12">
             <div className="flex flex-col gap-10">
               <header className="space-y-4">
                 <span
@@ -117,7 +117,7 @@ export default function Home() {
                 <h1 className={`font-bold leading-tight text-theme-accent ${heroTitleClass}`}>
                   {heroTitle}
                 </h1>
-                <p className={`max-w-xl text-theme-muted ${heroSubtextClass}`}>{heroSubtext}</p>
+                <p className={`max-w-xl break-words text-theme-muted ${heroSubtextClass}`}>{heroSubtext}</p>
               </header>
 
               <div className="flex flex-wrap gap-4">
@@ -142,7 +142,7 @@ export default function Home() {
               </div>
 
               {hasEvents ? (
-                <div className="theme-accent-panel rounded-3xl p-6 shadow-inner">
+                <div className="theme-accent-panel rounded-3xl p-5 shadow-inner sm:p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
                       <p className="text-xs uppercase tracking-[0.4em] text-theme-accent-soft">Next up</p>
@@ -162,8 +162,8 @@ export default function Home() {
               ) : null}
             </div>
 
-            <div className="grid gap-6">
-              <div className="rounded-3xl border border-theme-surface bg-theme-surface p-5 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] lg:p-8">
+            <div className="grid gap-5 sm:gap-6">
+              <div className="rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] sm:p-5 lg:p-8">
                 <div className="relative aspect-[3/2] w-full min-h-[240px] overflow-hidden rounded-2xl border border-theme-surface bg-theme-background sm:min-h-[280px] lg:min-h-[360px]">
                   {heroImage ? (
                     <img
@@ -179,7 +179,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="relative overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl lg:p-6">
+              <div className="relative overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl sm:p-5 lg:p-6">
                 <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-theme-accent-soft">
                   Featured Video
                 </p>
@@ -197,14 +197,14 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
-          <div className="rounded-3xl border border-theme-surface bg-theme-surface p-8 shadow-lg">
+        <section className="mt-12 grid gap-8 sm:gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
+          <div className="rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg sm:p-7 md:p-8">
             <div className="space-y-4">
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.4em] text-theme-accent-soft">Who We Are</p>
                 <h2 className="text-2xl font-semibold text-theme-accent">{whoTitle}</h2>
               </div>
-              <p className="leading-relaxed text-theme-muted">{whoBody}</p>
+              <p className="break-words leading-relaxed text-theme-muted">{whoBody}</p>
               <div className="flex flex-wrap gap-3">
                 {whoCtaUrl
                   ? whoIsExternal
@@ -237,9 +237,9 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="space-y-6">
-            <section className="rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg">
-              <div className="flex items-center justify-between gap-4">
+          <div className="space-y-5 sm:space-y-6">
+            <section className="rounded-3xl border border-theme-surface bg-theme-surface p-5 shadow-lg sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-theme-accent">Upcoming Shows</h2>
                   <p className="text-sm text-theme-muted">Fresh chaos, fresh cities—see where we’re headed.</p>
@@ -262,11 +262,11 @@ export default function Home() {
                         key={`${event?.title || "event"}-${index}`}
                         className="flex flex-col gap-2 rounded-2xl border border-theme-surface bg-theme-background p-4 transition hover:border-theme-accent"
                       >
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">
                           <p className="text-xs uppercase tracking-[0.4em] text-theme-muted">
                             {event?.date || "Date TBA"}
                           </p>
-                          <span className="text-xs text-theme-muted">{event?.venue || "Venue TBA"}</span>
+                          <span className="text-xs text-theme-muted sm:text-right">{event?.venue || "Venue TBA"}</span>
                         </div>
                         <h3 className="text-lg font-semibold text-theme-accent">{event?.title || "Untitled Show"}</h3>
                         {hasLink ? (
@@ -291,7 +291,7 @@ export default function Home() {
               )}
             </section>
 
-            <section className="rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg">
+            <section className="rounded-3xl border border-theme-surface bg-theme-surface p-5 shadow-lg sm:p-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-theme-accent">Media Spotlight</h2>

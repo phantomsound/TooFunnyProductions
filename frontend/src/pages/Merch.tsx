@@ -11,9 +11,9 @@ export default function Merch() {
       : "Shop the Too Funny Productions collection.";
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 text-theme-base">
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 text-theme-base sm:px-6 sm:py-12 lg:px-8">
       <h1 className="mb-3 text-3xl font-bold text-theme-accent">{title}</h1>
-      <p className="mb-8 whitespace-pre-wrap text-theme-muted">{intro}</p>
+      <p className="mb-8 whitespace-pre-wrap break-words text-theme-muted">{intro}</p>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((m: any, i: number) => (
@@ -24,7 +24,7 @@ export default function Merch() {
             <div className="text-lg font-semibold text-theme-base">{m.title}</div>
             {m.price && <div className="mb-2 text-sm text-theme-muted">${m.price}</div>}
             {m.description ? (
-              <p className="mb-3 text-sm text-theme-muted whitespace-pre-wrap">{m.description}</p>
+              <p className="mb-3 whitespace-pre-wrap break-words text-sm text-theme-muted">{m.description}</p>
             ) : null}
             {m.buy_url && (
               <a
