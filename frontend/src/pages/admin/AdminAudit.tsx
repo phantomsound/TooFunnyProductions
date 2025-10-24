@@ -72,15 +72,17 @@ export default function AdminAudit() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button
+            type="button"
             onClick={load}
-            className="rounded border px-3 py-2 text-sm hover:bg-gray-100"
+            className="rounded border border-sky-600 bg-sky-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={loading}
           >
             {loading ? "Refreshing…" : "Refresh"}
           </button>
           <button
+            type="button"
             onClick={clearFilters}
-            className="rounded border px-3 py-2 text-sm hover:bg-gray-100"
+            className="rounded border border-amber-500 bg-amber-100 px-3 py-2 text-sm font-medium text-amber-800 shadow-sm transition hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={
               search === "" && selectedActor === "all" && selectedAction === "all" && limit === "100" && sort === "newest"
             }
