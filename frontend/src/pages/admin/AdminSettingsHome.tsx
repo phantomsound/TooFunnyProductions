@@ -11,6 +11,19 @@ import UploadFromComputerButton from "../../components/admin/UploadFromComputerB
 import { normalizeAdminUrl } from "../../utils/url";
 import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
+type SizeOption = "small" | "medium" | "large";
+
+const coerceSize = (value: unknown): SizeOption => {
+  if (value === "small" || value === "medium" || value === "large") return value;
+  return "medium";
+};
+
+const TEXT_SIZE_OPTIONS: { label: string; value: SizeOption }[] = [
+  { value: "small", label: "Small" },
+  { value: "medium", label: "Medium" },
+  { value: "large", label: "Large" },
+];
+
 type HomeSettings = {
   hero_title: string;
   hero_subtext: string;
@@ -21,6 +34,9 @@ type HomeSettings = {
   who_cta_label: string;
   who_cta_url: string;
   who_image_url: string;
+  hero_title_size: SizeOption;
+  hero_subtext_size: SizeOption;
+  hero_badge_size: SizeOption;
 };
 
 const sanitize = (raw: unknown): HomeSettings => {
@@ -36,6 +52,9 @@ const sanitize = (raw: unknown): HomeSettings => {
     who_cta_label: typeof safe.who_cta_label === "string" ? safe.who_cta_label : "Meet the Team",
     who_cta_url: typeof safe.who_cta_url === "string" ? safe.who_cta_url : "/about",
     who_image_url: typeof safe.who_image_url === "string" ? safe.who_image_url : "",
+    hero_title_size: coerceSize(safe.hero_title_size),
+    hero_subtext_size: coerceSize(safe.hero_subtext_size),
+    hero_badge_size: coerceSize(safe.hero_badge_size),
   };
 };
 
@@ -104,6 +123,68 @@ export default function AdminSettingsHome() {
           <p className="mt-1 text-xs text-gray-500">
             Short supporting copy that sits directly beneath the hero headline.
           </p>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-gray-200 bg-white/60 p-4 shadow-sm">
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold text-gray-800">Hero Text Sizing</h3>
+          <p className="mt-1 text-xs text-gray-600">
+            Apply small, medium, or large presets to the hero badge, headline, and supporting text.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Highlight
+            </label>
+            <select
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              value={local.hero_badge_size}
+              onChange={(event) => update("hero_badge_size", event.target.value as SizeOption)}
+              disabled={disabled}
+            >
+              {TEXT_SIZE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Headline
+            </label>
+            <select
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              value={local.hero_title_size}
+              onChange={(event) => update("hero_title_size", event.target.value as SizeOption)}
+              disabled={disabled}
+            >
+              {TEXT_SIZE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Supporting Text
+            </label>
+            <select
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              value={local.hero_subtext_size}
+              onChange={(event) => update("hero_subtext_size", event.target.value as SizeOption)}
+              disabled={disabled}
+            >
+              {TEXT_SIZE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </section>
 

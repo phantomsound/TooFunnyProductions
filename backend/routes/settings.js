@@ -56,6 +56,9 @@ const TBL = (stage) => (stage === "draft" ? "settings_draft" : "settings_public"
 const ALLOWED = new Set([
   "hero_title",
   "hero_subtext",
+  "hero_title_size",
+  "hero_subtext_size",
+  "hero_badge_size",
   "hero_image_url",
   "featured_video_url",
   "who_title",

@@ -9,6 +9,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useSettings } from "../lib/SettingsContext";
 import { api } from "../lib/api";
 
+type SizeOption = "small" | "medium" | "large";
+
 type Settings = {
   hero_title?: string;
   hero_subtext?: string;
@@ -19,6 +21,32 @@ type Settings = {
   who_cta_label?: string;
   who_cta_url?: string;
   who_image_url?: string;
+  hero_title_size?: SizeOption;
+  hero_subtext_size?: SizeOption;
+  hero_badge_size?: SizeOption;
+};
+
+const resolveSize = (value: unknown): SizeOption => {
+  if (value === "small" || value === "medium" || value === "large") return value;
+  return "medium";
+};
+
+const HERO_TITLE_CLASSES: Record<SizeOption, string> = {
+  small: "text-[1.75rem] sm:text-[2rem] lg:text-[2.25rem]",
+  medium: "text-3xl sm:text-4xl lg:text-[2.85rem]",
+  large: "text-4xl sm:text-5xl lg:text-[3.35rem]",
+};
+
+const HERO_SUBTEXT_CLASSES: Record<SizeOption, string> = {
+  small: "text-sm sm:text-[0.95rem] lg:text-base",
+  medium: "text-base sm:text-lg",
+  large: "text-lg sm:text-xl",
+};
+
+const HERO_BADGE_CLASSES: Record<SizeOption, string> = {
+  small: "px-3 py-1 text-[0.55rem] tracking-[0.28em]",
+  medium: "px-4 py-1 text-[0.65rem] tracking-[0.3em]",
+  large: "px-5 py-1 text-[0.75rem] tracking-[0.32em]",
 };
 
 export default function Home() {
@@ -54,6 +82,12 @@ export default function Home() {
     settings?.hero_subtext?.trim() || "Original sketch, live shows, and shamelessly fun chaos.";
   const heroImage = settings?.hero_image_url?.trim() || "";
   const heroVideo = settings?.featured_video_url?.trim() || "";
+  const heroTitleSize = resolveSize(settings?.hero_title_size);
+  const heroSubtextSize = resolveSize(settings?.hero_subtext_size);
+  const heroBadgeSize = resolveSize(settings?.hero_badge_size);
+  const heroTitleClass = HERO_TITLE_CLASSES[heroTitleSize];
+  const heroSubtextClass = HERO_SUBTEXT_CLASSES[heroSubtextSize];
+  const heroBadgeClass = HERO_BADGE_CLASSES[heroBadgeSize];
   const whoTitle = settings?.who_title?.trim() || "Who We Are";
   const whoBody =
     settings?.who_body?.trim() ||
@@ -75,13 +109,15 @@ export default function Home() {
           <div className="grid gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
             <div className="flex flex-col gap-10">
               <header className="space-y-4">
-                <span className="theme-accent-chip inline-flex items-center gap-2 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em]">
+                <span
+                  className={`theme-accent-chip inline-flex items-center gap-2 font-semibold uppercase ${heroBadgeClass}`}
+                >
                   Too Funny Productions
                 </span>
-                <h1 className="text-3xl font-bold leading-tight text-theme-accent sm:text-4xl lg:text-[2.75rem]">
+                <h1 className={`font-bold leading-tight text-theme-accent ${heroTitleClass}`}>
                   {heroTitle}
                 </h1>
-                <p className="max-w-xl text-base text-theme-muted sm:text-lg">{heroSubtext}</p>
+                <p className={`max-w-xl text-theme-muted ${heroSubtextClass}`}>{heroSubtext}</p>
               </header>
 
               <div className="flex flex-wrap gap-4">
@@ -128,7 +164,7 @@ export default function Home() {
 
             <div className="grid gap-6">
               <div className="rounded-3xl border border-theme-surface bg-theme-surface p-5 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] lg:p-8">
-                <div className="overflow-hidden rounded-2xl border border-theme-surface bg-theme-background h-[260px] sm:h-[320px] lg:h-[430px]">
+                <div className="relative aspect-[3/2] w-full min-h-[240px] overflow-hidden rounded-2xl border border-theme-surface bg-theme-background sm:min-h-[280px] lg:min-h-[360px]">
                   {heroImage ? (
                     <img
                       src={heroImage}
@@ -144,9 +180,9 @@ export default function Home() {
               </div>
 
               <div className="relative overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl lg:p-6">
-                <div className="pointer-events-none absolute left-6 top-6 inline-flex items-center gap-2 theme-accent-chip px-4 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.4em]">
+                <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-theme-accent-soft">
                   Featured Video
-                </div>
+                </p>
                 <div className="aspect-video overflow-hidden rounded-2xl border border-theme-surface bg-theme-background">
                   {heroVideo ? (
                     <video src={heroVideo} controls preload="metadata" className="h-full w-full object-cover" />
