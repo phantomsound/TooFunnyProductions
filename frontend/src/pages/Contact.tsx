@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useSettings } from "../lib/SettingsContext";
-
-const api = (path: string) => `${import.meta.env.VITE_API_BASE || "http://localhost:5000"}${path}`;
+import { api } from "../lib/api";
 
 export default function Contact() {
   const { settings } = useSettings();
