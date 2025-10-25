@@ -1,6 +1,7 @@
 import { api } from "../lib/api";
 
 const SUPABASE_PATH_REGEX = /\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/i;
+const LEGACY_PROXY_PATH_REGEX = /\/api\/storage\/objects\/public\/([^/]+)\/(.+)$/i;
 const ALLOWED_BUCKETS = new Set(["media"]);
 
 const envSupabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
@@ -26,6 +27,15 @@ function parseSupabaseMediaUrl(input: string): { bucket: string; path: string } 
     parsed = new URL(input);
   } catch {
     return null;
+  }
+
+  const legacyMatch = parsed.pathname.match(LEGACY_PROXY_PATH_REGEX);
+  if (legacyMatch) {
+    const bucket = legacyMatch[1];
+    const path = decodeURIComponent(legacyMatch[2]);
+    if (!ALLOWED_BUCKETS.has(bucket)) return null;
+    if (!path || path.includes("..")) return null;
+    return { bucket, path };
   }
 
   if (!looksLikeSupabaseHost(parsed.host)) return null;
