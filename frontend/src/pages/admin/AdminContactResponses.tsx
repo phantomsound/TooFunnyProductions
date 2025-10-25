@@ -1,4 +1,5 @@
 import React from "react";
+import { useOutletContext } from "react-router-dom";
 import { api } from "../../lib/api";
 
 type ContactResponse = {
@@ -33,11 +34,20 @@ const SORT_LABEL = {
   oldest: "Oldest",
 };
 
+type AdminOutletContext = {
+  pendingContactResponses: number;
+  setPendingContactResponses?: (value: number) => void;
+  refreshPendingContactResponses?: () => Promise<void> | void;
+};
+
 export default function AdminContactResponses() {
   const [rows, setRows] = React.useState<ContactResponse[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+
+  const outletContext = useOutletContext<AdminOutletContext | null>();
+  const setPendingContactResponses = outletContext?.setPendingContactResponses;
 
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("all");
@@ -53,6 +63,10 @@ export default function AdminContactResponses() {
   const pendingListRef = React.useRef<HTMLDivElement | null>(null);
 
   const openResponses = React.useMemo(() => rows.filter((item) => !item.responded), [rows]);
+
+  React.useEffect(() => {
+    setPendingContactResponses?.(openResponses.length);
+  }, [openResponses.length, setPendingContactResponses]);
 
   const buildQuery = React.useCallback(
     (format?: string) => {

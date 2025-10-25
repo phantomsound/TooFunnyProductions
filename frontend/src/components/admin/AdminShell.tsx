@@ -5,6 +5,7 @@
    ========================================================================= */
 import React from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { api } from "../../lib/api";
 import { useSettings } from "../../lib/SettingsContext";
 import AdminUserBar from "./AdminUserBar";
 
@@ -40,6 +41,35 @@ export default function AdminShell() {
   const { settings } = useSettings();
   const quickLinks = React.useMemo(() => normalizeQuickLinks(settings?.admin_quick_links), [settings?.admin_quick_links]);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [pendingContactResponses, setPendingContactResponses] = React.useState(0);
+
+  const fetchPendingContactResponses = React.useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      params.set("responded", "false");
+      params.set("limit", "1");
+      const response = await fetch(api(`/api/admin/contact-responses?${params.toString()}`), {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(`Failed to load pending responses (${response.status})`);
+      const payload: { total?: number } = await response.json();
+      setPendingContactResponses(typeof payload.total === "number" ? payload.total : 0);
+    } catch (error) {
+      console.error("Failed to fetch pending contact responses", error);
+      setPendingContactResponses(0);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchPendingContactResponses();
+    const interval = window.setInterval(fetchPendingContactResponses, 60000);
+    return () => window.clearInterval(interval);
+  }, [fetchPendingContactResponses]);
+
+  const outletContext = React.useMemo(
+    () => ({ pendingContactResponses, setPendingContactResponses, refreshPendingContactResponses: fetchPendingContactResponses }),
+    [pendingContactResponses, fetchPendingContactResponses]
+  );
 
   const renderNavLink = (link: (typeof navLinks)[number]) => (
     <NavLink
@@ -47,11 +77,16 @@ export default function AdminShell() {
       to={link.to}
       onClick={() => setMobileMenuOpen(false)}
       className={({ isActive }) =>
-        "block rounded px-3 py-2 text-sm transition hover:bg-neutral-800 " +
+        "group flex items-center justify-between gap-2 rounded px-3 py-2 text-sm transition hover:bg-neutral-800 " +
         (isActive ? "bg-neutral-800 text-yellow-300" : "text-neutral-200")
       }
     >
-      {link.label}
+      <span className="truncate">{link.label}</span>
+      {link.to === "/admin/contact-responses" && pendingContactResponses > 0 ? (
+        <span className="tf-notice-pulse ml-2 inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-orange-500 px-2 text-[11px] font-semibold uppercase tracking-wide text-white shadow">
+          {pendingContactResponses > 99 ? "99+" : pendingContactResponses}
+        </span>
+      ) : null}
     </NavLink>
   );
 
@@ -129,7 +164,7 @@ export default function AdminShell() {
           ) : null}
 
           <div className="p-4 sm:p-6">
-            <Outlet />
+            <Outlet context={outletContext} />
           </div>
         </main>
       </div>
