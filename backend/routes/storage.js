@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import multer from "multer";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { extname } from "node:path";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
 
@@ -113,6 +114,31 @@ function sanitizeProxyPath(input) {
   return withoutLeadingSlash;
 }
 
+const CONTENT_TYPE_BY_EXTENSION = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".svg": "image/svg+xml",
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".m4v": "video/x-m4v",
+  ".webm": "video/webm",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".ogg": "audio/ogg",
+  ".pdf": "application/pdf",
+};
+
+function inferContentType(path, fallback = "application/octet-stream") {
+  if (typeof path !== "string" || !path) return fallback;
+  const ext = extname(path).toLowerCase();
+  if (!ext) return fallback;
+  return CONTENT_TYPE_BY_EXTENSION[ext] || fallback;
+}
+
 router.get("/proxy", async (req, res) => {
   if (!ensureSupabase(res)) return;
 
@@ -210,6 +236,91 @@ router.get("/proxy", async (req, res) => {
     }
     if (!publicCandidate) {
       errors.push({ source: "public", message: "Public URL not available" });
+    }
+
+    if (supabase) {
+      try {
+        const direct = await supabase.storage.from(bucket).download(path);
+        if (!direct.error && direct.data) {
+          const arrayBuffer = await direct.data.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          const contentType =
+            (typeof direct.data.type === "string" && direct.data.type) || inferContentType(path);
+          res.setHeader("Content-Type", contentType);
+          res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
+          res.setHeader("Content-Length", String(buffer.length));
+          if (method === "HEAD") {
+            res.status(200).end();
+          } else {
+            res.status(200).send(buffer);
+          }
+          return;
+        }
+        if (direct.error) {
+          errors.push({
+            source: "direct", 
+            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+            message: direct.error.message || "Direct download failed",
+          });
+        } else if (!direct.data) {
+          errors.push({ source: "direct", message: "Direct download returned empty response" });
+        }
+      } catch (error) {
+        errors.push({ source: "direct", message: error?.message || String(error) });
+      }
+
+      const rawContentType = upstream.headers["content-type"] || "application/octet-stream";
+      const rawCacheControl = upstream.headers["cache-control"] || "public, max-age=1800, s-maxage=1800";
+      const rawContentLength = upstream.headers["content-length"];
+
+      const contentType = Array.isArray(rawContentType) ? rawContentType[0] : rawContentType;
+      const cacheControl = Array.isArray(rawCacheControl) ? rawCacheControl[0] : rawCacheControl;
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", cacheControl);
+      if (rawContentLength) {
+        const lengthValue = Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength;
+        if (lengthValue) {
+          res.setHeader("Content-Length", lengthValue);
+        }
+      }
+
+      if (method === "HEAD") {
+        res.status(upstream.status || 200).end();
+      } else {
+        res.status(upstream.status || 200).send(upstream.buffer ?? Buffer.alloc(0));
+      }
+
+      return true;
+    };
+
+    const fetchFromUrl = async (label, url) => {
+      try {
+        const upstream = await fetchUpstream(url, method);
+        attempts.push({ source: label, url, status: upstream.status });
+        if (relayResponse(label, upstream)) {
+          return true;
+        }
+      } catch (error) {
+        errors.push({ source: label, message: error?.message || String(error) });
+      }
+      return false;
+    };
+
+    const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+    if (!signed.error) {
+      const signedUrl = signed.data?.signedUrl;
+      if (signedUrl && (await fetchFromUrl("signed", signedUrl))) {
+        return;
+      }
+      if (!signedUrl) {
+        errors.push({ source: "signed", message: "Signed URL missing" });
+      }
+    } else {
+      errors.push({
+        source: "signed",
+        status: typeof signed.error.status === "number" ? signed.error.status : undefined,
+        message: signed.error.message || "Failed to generate signed media URL",
+      });
     }
 
     const statusFromErrors = errors.find((entry) => typeof entry.status === "number")?.status;
