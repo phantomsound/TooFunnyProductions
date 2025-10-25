@@ -23,10 +23,10 @@ function normalizeHref(url: string): string {
 
 const sitemapLinks: Array<{ label: string; to: string; preserveStage?: boolean }> = [
   { label: "Home", to: "/", preserveStage: true },
-  { label: "About", to: "/about", preserveStage: true },
-  { label: "Events", to: "/events", preserveStage: true },
   { label: "Media", to: "/media", preserveStage: true },
   { label: "Merch", to: "/merch", preserveStage: true },
+  { label: "Events", to: "/events", preserveStage: true },
+  { label: "About", to: "/about", preserveStage: true },
   { label: "Contact", to: "/contact", preserveStage: true },
   { label: "Admin Login", to: "/admin", preserveStage: false },
 ];
