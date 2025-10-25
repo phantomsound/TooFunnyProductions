@@ -185,6 +185,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { user } = useAuth();
   const myEmail = user?.email ? user.email.toLowerCase() : null;
+  const { pathname, search } = location;
+  const isAdminRoute = pathname.startsWith("/admin");
 
   const [stage, setStage] = useState<Stage>("live");
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -251,6 +253,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => { load(stage); }, [stage, load]);
+
+  useEffect(() => {
+    if (isAdminRoute) return;
+    const params = new URLSearchParams(search || "");
+    const targetStage: Stage = params.get("stage") === "draft" ? "draft" : "live";
+    setStage((prev) => (prev === targetStage ? prev : targetStage));
+  }, [isAdminRoute, search]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -361,7 +370,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   );
 
   const refreshLock = useCallback(async () => {
-    if (stage !== "draft") {
+    if (!isAdminRoute || stage !== "draft") {
       setLock(null);
       setLockError(null);
       return;
@@ -383,11 +392,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       const message = error instanceof Error ? error.message : "Failed to load lock";
       setLockError(message);
     }
-  }, [stage]);
+  }, [stage, isAdminRoute]);
 
   const acquireLock = useCallback(
     async (options: AcquireOptions = {}) => {
-      if (stage !== "draft") return false;
+      if (!isAdminRoute || stage !== "draft") return false;
       const { silent = false, ttlSeconds } = options;
       if (!silent) {
         setLockLoading(true);
@@ -427,7 +436,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (!silent) setLockLoading(false);
       }
     },
-    [stage]
+    [stage, isAdminRoute]
   );
 
   const releaseLock = useCallback(
@@ -492,40 +501,45 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const reload = useCallback(async () => { await load(stage); }, [stage, load]);
 
   useEffect(() => {
+    if (!isAdminRoute) {
+      setLock(null);
+      setLockError(null);
+      return;
+    }
     if (stage === "draft") {
       acquireLock({ silent: true });
     } else {
       setLock(null);
       setLockError(null);
     }
-  }, [stage, acquireLock]);
+  }, [stage, acquireLock, isAdminRoute]);
 
   useEffect(() => {
-    if (stage !== "draft" || !hasLock) return;
+    if (!isAdminRoute || stage !== "draft" || !hasLock) return;
     const handle = window.setInterval(() => {
       acquireLock({ silent: true, ttlSeconds: 300 });
     }, 60_000);
     return () => window.clearInterval(handle);
-  }, [stage, hasLock, acquireLock]);
+  }, [stage, hasLock, acquireLock, isAdminRoute]);
 
   useEffect(() => {
-    if (stage !== "draft" || hasLock) return;
+    if (!isAdminRoute || stage !== "draft" || hasLock) return;
     const handle = window.setInterval(() => {
       refreshLock();
     }, 90_000);
     return () => window.clearInterval(handle);
-  }, [stage, hasLock, refreshLock]);
+  }, [stage, hasLock, refreshLock, isAdminRoute]);
 
   useEffect(() => {
-    if (stage === "draft" || !hasLock) return;
+    if (!isAdminRoute || stage === "draft" || !hasLock) return;
     releaseLock({ silent: true }).catch(() => {});
-  }, [stage, hasLock, releaseLock]);
+  }, [stage, hasLock, releaseLock, isAdminRoute]);
 
   useEffect(() => {
-    if (stage === "draft" || !lock) return;
+    if (!isAdminRoute || stage === "draft" || !lock) return;
     setLock(null);
     setLockError(null);
-  }, [stage, lock]);
+  }, [stage, lock, isAdminRoute]);
 
   useEffect(() => {
     if (!hasLock) return;
