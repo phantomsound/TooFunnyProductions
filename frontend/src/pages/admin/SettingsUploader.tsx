@@ -14,6 +14,7 @@ type SettingsUploaderProps = {
   disabled?: boolean;
   pickerKind?: "image" | "video" | "any";
   allowLibrary?: boolean;
+  appearance?: "dark" | "light";
 };
 
 type UploadError = string | null;
@@ -27,6 +28,7 @@ export default function SettingsUploader({
   disabled = false,
   pickerKind,
   allowLibrary = true,
+  appearance = "dark",
 }: SettingsUploaderProps): JSX.Element {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<UploadError>(null);
@@ -187,20 +189,66 @@ export default function SettingsUploader({
 
   const interactionsDisabled = disabled || uploading;
 
+  const palette = appearance === "light"
+    ? {
+        container: "space-y-4 rounded-lg border border-gray-200 bg-white p-4 text-gray-900 shadow-sm",
+        label: "text-sm font-semibold uppercase tracking-wide text-gray-500",
+        clearButton: interactionsDisabled
+          ? "text-xs font-semibold text-red-400/60 cursor-not-allowed"
+          : "text-xs font-semibold text-red-600 hover:text-red-500",
+        chooseButton: interactionsDisabled
+          ? "rounded px-3 py-2 text-sm font-semibold cursor-not-allowed bg-gray-100 text-gray-400"
+          : "rounded px-3 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500",
+        fileSummary: "flex-1 rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs leading-tight text-gray-600",
+        fileSummaryTitle: "truncate font-semibold text-gray-900",
+        fileSummaryStatus: "text-[11px] text-gray-500",
+        browseButton: interactionsDisabled
+          ? "w-full rounded border px-3 py-2 text-sm font-semibold cursor-not-allowed border-gray-200 text-gray-400"
+          : "w-full rounded border px-3 py-2 text-sm font-semibold border-gray-300 text-gray-700 hover:border-blue-300 hover:text-blue-600",
+        preview: "w-full rounded-md border border-gray-200 bg-gray-50 p-3 lg:max-w-[220px] lg:justify-self-end",
+        previewPlaceholder: "flex h-40 items-center justify-center text-xs text-gray-400",
+        previewImage: "mx-auto max-h-40 rounded-md object-cover",
+        previewText: "break-all text-xs text-gray-600",
+        statusRow: "flex flex-wrap items-center gap-3",
+        uploadingText: "text-xs text-gray-500",
+        viewButton: "rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-blue-300 hover:text-blue-600",
+        error: "text-xs text-red-500",
+      }
+    : {
+        container: "space-y-4 rounded-lg border border-neutral-800 bg-neutral-900/80 p-4 text-neutral-100 shadow-sm",
+        label: "text-sm font-semibold uppercase tracking-wide text-neutral-300",
+        clearButton: interactionsDisabled
+          ? "text-xs font-semibold cursor-not-allowed text-red-400/60"
+          : "text-xs font-semibold text-red-300 hover:text-red-200",
+        chooseButton: interactionsDisabled
+          ? "rounded px-3 py-2 text-sm font-semibold cursor-not-allowed bg-neutral-800 text-neutral-500"
+          : "rounded px-3 py-2 text-sm font-semibold bg-yellow-400 text-black hover:bg-yellow-300",
+        fileSummary: "flex-1 rounded border border-dashed border-neutral-700 bg-neutral-950/50 px-3 py-2 text-xs leading-tight text-neutral-300",
+        fileSummaryTitle: "truncate font-semibold text-neutral-100",
+        fileSummaryStatus: "text-[11px] text-neutral-400",
+        browseButton: interactionsDisabled
+          ? "w-full rounded border px-3 py-2 text-sm font-semibold cursor-not-allowed border-neutral-700 text-neutral-500"
+          : "w-full rounded border px-3 py-2 text-sm font-semibold border-neutral-700 text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200",
+        preview: "w-full rounded-md border border-neutral-800 bg-neutral-950/60 p-3 lg:max-w-sm lg:justify-self-end",
+        previewPlaceholder: "flex h-40 items-center justify-center text-xs text-neutral-500",
+        previewImage: "mx-auto max-h-40 object-contain",
+        previewText: "break-all text-xs text-neutral-300",
+        statusRow: "flex flex-wrap items-center gap-3",
+        uploadingText: "text-xs text-neutral-400",
+        viewButton: "rounded border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200",
+        error: "text-xs text-red-400",
+      };
+
   return (
-    <div className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-900/80 p-4 text-neutral-100 shadow-sm">
+    <div className={palette.container}>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold uppercase tracking-wide text-neutral-300">{label}</p>
+        <p className={palette.label}>{label}</p>
         {value && (
           <button
             type="button"
             onClick={handleClear}
             disabled={interactionsDisabled}
-            className={`text-xs font-semibold transition ${
-              interactionsDisabled
-                ? "cursor-not-allowed text-red-400/60"
-                : "text-red-300 hover:text-red-200"
-            }`}
+            className={palette.clearButton}
           >
             Clear
           </button>
@@ -216,7 +264,7 @@ export default function SettingsUploader({
         disabled={interactionsDisabled}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] lg:items-start lg:gap-6">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:items-start lg:gap-6">
         <div className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <button
@@ -225,18 +273,14 @@ export default function SettingsUploader({
                 if (!interactionsDisabled) fileInputRef.current?.click();
               }}
               disabled={interactionsDisabled}
-              className={`rounded px-3 py-2 text-sm font-semibold transition ${
-                interactionsDisabled
-                  ? "cursor-not-allowed bg-neutral-800 text-neutral-500"
-                  : "bg-yellow-400 text-black hover:bg-yellow-300"
-              }`}
+              className={palette.chooseButton}
             >
               {`Choose ${resourceTitle} from computer`}
             </button>
 
-            <div className="flex-1 rounded border border-dashed border-neutral-700 bg-neutral-950/50 px-3 py-2 text-xs leading-tight text-neutral-300">
-              <p className="truncate font-semibold text-neutral-100">{currentFileDisplay}</p>
-              <p className="text-[11px] text-neutral-400">{statusMessage}</p>
+            <div className={palette.fileSummary}>
+              <p className={palette.fileSummaryTitle}>{currentFileDisplay}</p>
+              <p className={palette.fileSummaryStatus}>{statusMessage}</p>
             </div>
           </div>
 
@@ -245,42 +289,38 @@ export default function SettingsUploader({
               type="button"
               onClick={() => setShowLibrary(true)}
               disabled={interactionsDisabled}
-              className={`w-full rounded border px-3 py-2 text-sm font-semibold transition ${
-                interactionsDisabled
-                  ? "cursor-not-allowed border-neutral-700 text-neutral-500"
-                  : "border-neutral-700 text-neutral-200 hover:border-yellow-300 hover:text-yellow-200"
-              }`}
+              className={palette.browseButton}
             >
               Browse media library
             </button>
           ) : null}
         </div>
 
-        <div className="w-full rounded-md border border-neutral-800 bg-neutral-950/60 p-3 lg:max-w-sm lg:justify-self-end">
+        <div className={palette.preview}>
           {hasPreview ? (
             isImage ? (
-              <img src={resolvedPreviewUrl} alt="Preview" className="mx-auto max-h-40 object-contain" />
+              <img src={resolvedPreviewUrl} alt="Preview" className={palette.previewImage} />
             ) : (
-              <p className="break-all text-xs text-neutral-300">{previewUrl}</p>
+              <p className={palette.previewText}>{previewUrl}</p>
             )
           ) : (
-            <div className="flex h-40 items-center justify-center text-xs text-neutral-500">
+            <div className={palette.previewPlaceholder}>
               No file selected yet.
             </div>
           )}
         </div>
       </div>
 
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {error ? <p className={palette.error}>{error}</p> : null}
 
-      <div className="flex flex-wrap items-center gap-3">
-        {uploading ? <span className="text-xs text-neutral-400">Uploading…</span> : null}
+      <div className={palette.statusRow}>
+        {uploading ? <span className={palette.uploadingText}>Uploading…</span> : null}
         {value ? (
           <a
             href={value}
             target="_blank"
             rel="noreferrer"
-            className="rounded border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200"
+            className={palette.viewButton}
           >
             View current
           </a>
