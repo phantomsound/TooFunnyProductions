@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import MediaPickerModal, {
   type MediaPickerItem,
@@ -32,6 +32,7 @@ export default function SettingsUploader({
   const [error, setError] = useState<UploadError>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(value || "");
   const [showLibrary, setShowLibrary] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const derivedPickerKind = useMemo(() => {
     if (pickerKind) return pickerKind;
@@ -58,6 +59,9 @@ export default function SettingsUploader({
   const resetSelection = (nextPreview: string | undefined) => {
     setFile(null);
     setPreviewUrl(nextPreview ?? "");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,6 +131,37 @@ export default function SettingsUploader({
     ? file.type.startsWith("image/")
     : !!previewUrl && /\.(png|jpe?g|gif|webp|svg)$/i.test(previewUrl);
 
+  const resourceName = useMemo(() => {
+    if (!buttonLabel) return "file";
+    const cleaned = buttonLabel
+      .replace(/from computer/gi, "")
+      .replace(/upload|select|choose/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return cleaned.length > 0 ? cleaned.toLowerCase() : "file";
+  }, [buttonLabel]);
+
+  const resourceTitle = useMemo(
+    () => resourceName.replace(/(^\w|\s\w)/g, (match) => match.toUpperCase()),
+    [resourceName]
+  );
+
+  const resourceArticle = useMemo(() => (resourceName.match(/^[aeiou]/i) ? "an" : "a"), [resourceName]);
+
+  const currentFileDisplay = useMemo(() => {
+    if (file?.name) return file.name;
+    if (!value) return "No file selected";
+    try {
+      const url = new URL(value);
+      const parts = decodeURIComponent(url.pathname).split("/").filter(Boolean);
+      if (parts.length > 0) return parts[parts.length - 1];
+      return url.hostname || value;
+    } catch {
+      const segments = value.split("/").filter(Boolean);
+      return segments.length > 0 ? decodeURIComponent(segments[segments.length - 1]) : value;
+    }
+  }, [file?.name, value]);
+
   return (
     <div className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900/80 p-4 text-neutral-100 shadow-sm">
       <div className="flex items-center justify-between">
@@ -145,14 +180,43 @@ export default function SettingsUploader({
         )}
       </div>
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={accept}
+        onChange={handleFileChange}
+        className="hidden"
+        disabled={disabled}
+      />
+
       <div className="space-y-2">
-        <input
-          type="file"
-          accept={accept}
-          onChange={handleFileChange}
-          className="block w-full text-sm text-neutral-200 file:mr-2 file:rounded-md file:border-0 file:bg-yellow-400 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-black"
-          disabled={disabled}
-        />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (!disabled) fileInputRef.current?.click();
+            }}
+            disabled={disabled}
+            className={`rounded px-3 py-2 text-sm font-semibold transition ${
+              disabled
+                ? "cursor-not-allowed bg-neutral-800 text-neutral-500"
+                : "bg-yellow-400 text-black hover:bg-yellow-300"
+            }`}
+          >
+            {`Choose ${resourceTitle} from computer`}
+          </button>
+
+          <div className="flex-1 rounded border border-dashed border-neutral-700 bg-neutral-950/50 px-3 py-2 text-xs leading-tight text-neutral-300">
+            <p className="truncate font-semibold text-neutral-100">{currentFileDisplay}</p>
+            <p className="text-[11px] text-neutral-400">
+              {file
+                ? `${resourceTitle} ready to upload`
+                : value
+                ? `${resourceTitle} currently in use`
+                : `Select ${resourceArticle} ${resourceName} to upload`}
+            </p>
+          </div>
+        </div>
 
         {allowLibrary ? (
           <button
@@ -193,7 +257,7 @@ export default function SettingsUploader({
               : "bg-yellow-400 text-black hover:bg-yellow-300"
           }`}
         >
-          {uploading ? "Uploading…" : `${buttonLabel} from computer`}
+          {uploading ? "Uploading…" : `Upload ${resourceTitle}`}
         </button>
         {value && !file ? (
           <a

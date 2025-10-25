@@ -147,9 +147,9 @@ export default function AdminSettingsGeneral(): JSX.Element {
         <h3 className="mb-3 text-xl font-semibold text-yellow-200">Branding</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block text-sm">
-            <div className="mb-1 font-semibold text-neutral-200">Site Title</div>
+            <div className="mb-1 text-base font-semibold text-neutral-100">Site Title</div>
             <input
-              className="w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-400 focus:border-yellow-300 focus:outline-none focus:ring-0"
+              className="w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-3 text-lg font-semibold !text-white placeholder:text-neutral-400 focus:border-yellow-300 focus:outline-none focus:ring-0"
               value={local.site_title}
               onChange={(event) => update("site_title", event.target.value)}
               disabled={disabled}
