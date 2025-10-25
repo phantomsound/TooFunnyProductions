@@ -133,42 +133,98 @@ router.get("/proxy", async (req, res) => {
   }
 
   try {
-    const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
-    if (signed.error) {
-      const status = typeof signed.error.status === "number" ? signed.error.status : 502;
-      return res.status(status).json({ error: signed.error.message || "Failed to generate signed media URL" });
-    }
-    const signedUrl = signed.data?.signedUrl;
-    if (!signedUrl) {
-      return res.status(404).json({ error: "Media not found" });
-    }
-
     const method = req.method === "HEAD" ? "HEAD" : "GET";
-    const upstream = await fetchUpstream(signedUrl, method);
-    if (!upstream.ok) {
-      return res.status(upstream.status).json({ error: `Upstream fetch failed (${upstream.status})` });
-    }
+    const attempts = [];
+    const errors = [];
 
-    const rawContentType = upstream.headers["content-type"] || "application/octet-stream";
-    const rawCacheControl = upstream.headers["cache-control"] || "public, max-age=1800, s-maxage=1800";
-    const rawContentLength = upstream.headers["content-length"];
-
-    const contentType = Array.isArray(rawContentType) ? rawContentType[0] : rawContentType;
-    const cacheControl = Array.isArray(rawCacheControl) ? rawCacheControl[0] : rawCacheControl;
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", cacheControl);
-    if (rawContentLength) {
-      const lengthValue = Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength;
-      if (lengthValue) {
-        res.setHeader("Content-Length", lengthValue);
+    const relayResponse = (label, upstream) => {
+      if (!upstream || !upstream.ok) {
+        if (upstream) {
+          errors.push({
+            source: label,
+            status: upstream.status,
+            message: `Upstream fetch failed (${upstream.status})`,
+          });
+        }
+        return false;
       }
+
+      const rawContentType = upstream.headers["content-type"] || "application/octet-stream";
+      const rawCacheControl = upstream.headers["cache-control"] || "public, max-age=1800, s-maxage=1800";
+      const rawContentLength = upstream.headers["content-length"];
+
+      const contentType = Array.isArray(rawContentType) ? rawContentType[0] : rawContentType;
+      const cacheControl = Array.isArray(rawCacheControl) ? rawCacheControl[0] : rawCacheControl;
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", cacheControl);
+      if (rawContentLength) {
+        const lengthValue = Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength;
+        if (lengthValue) {
+          res.setHeader("Content-Length", lengthValue);
+        }
+      }
+
+      if (method === "HEAD") {
+        res.status(upstream.status || 200).end();
+      } else {
+        res.status(upstream.status || 200).send(upstream.buffer ?? Buffer.alloc(0));
+      }
+
+      return true;
+    };
+
+    const fetchFromUrl = async (label, url) => {
+      try {
+        const upstream = await fetchUpstream(url, method);
+        attempts.push({ source: label, url, status: upstream.status });
+        if (relayResponse(label, upstream)) {
+          return true;
+        }
+      } catch (error) {
+        errors.push({ source: label, message: error?.message || String(error) });
+      }
+      return false;
+    };
+
+    const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+    if (!signed.error) {
+      const signedUrl = signed.data?.signedUrl;
+      if (signedUrl && (await fetchFromUrl("signed", signedUrl))) {
+        return;
+      }
+      if (!signedUrl) {
+        errors.push({ source: "signed", message: "Signed URL missing" });
+      }
+    } else {
+      errors.push({
+        source: "signed",
+        status: typeof signed.error.status === "number" ? signed.error.status : undefined,
+        message: signed.error.message || "Failed to generate signed media URL",
+      });
     }
 
-    if (method === "HEAD") {
-      return res.status(upstream.status || 200).end();
+    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
+    const publicCandidate = publicData?.publicUrl;
+    if (publicCandidate && (await fetchFromUrl("public", publicCandidate))) {
+      return;
+    }
+    if (!publicCandidate) {
+      errors.push({ source: "public", message: "Public URL not available" });
     }
 
-    res.status(upstream.status || 200).send(upstream.buffer ?? Buffer.alloc(0));
+    const statusFromErrors = errors.find((entry) => typeof entry.status === "number")?.status;
+    const status = typeof statusFromErrors === "number" ? statusFromErrors : 502;
+    const message =
+      errors.find((entry) => typeof entry.message === "string")?.message || "Failed to proxy media";
+
+    console.warn("/api/storage/proxy failed", {
+      bucket,
+      path,
+      attempts,
+      errors,
+    });
+
+    res.status(status).json({ error: message });
   } catch (err) {
     console.error("GET /api/storage/proxy error:", err);
     if (err && typeof err.status === "number") {
