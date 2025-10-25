@@ -151,6 +151,7 @@ export default function AdminMediaManager() {
   const [copiedPath, setCopiedPath] = React.useState(null);
   const [checkingPath, setCheckingPath] = React.useState<string | null>(null);
   const [referencesByPath, setReferencesByPath] = React.useState<Record<string, ReferenceStatus>>({});
+  const [expandedPaths, setExpandedPaths] = React.useState<Record<string, boolean>>({});
 
   const [search, setSearch] = React.useState("");
   const [activeSortId, setActiveSortId] = React.useState(SORT_OPTIONS[0].id);
@@ -276,6 +277,33 @@ export default function AdminMediaManager() {
     };
   }, [items, findReferences]);
 
+  React.useEffect(() => {
+    if (!items || items.length === 0) {
+      setExpandedPaths({});
+      return;
+    }
+
+    setExpandedPaths((prev) => {
+      const next: Record<string, boolean> = {};
+      items.forEach((item) => {
+        const path = typeof item?.path === "string" ? item.path : "";
+        if (!path) return;
+        if (prev[path]) {
+          next[path] = true;
+        }
+      });
+      return next;
+    });
+  }, [items]);
+
+  const toggleReferences = React.useCallback((path: string) => {
+    if (!path) return;
+    setExpandedPaths((prev) => ({
+      ...prev,
+      [path]: !prev[path],
+    }));
+  }, []);
+
   const renderReferences = React.useCallback(
     (item) => {
       const path = typeof item?.path === "string" ? item.path : "";
@@ -296,23 +324,40 @@ export default function AdminMediaManager() {
         return null;
       }
 
+      const isExpanded = !!expandedPaths[path];
+
       return (
-        <div className="space-y-1 text-xs">
-          <div className="font-semibold uppercase text-neutral-500">Used in</div>
-          <ul className="list-disc space-y-1 pl-4 text-neutral-300">
-            {state.references.map((reference, index) => {
-              const stageLabel = reference.stage === "draft" ? "Draft" : "Live";
-              return (
-                <li key={`${reference.stage}-${reference.description}-${index}`}>
-                  <span className="font-semibold text-neutral-200">{stageLabel} settings:</span> {reference.description}
-                </li>
-              );
-            })}
-          </ul>
+        <div className="overflow-hidden rounded border border-neutral-800/60 bg-neutral-900/40 text-xs">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-neutral-300 hover:bg-neutral-800/70"
+            onClick={() => toggleReferences(path)}
+            aria-expanded={isExpanded}
+          >
+            <span className="font-semibold uppercase tracking-wide text-neutral-400">Used in</span>
+            <span className="flex items-center gap-2 text-neutral-500">
+              <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] font-semibold text-neutral-200">
+                {state.references.length}
+              </span>
+              <span className="text-neutral-400">{isExpanded ? "−" : "+"}</span>
+            </span>
+          </button>
+          {isExpanded && (
+            <ul className="list-disc space-y-1 px-5 pb-3 pt-2 text-neutral-300">
+              {state.references.map((reference, index) => {
+                const stageLabel = reference.stage === "draft" ? "Draft" : "Live";
+                return (
+                  <li key={`${reference.stage}-${reference.description}-${index}`}>
+                    <span className="font-semibold text-neutral-200">{stageLabel} settings:</span> {reference.description}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       );
     },
-    [referencesByPath]
+    [expandedPaths, referencesByPath, toggleReferences]
   );
 
   const load = React.useCallback(async () => {
