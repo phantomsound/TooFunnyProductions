@@ -83,25 +83,138 @@ function publicUrl(path) {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-// Replace any occurrences of oldUrl with newUrl in a settings table row
-async function replaceUrlInTable(table, oldUrl, newUrl) {
+const PROXY_PATHNAME = "/api/storage/proxy";
+
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function updateProxyReference(original, fromPath, toPath) {
+  if (typeof original !== "string") return null;
+  const trimmed = original.trim();
+  if (!trimmed) return null;
+  if (!trimmed.toLowerCase().includes("/api/storage/proxy")) return null;
+
+  try {
+    let style = "absolute";
+    let parsed;
+    if (/^https?:\/\//i.test(trimmed)) {
+      parsed = new URL(trimmed);
+    } else if (trimmed.startsWith("//")) {
+      parsed = new URL(`http:${trimmed}`);
+      style = "protocol-relative";
+    } else if (trimmed.startsWith("/")) {
+      parsed = new URL(`http://placeholder.local${trimmed}`);
+      style = "absolute-path";
+    } else {
+      parsed = new URL(trimmed, "http://placeholder.local");
+      style = "relative";
+    }
+
+    if (parsed.pathname !== PROXY_PATHNAME) return null;
+    const currentBucket = parsed.searchParams.get("bucket");
+    const currentPath = parsed.searchParams.get("path");
+    if (currentBucket && currentBucket !== BUCKET) return null;
+    if (currentPath !== fromPath) return null;
+
+    const nextParams = new URLSearchParams(parsed.searchParams);
+    nextParams.set("bucket", BUCKET);
+    nextParams.set("path", toPath);
+    const suffix = `${PROXY_PATHNAME}?${nextParams.toString()}`;
+
+    switch (style) {
+      case "protocol-relative":
+        return `//${parsed.host}${suffix}`;
+      case "absolute-path":
+        return suffix;
+      case "relative": {
+        const lower = trimmed.toLowerCase();
+        const marker = lower.indexOf("api/storage/proxy");
+        const prefix = marker > 0 ? trimmed.slice(0, marker) : "";
+        const withoutLeadingSlash = suffix.startsWith("/") ? suffix.slice(1) : suffix;
+        return `${prefix}${withoutLeadingSlash}`;
+      }
+      case "absolute":
+      default:
+        return `${parsed.protocol}//${parsed.host}${suffix}`;
+    }
+  } catch {
+    return null;
+  }
+}
+
+function replaceUrls(value, context) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return { value, changed: false };
+    }
+
+    if (context.oldPublicUrl && trimmed === context.oldPublicUrl) {
+      return { value: context.newPublicUrl, changed: true };
+    }
+
+    if (context.fromPath && trimmed === context.fromPath) {
+      return { value: context.toPath, changed: true };
+    }
+
+    const proxy =
+      context.fromPath && context.toPath ? updateProxyReference(value, context.fromPath, context.toPath) : null;
+    if (proxy) {
+      return { value: proxy, changed: true };
+    }
+
+    return { value, changed: false };
+  }
+
+  if (Array.isArray(value)) {
+    let mutated = false;
+    const next = value.map((entry) => {
+      const replaced = replaceUrls(entry, context);
+      if (replaced.changed) mutated = true;
+      return replaced.changed ? replaced.value : entry;
+    });
+    return mutated ? { value: next, changed: true } : { value, changed: false };
+  }
+
+  if (value && typeof value === "object") {
+    let mutated = false;
+    const next = { ...value };
+    for (const [key, entry] of Object.entries(value)) {
+      const replaced = replaceUrls(entry, context);
+      if (replaced.changed) {
+        next[key] = replaced.value;
+        mutated = true;
+      }
+    }
+    return mutated ? { value: next, changed: true } : { value, changed: false };
+  }
+
+  return { value, changed: false };
+}
+
+// Replace stored references (including nested JSON + proxy URLs) in a settings table row
+async function replaceUrlInTable(table, { fromPath, toPath, oldPublicUrl, newPublicUrl }) {
   if (!supabase) return;
   const sel = await supabase.from(table).select("*").limit(1).maybeSingle();
   if (sel.error) throw sel.error;
   const row = sel.data;
   if (!row) return;
 
-  let changed = false;
-  const next = { ...row };
-  for (const k of Object.keys(next)) {
-    if (typeof next[k] === "string" && next[k] === oldUrl) {
-      next[k] = newUrl;
-      changed = true;
-    }
-  }
-  if (!changed) return;
+  const context = {
+    fromPath: typeof fromPath === "string" ? fromPath.trim() : "",
+    toPath: typeof toPath === "string" ? toPath.trim() : "",
+    oldPublicUrl: normalizeString(oldPublicUrl),
+    newPublicUrl: normalizeString(newPublicUrl),
+  };
 
-  const upd = await supabase.from(table).update({ ...next, updated_at: new Date().toISOString() }).eq("id", row.id);
+  const replaced = replaceUrls(row, context);
+  if (!replaced.changed) return;
+
+  const upd = await supabase
+    .from(table)
+    .update({ ...replaced.value, updated_at: new Date().toISOString() })
+    .eq("id", row.id);
   if (upd.error) throw upd.error;
 }
 
@@ -286,8 +399,9 @@ router.post("/rename", requireAdmin, async (req, res) => {
     const newUrl = publicUrl(toPath);
 
     // Update references in both settings tables where values equal oldUrl
-    await replaceUrlInTable("settings_draft", oldUrl, newUrl);
-    await replaceUrlInTable("settings_public", oldUrl, newUrl);
+    const replacement = { fromPath, toPath, oldPublicUrl: oldUrl, newPublicUrl: newUrl };
+    await replaceUrlInTable("settings_draft", replacement);
+    await replaceUrlInTable("settings_public", replacement);
 
     try {
       await logAdminAction(req.user?.email || "unknown", "media.rename", {

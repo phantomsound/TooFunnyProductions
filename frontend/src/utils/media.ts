@@ -1,6 +1,11 @@
 import { api } from "../lib/api";
 
-const SUPABASE_PATH_REGEX = /\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/i;
+const SUPABASE_STORAGE_PATTERNS = [
+  /\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/i,
+  /\/storage\/v1\/object\/sign\/([^/]+)\/(.+)$/i,
+  /\/storage\/v1\/render\/image\/public\/([^/]+)\/(.+)$/i,
+  /\/storage\/v1\/render\/image\/sign\/([^/]+)\/(.+)$/i,
+];
 const LEGACY_PROXY_PATH_REGEX = /\/api\/storage\/objects\/public\/([^/]+)\/(.+)$/i;
 const ALLOWED_BUCKETS = new Set(["media"]);
 
@@ -18,15 +23,23 @@ if (typeof envSupabaseUrl === "string" && envSupabaseUrl.trim()) {
 const looksLikeSupabaseHost = (host: string) => {
   const normalized = host.toLowerCase();
   if (supabaseHost) return normalized === supabaseHost;
-  return /\.supabase\.co$/i.test(normalized);
+  return /\.supabase\.(co|in|net)$/i.test(normalized);
 };
 
 function parseSupabaseMediaUrl(input: string): { bucket: string; path: string } | null {
+  if (!input) return null;
+
   let parsed: URL;
+  let isRelative = false;
   try {
     parsed = new URL(input);
   } catch {
-    return null;
+    try {
+      parsed = new URL(input, "http://placeholder.local");
+      isRelative = true;
+    } catch {
+      return null;
+    }
   }
 
   const legacyMatch = parsed.pathname.match(LEGACY_PROXY_PATH_REGEX);
@@ -38,14 +51,19 @@ function parseSupabaseMediaUrl(input: string): { bucket: string; path: string } 
     return { bucket, path };
   }
 
-  if (!looksLikeSupabaseHost(parsed.host)) return null;
-  const match = parsed.pathname.match(SUPABASE_PATH_REGEX);
-  if (!match) return null;
-  const bucket = match[1];
-  const path = decodeURIComponent(match[2]);
-  if (!ALLOWED_BUCKETS.has(bucket)) return null;
-  if (!path || path.includes("..")) return null;
-  return { bucket, path };
+  if (!isRelative && !looksLikeSupabaseHost(parsed.host)) return null;
+
+  for (const pattern of SUPABASE_STORAGE_PATTERNS) {
+    const match = parsed.pathname.match(pattern);
+    if (!match) continue;
+    const bucket = match[1];
+    const path = decodeURIComponent(match[2]);
+    if (!ALLOWED_BUCKETS.has(bucket)) return null;
+    if (!path || path.includes("..")) return null;
+    return { bucket, path };
+  }
+
+  return null;
 }
 
 export function resolveMediaUrl(raw: unknown): string {
