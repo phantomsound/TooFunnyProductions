@@ -5,6 +5,11 @@ import { resolveMediaUrl } from "../../utils/media";
 
 type Stage = "draft" | "live";
 type PathSegment = string | number;
+type ReferenceInfo = { stage: Stage; description: string };
+type ReferenceStatus =
+  | { status: "loading" }
+  | { status: "loaded"; references: ReferenceInfo[] }
+  | { status: "error"; error: string };
 
 const STAGE_ORDER: Stage[] = ["draft", "live"];
 
@@ -145,6 +150,7 @@ export default function AdminMediaManager() {
   const [error, setError] = React.useState(null);
   const [copiedPath, setCopiedPath] = React.useState(null);
   const [checkingPath, setCheckingPath] = React.useState<string | null>(null);
+  const [referencesByPath, setReferencesByPath] = React.useState<Record<string, ReferenceStatus>>({});
 
   const [search, setSearch] = React.useState("");
   const [activeSortId, setActiveSortId] = React.useState(SORT_OPTIONS[0].id);
@@ -183,7 +189,7 @@ export default function AdminMediaManager() {
   const findReferences = React.useCallback(
     async (targetUrl: string) => {
       if (!targetUrl) return [] as { stage: Stage; description: string }[];
-      const references: { stage: Stage; description: string }[] = [];
+      const references: ReferenceInfo[] = [];
       const seen = new Set<string>();
       for (const stage of STAGE_ORDER) {
         const settings = await ensureStageSettings(stage);
@@ -201,6 +207,112 @@ export default function AdminMediaManager() {
       return references;
     },
     [ensureStageSettings]
+  );
+
+  React.useEffect(() => {
+    if (!items || items.length === 0) {
+      setReferencesByPath({});
+      return;
+    }
+
+    let cancelled = false;
+
+    setReferencesByPath((prev) => {
+      const next: Record<string, ReferenceStatus> = {};
+      items.forEach((item) => {
+        const path = item?.path;
+        if (typeof path !== "string" || !path) return;
+        const existing = prev[path];
+        next[path] = existing && existing.status === "loaded" ? existing : { status: "loading" };
+      });
+      return next;
+    });
+
+    const loadReferences = async () => {
+      const results = await Promise.all(
+        items.map(async (item) => {
+          const path = typeof item?.path === "string" ? item.path : "";
+          if (!path) {
+            return { path, status: { status: "loaded", references: [] as ReferenceInfo[] } as ReferenceStatus };
+          }
+
+          const url = typeof item?.url === "string" ? item.url.trim() : "";
+          if (!url) {
+            return { path, status: { status: "loaded", references: [] as ReferenceInfo[] } as ReferenceStatus };
+          }
+
+          try {
+            const references = await findReferences(url);
+            return { path, status: { status: "loaded", references } as ReferenceStatus };
+          } catch (err) {
+            console.error("Failed to load references for media item", err);
+            return {
+              path,
+              status: {
+                status: "error",
+                error: "Could not determine where this file is used.",
+              } as ReferenceStatus,
+            };
+          }
+        })
+      );
+
+      if (cancelled) return;
+
+      setReferencesByPath(() => {
+        const next: Record<string, ReferenceStatus> = {};
+        results.forEach(({ path, status }) => {
+          if (!path) return;
+          next[path] = status;
+        });
+        return next;
+      });
+    };
+
+    loadReferences();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items, findReferences]);
+
+  const renderReferences = React.useCallback(
+    (item) => {
+      const path = typeof item?.path === "string" ? item.path : "";
+      if (!path) return null;
+
+      const state = referencesByPath[path];
+      if (!state) return null;
+
+      if (state.status === "loading") {
+        return <div className="text-xs text-neutral-500">Checking where this file is used…</div>;
+      }
+
+      if (state.status === "error") {
+        return <div className="text-xs text-red-300">{state.error}</div>;
+      }
+
+      if (!state.references || state.references.length === 0) {
+        return null;
+      }
+
+      return (
+        <div className="space-y-1 text-xs">
+          <div className="font-semibold uppercase text-neutral-500">Used in</div>
+          <ul className="list-disc space-y-1 pl-4 text-neutral-300">
+            {state.references.map((reference, index) => {
+              const stageLabel = reference.stage === "draft" ? "Draft" : "Live";
+              return (
+                <li key={`${reference.stage}-${reference.description}-${index}`}>
+                  <span className="font-semibold text-neutral-200">{stageLabel} settings:</span> {reference.description}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      );
+    },
+    [referencesByPath]
   );
 
   const load = React.useCallback(async () => {
