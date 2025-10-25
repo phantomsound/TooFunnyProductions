@@ -371,59 +371,6 @@ router.get("/proxy", async (req, res) => {
       } catch (error) {
         errors.push({ source: "direct", message: error?.message || String(error) });
       }
-
-      const rawContentType = upstream.headers["content-type"] || "application/octet-stream";
-      const rawCacheControl = upstream.headers["cache-control"] || "public, max-age=1800, s-maxage=1800";
-      const rawContentLength = upstream.headers["content-length"];
-
-      const contentType = Array.isArray(rawContentType) ? rawContentType[0] : rawContentType;
-      const cacheControl = Array.isArray(rawCacheControl) ? rawCacheControl[0] : rawCacheControl;
-      res.setHeader("Content-Type", contentType);
-      res.setHeader("Cache-Control", cacheControl);
-      if (rawContentLength) {
-        const lengthValue = Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength;
-        if (lengthValue) {
-          res.setHeader("Content-Length", lengthValue);
-        }
-      }
-
-      if (method === "HEAD") {
-        res.status(upstream.status || 200).end();
-      } else {
-        res.status(upstream.status || 200).send(upstream.buffer ?? Buffer.alloc(0));
-      }
-
-      return true;
-    };
-
-    const fetchFromUrl = async (label, url) => {
-      try {
-        const upstream = await fetchUpstream(url, method);
-        attempts.push({ source: label, url, status: upstream.status });
-        if (relayResponse(label, upstream)) {
-          return true;
-        }
-      } catch (error) {
-        errors.push({ source: label, message: error?.message || String(error) });
-      }
-      return false;
-    };
-
-    const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
-    if (!signed.error) {
-      const signedUrl = signed.data?.signedUrl;
-      if (signedUrl && (await fetchFromUrl("signed", signedUrl))) {
-        return;
-      }
-      if (!signedUrl) {
-        errors.push({ source: "signed", message: "Signed URL missing" });
-      }
-    } else {
-      errors.push({
-        source: "signed",
-        status: typeof signed.error.status === "number" ? signed.error.status : undefined,
-        message: signed.error.message || "Failed to generate signed media URL",
-      });
     }
 
     const statusFromErrors = errors.find((entry) => typeof entry.status === "number")?.status;
