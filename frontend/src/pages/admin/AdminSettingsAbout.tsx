@@ -354,6 +354,7 @@ export default function AdminSettingsAbout(): JSX.Element {
                         buttonLabel="Upload portrait"
                         disabled={disabled}
                         pickerKind="image"
+                        appearance="light"
                       />
                     </div>
 
