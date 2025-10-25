@@ -59,6 +59,12 @@ const ALLOWED = new Set([
   "hero_title_size",
   "hero_subtext_size",
   "hero_badge_size",
+  "hero_badge_enabled",
+  "hero_badge_label",
+  "hero_badge_variant",
+  "hero_badge_use_theme_color",
+  "hero_badge_color",
+  "hero_badge_text_color",
   "hero_image_url",
   "featured_video_url",
   "who_title",
@@ -66,6 +72,11 @@ const ALLOWED = new Set([
   "who_cta_label",
   "who_cta_url",
   "who_image_url",
+  "who_label",
+  "who_show_label",
+  "who_label_size",
+  "who_title_size",
+  "who_body_size",
 
   "site_title",
   "site_description",
@@ -116,6 +127,30 @@ const ALLOWED = new Set([
   "header_bg",
   "footer_bg",
   "theme_use_global",
+  "home_theme_accent",
+  "home_theme_bg",
+  "home_header_bg",
+  "home_footer_bg",
+  "about_theme_accent",
+  "about_theme_bg",
+  "about_header_bg",
+  "about_footer_bg",
+  "events_theme_accent",
+  "events_theme_bg",
+  "events_header_bg",
+  "events_footer_bg",
+  "media_theme_accent",
+  "media_theme_bg",
+  "media_header_bg",
+  "media_footer_bg",
+  "merch_theme_accent",
+  "merch_theme_bg",
+  "merch_header_bg",
+  "merch_footer_bg",
+  "contact_theme_accent",
+  "contact_theme_bg",
+  "contact_header_bg",
+  "contact_footer_bg",
 
   "session_timeout_minutes",
 
@@ -123,7 +158,14 @@ const ALLOWED = new Set([
   "updated_at"          // we set this on writes
 ]);
 
-const SIZE_FIELDS = new Set(["hero_title_size", "hero_subtext_size", "hero_badge_size"]);
+const SIZE_FIELDS = new Set([
+  "hero_title_size",
+  "hero_subtext_size",
+  "hero_badge_size",
+  "who_label_size",
+  "who_title_size",
+  "who_body_size",
+]);
 
 const coerceSize = (value) => {
   if (value === null) return "medium";

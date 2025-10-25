@@ -82,6 +82,61 @@ alter table settings_public add column if not exists footer_bg text;
 alter table settings_draft  add column if not exists theme_use_global boolean default true;
 alter table settings_public add column if not exists theme_use_global boolean default true;
 
+-- Page-specific theme overrides ---------------------------------------------
+alter table settings_draft  add column if not exists home_theme_accent text;
+alter table settings_public add column if not exists home_theme_accent text;
+alter table settings_draft  add column if not exists home_theme_bg text;
+alter table settings_public add column if not exists home_theme_bg text;
+alter table settings_draft  add column if not exists home_header_bg text;
+alter table settings_public add column if not exists home_header_bg text;
+alter table settings_draft  add column if not exists home_footer_bg text;
+alter table settings_public add column if not exists home_footer_bg text;
+
+alter table settings_draft  add column if not exists about_theme_accent text;
+alter table settings_public add column if not exists about_theme_accent text;
+alter table settings_draft  add column if not exists about_theme_bg text;
+alter table settings_public add column if not exists about_theme_bg text;
+alter table settings_draft  add column if not exists about_header_bg text;
+alter table settings_public add column if not exists about_header_bg text;
+alter table settings_draft  add column if not exists about_footer_bg text;
+alter table settings_public add column if not exists about_footer_bg text;
+
+alter table settings_draft  add column if not exists events_theme_accent text;
+alter table settings_public add column if not exists events_theme_accent text;
+alter table settings_draft  add column if not exists events_theme_bg text;
+alter table settings_public add column if not exists events_theme_bg text;
+alter table settings_draft  add column if not exists events_header_bg text;
+alter table settings_public add column if not exists events_header_bg text;
+alter table settings_draft  add column if not exists events_footer_bg text;
+alter table settings_public add column if not exists events_footer_bg text;
+
+alter table settings_draft  add column if not exists media_theme_accent text;
+alter table settings_public add column if not exists media_theme_accent text;
+alter table settings_draft  add column if not exists media_theme_bg text;
+alter table settings_public add column if not exists media_theme_bg text;
+alter table settings_draft  add column if not exists media_header_bg text;
+alter table settings_public add column if not exists media_header_bg text;
+alter table settings_draft  add column if not exists media_footer_bg text;
+alter table settings_public add column if not exists media_footer_bg text;
+
+alter table settings_draft  add column if not exists merch_theme_accent text;
+alter table settings_public add column if not exists merch_theme_accent text;
+alter table settings_draft  add column if not exists merch_theme_bg text;
+alter table settings_public add column if not exists merch_theme_bg text;
+alter table settings_draft  add column if not exists merch_header_bg text;
+alter table settings_public add column if not exists merch_header_bg text;
+alter table settings_draft  add column if not exists merch_footer_bg text;
+alter table settings_public add column if not exists merch_footer_bg text;
+
+alter table settings_draft  add column if not exists contact_theme_accent text;
+alter table settings_public add column if not exists contact_theme_accent text;
+alter table settings_draft  add column if not exists contact_theme_bg text;
+alter table settings_public add column if not exists contact_theme_bg text;
+alter table settings_draft  add column if not exists contact_header_bg text;
+alter table settings_public add column if not exists contact_header_bg text;
+alter table settings_draft  add column if not exists contact_footer_bg text;
+alter table settings_public add column if not exists contact_footer_bg text;
+
 -- Admin session controls ------------------------------------------------
 alter table settings_draft  add column if not exists session_timeout_minutes integer default 30;
 alter table settings_public add column if not exists session_timeout_minutes integer;
@@ -116,6 +171,18 @@ alter table settings_draft  add column if not exists hero_subtext_size text defa
 alter table settings_public add column if not exists hero_subtext_size text;
 alter table settings_draft  add column if not exists hero_badge_size text default 'medium';
 alter table settings_public add column if not exists hero_badge_size text;
+alter table settings_draft  add column if not exists hero_badge_enabled boolean default true;
+alter table settings_public add column if not exists hero_badge_enabled boolean default true;
+alter table settings_draft  add column if not exists hero_badge_label text;
+alter table settings_public add column if not exists hero_badge_label text;
+alter table settings_draft  add column if not exists hero_badge_variant text default 'soft';
+alter table settings_public add column if not exists hero_badge_variant text;
+alter table settings_draft  add column if not exists hero_badge_use_theme_color boolean default true;
+alter table settings_public add column if not exists hero_badge_use_theme_color boolean default true;
+alter table settings_draft  add column if not exists hero_badge_color text;
+alter table settings_public add column if not exists hero_badge_color text;
+alter table settings_draft  add column if not exists hero_badge_text_color text;
+alter table settings_public add column if not exists hero_badge_text_color text;
 alter table settings_draft  add column if not exists hero_image_url text;
 alter table settings_public add column if not exists hero_image_url text;
 alter table settings_draft  add column if not exists featured_video_url text;
@@ -130,6 +197,16 @@ alter table settings_draft  add column if not exists who_cta_url text;
 alter table settings_public add column if not exists who_cta_url text;
 alter table settings_draft  add column if not exists who_image_url text;
 alter table settings_public add column if not exists who_image_url text;
+alter table settings_draft  add column if not exists who_label text;
+alter table settings_public add column if not exists who_label text;
+alter table settings_draft  add column if not exists who_show_label boolean default true;
+alter table settings_public add column if not exists who_show_label boolean default true;
+alter table settings_draft  add column if not exists who_label_size text default 'medium';
+alter table settings_public add column if not exists who_label_size text;
+alter table settings_draft  add column if not exists who_title_size text default 'medium';
+alter table settings_public add column if not exists who_title_size text;
+alter table settings_draft  add column if not exists who_body_size text default 'medium';
+alter table settings_public add column if not exists who_body_size text;
 
 -- About page ------------------------------------------------------------
 alter table settings_draft  add column if not exists about_title text;
