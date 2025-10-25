@@ -188,8 +188,8 @@ export default function SettingsUploader({
   const interactionsDisabled = disabled || uploading;
 
   return (
-    <div className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900/80 p-4 text-neutral-100 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-900/80 p-4 text-neutral-100 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold uppercase tracking-wide text-neutral-300">{label}</p>
         {value && (
           <button
@@ -216,57 +216,59 @@ export default function SettingsUploader({
         disabled={interactionsDisabled}
       />
 
-      <div className="space-y-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              if (!interactionsDisabled) fileInputRef.current?.click();
-            }}
-            disabled={interactionsDisabled}
-            className={`rounded px-3 py-2 text-sm font-semibold transition ${
-              interactionsDisabled
-                ? "cursor-not-allowed bg-neutral-800 text-neutral-500"
-                : "bg-yellow-400 text-black hover:bg-yellow-300"
-            }`}
-          >
-            {`Choose ${resourceTitle} from computer`}
-          </button>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+        <div className="flex-1 space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (!interactionsDisabled) fileInputRef.current?.click();
+              }}
+              disabled={interactionsDisabled}
+              className={`rounded px-3 py-2 text-sm font-semibold transition ${
+                interactionsDisabled
+                  ? "cursor-not-allowed bg-neutral-800 text-neutral-500"
+                  : "bg-yellow-400 text-black hover:bg-yellow-300"
+              }`}
+            >
+              {`Choose ${resourceTitle} from computer`}
+            </button>
 
-          <div className="flex-1 rounded border border-dashed border-neutral-700 bg-neutral-950/50 px-3 py-2 text-xs leading-tight text-neutral-300">
-            <p className="truncate font-semibold text-neutral-100">{currentFileDisplay}</p>
-            <p className="text-[11px] text-neutral-400">{statusMessage}</p>
+            <div className="flex-1 rounded border border-dashed border-neutral-700 bg-neutral-950/50 px-3 py-2 text-xs leading-tight text-neutral-300">
+              <p className="truncate font-semibold text-neutral-100">{currentFileDisplay}</p>
+              <p className="text-[11px] text-neutral-400">{statusMessage}</p>
+            </div>
           </div>
+
+          {allowLibrary ? (
+            <button
+              type="button"
+              onClick={() => setShowLibrary(true)}
+              disabled={interactionsDisabled}
+              className={`w-full rounded border px-3 py-2 text-sm font-semibold transition ${
+                interactionsDisabled
+                  ? "cursor-not-allowed border-neutral-700 text-neutral-500"
+                  : "border-neutral-700 text-neutral-200 hover:border-yellow-300 hover:text-yellow-200"
+              }`}
+            >
+              Browse media library
+            </button>
+          ) : null}
         </div>
 
-        {allowLibrary ? (
-          <button
-            type="button"
-            onClick={() => setShowLibrary(true)}
-            disabled={interactionsDisabled}
-            className={`w-full rounded border px-3 py-2 text-sm font-semibold transition ${
-              interactionsDisabled
-                ? "cursor-not-allowed border-neutral-700 text-neutral-500"
-                : "border-neutral-700 text-neutral-200 hover:border-yellow-300 hover:text-yellow-200"
-            }`}
-          >
-            Browse media library
-          </button>
-        ) : null}
-      </div>
-
-      <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3">
-        {hasPreview ? (
-          isImage ? (
-            <img src={resolvedPreviewUrl} alt="Preview" className="mx-auto max-h-40 object-contain" />
+        <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 lg:w-60 lg:shrink-0 xl:w-72">
+          {hasPreview ? (
+            isImage ? (
+              <img src={resolvedPreviewUrl} alt="Preview" className="mx-auto max-h-40 object-contain" />
+            ) : (
+              <p className="break-all text-xs text-neutral-300">{previewUrl}</p>
+            )
           ) : (
-            <p className="break-all text-xs text-neutral-300">{previewUrl}</p>
-          )
-        ) : (
-          <div className="flex h-40 items-center justify-center text-xs text-neutral-500">
-            No file selected yet.
-          </div>
-        )}
+            <div className="flex h-40 items-center justify-center text-xs text-neutral-500">
+              No file selected yet.
+            </div>
+          )}
+        </div>
       </div>
 
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
