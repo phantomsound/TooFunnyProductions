@@ -314,14 +314,14 @@ export default function AdminSettingsAbout(): JSX.Element {
             No team members yet. Use “Add team member” to feature your collaborators.
           </p>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {local.about_team.map((member, index) => {
               const canMoveUp = index > 0;
               const canMoveDown = index < local.about_team.length - 1;
 
               return (
-                <div key={index} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div key={index} className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                  <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                       Member {index + 1}
                     </span>
@@ -344,8 +344,8 @@ export default function AdminSettingsAbout(): JSX.Element {
                       </button>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-4 md:flex-row">
-                    <div className="md:w-1/3">
+                  <div className="grid gap-6 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
+                    <div className="lg:pt-1">
                       <SettingsUploader
                         label="Portrait"
                         value={member.photo_url}
@@ -357,8 +357,8 @@ export default function AdminSettingsAbout(): JSX.Element {
                       />
                     </div>
 
-                    <div className="md:flex-1 space-y-3">
-                      <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <label className="text-sm font-semibold">
                           Name
                           <input
@@ -382,15 +382,15 @@ export default function AdminSettingsAbout(): JSX.Element {
                       <label className="block text-sm font-semibold">
                         Bio
                         <textarea
-                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black min-h-[80px]"
+                          className="mt-1 w-full rounded border border-gray-300 px-3 py-3 text-black min-h-[120px]"
                           value={member.bio}
                           onChange={(event) => updateMember(index, "bio", event.target.value)}
                           disabled={disabled}
                         />
                       </label>
 
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
                           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                             Social links
                           </span>
@@ -405,18 +405,18 @@ export default function AdminSettingsAbout(): JSX.Element {
                         </div>
 
                         {member.socials.length === 0 ? (
-                          <p className="rounded border border-dashed border-gray-300 p-3 text-xs text-gray-500">
+                          <p className="rounded border border-dashed border-gray-300 p-4 text-sm text-gray-500">
                             No social links yet. Add one to highlight where fans can follow this collaborator.
                           </p>
                         ) : (
-                          <div className="space-y-3">
+                          <div className="space-y-4">
                             {member.socials.map((social, socialIndex) => (
-                              <div key={socialIndex} className="rounded border border-gray-200 bg-gray-50 p-3">
-                                <div className="grid gap-3 md:grid-cols-2">
+                              <div key={socialIndex} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-4">
+                                <div className="grid gap-4 sm:grid-cols-2">
                                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Label
                                     <input
-                                      className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-black text-sm"
+                                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black text-sm"
                                       value={social.label}
                                       onChange={(event) => updateSocialLink(index, socialIndex, "label", event.target.value)}
                                       disabled={disabled}
@@ -426,7 +426,7 @@ export default function AdminSettingsAbout(): JSX.Element {
                                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Link
                                     <input
-                                      className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-black text-sm"
+                                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black text-sm"
                                       value={social.url}
                                       onChange={(event) => updateSocialLink(index, socialIndex, "url", event.target.value)}
                                       disabled={disabled}
@@ -434,7 +434,7 @@ export default function AdminSettingsAbout(): JSX.Element {
                                     />
                                   </label>
                                 </div>
-                                <div className="mt-2 flex justify-end">
+                                <div className="flex justify-end">
                                   <button
                                     type="button"
                                     onClick={() => removeSocialLink(index, socialIndex)}
