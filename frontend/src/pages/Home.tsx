@@ -18,6 +18,7 @@ type Settings = {
   hero_title?: string;
   hero_subtext?: string;
   hero_image_url?: string;
+  logo_url?: string;
   featured_video_url?: string;
   who_title?: string;
   who_body?: string;
@@ -129,8 +130,15 @@ export default function Home() {
   const heroTitle = settings?.hero_title?.trim() || "Comedy that’s Too Funny";
   const heroSubtext =
     settings?.hero_subtext?.trim() || "Original sketch, live shows, and shamelessly fun chaos.";
-  const heroImageRaw =
-    typeof settings?.hero_image_url === "string" ? settings.hero_image_url.trim() : "";
+  const heroImageRaw = (() => {
+    if (typeof settings?.hero_image_url === "string" && settings.hero_image_url.trim()) {
+      return settings.hero_image_url.trim();
+    }
+    if (typeof settings?.logo_url === "string" && settings.logo_url.trim()) {
+      return settings.logo_url.trim();
+    }
+    return "";
+  })();
   const heroVideoRaw =
     typeof settings?.featured_video_url === "string" ? settings.featured_video_url.trim() : "";
   const heroImage = resolveMediaUrl(heroImageRaw);
