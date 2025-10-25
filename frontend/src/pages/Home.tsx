@@ -3,7 +3,7 @@
    -------------------------------------------------------------------------
    Public Home; shows draft if ?stage=draft by calling /api/settings/preview.
    ========================================================================= */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { useSettings } from "../lib/SettingsContext";
@@ -164,16 +164,41 @@ export default function Home() {
   const heroVideoRaw =
     typeof settings?.featured_video_url === "string" ? settings.featured_video_url.trim() : "";
   const heroImageVersion = useMemo(() => toVersionParam(settings?.updated_at), [settings?.updated_at]);
-  const heroImage = useMemo(() => {
+  const heroImageSources = useMemo(() => {
     const resolved = resolveMediaUrl(heroImageRaw);
-    const source = resolved || FALLBACK_HERO_IMAGE;
-    if (!source) return "";
-    const shouldAugment = Boolean(resolved);
-    return appendQueryParams(source, {
-      stage: shouldAugment && isDraftPreview ? "draft" : null,
-      v: shouldAugment && heroImageVersion ? heroImageVersion : null,
-    });
+    const applyParams = (input: string, allowAugment: boolean) =>
+      appendQueryParams(input, {
+        stage: allowAugment && isDraftPreview ? "draft" : null,
+        v: allowAugment && heroImageVersion ? heroImageVersion : null,
+      });
+
+    const candidates: string[] = [];
+    if (resolved) {
+      candidates.push(applyParams(resolved, true));
+    }
+    if (heroImageRaw && resolved !== heroImageRaw) {
+      candidates.push(applyParams(heroImageRaw, true));
+    }
+    candidates.push(applyParams(FALLBACK_HERO_IMAGE, false));
+
+    const unique = Array.from(new Set(candidates.filter(Boolean)));
+    return unique.length > 0 ? unique : [FALLBACK_HERO_IMAGE];
   }, [heroImageRaw, heroImageVersion, isDraftPreview]);
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
+  const heroImage = heroImageSources[Math.min(heroImageIndex, heroImageSources.length - 1)] || FALLBACK_HERO_IMAGE;
+
+  useEffect(() => {
+    setHeroImageIndex(0);
+  }, [heroImageSources]);
+
+  const handleHeroImageError = useCallback(() => {
+    setHeroImageIndex((prev) => {
+      if (prev >= heroImageSources.length - 1) {
+        return prev;
+      }
+      return prev + 1;
+    });
+  }, [heroImageSources.length]);
   const heroVideo = resolveMediaUrl(heroVideoRaw);
   const heroTitleSize = resolveSize(settings?.hero_title_size);
   const heroSubtextSize = resolveSize(settings?.hero_subtext_size);
@@ -321,6 +346,7 @@ export default function Home() {
                         src={heroImage}
                         alt={heroTitle || "Too Funny Productions hero"}
                         className="h-full w-full max-h-full max-w-full object-cover"
+                        onError={handleHeroImageError}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-theme-muted">
