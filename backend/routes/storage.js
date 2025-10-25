@@ -111,6 +111,56 @@ router.get("/list", requireAdmin, async (req, res) => {
   }
 });
 
+// --- INSPECT ----------------------------------------------------------
+router.get("/inspect", requireAdmin, async (req, res) => {
+  if (!ensureSupabase(res)) return;
+  const rawPath = typeof req.query.path === "string" ? req.query.path : "";
+  const path = rawPath.trim();
+  if (!path) {
+    return res.status(400).json({ error: "path query parameter is required" });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("storage.objects")
+      .select("id,name,bucket_id,created_at,updated_at,last_accessed_at,metadata")
+      .eq("bucket_id", BUCKET)
+      .eq("name", path)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") throw error;
+
+    const object = data ?? null;
+    const url = publicUrl(path);
+
+    let publicUrlStatus = null;
+    try {
+      const head = await fetch(url, { method: "HEAD" });
+      publicUrlStatus = head.status;
+    } catch {}
+
+    let signedUrl = null;
+    if (object) {
+      const signed = await supabase.storage.from(BUCKET).createSignedUrl(path, 60);
+      if (!signed.error) {
+        signedUrl = signed.data?.signedUrl ?? null;
+      }
+    }
+
+    res.json({
+      path,
+      exists: Boolean(object),
+      object,
+      publicUrl: url,
+      publicUrlStatus,
+      signedUrl,
+    });
+  } catch (err) {
+    console.error("GET /api/storage/inspect error:", err);
+    res.status(500).json({ error: "Failed to inspect path" });
+  }
+});
+
 // --- UPLOAD ------------------------------------------------------------
 router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => {
   if (!ensureSupabase(res)) return;
