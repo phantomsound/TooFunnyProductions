@@ -11,6 +11,7 @@ import AdminSettingsMedia from "./AdminSettingsMedia";
 import AdminSettingsMerch from "./AdminSettingsMerch";
 import AdminSettingsContact from "./AdminSettingsContact";
 import AdminSettingsSnapshots from "./AdminSettingsSnapshots";
+import AdminPublishConfirm from "./AdminPublishConfirm";
 import { useSettings } from "../../lib/SettingsContext";
 
 const TABS = ["home", "about", "events", "media", "merch", "contact"] as const;
@@ -19,6 +20,7 @@ type Tab = (typeof TABS)[number];
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [showSnapshots, setShowSnapshots] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const {
     stage,
     setStage,
@@ -28,6 +30,7 @@ export default function AdminSettings() {
     pullLive,
     publish,
     publishing,
+    settings,
     lock,
     hasLock,
     lockedByOther,
@@ -161,7 +164,7 @@ export default function AdminSettings() {
               </button>
 
               <button
-                onClick={publish}
+                onClick={() => setShowPublishConfirm(true)}
                 className="px-3 py-1 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={lockLoading || lockedByOther || saving || publishing}
                 title="Copy the current Draft into Live"
@@ -202,6 +205,14 @@ export default function AdminSettings() {
         open={showSnapshots}
         onClose={() => setShowSnapshots(false)}
         onRestored={handleSnapshotRestored}
+      />
+      <AdminPublishConfirm
+        open={showPublishConfirm}
+        draftUpdatedAt={typeof settings?.updated_at === "string" ? settings?.updated_at : null}
+        onClose={() => setShowPublishConfirm(false)}
+        onConfirm={async () => {
+          await publish();
+        }}
       />
     </div>
   );
