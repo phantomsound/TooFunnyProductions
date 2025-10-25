@@ -10,6 +10,7 @@ import multer from "multer";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { extname } from "node:path";
+import { Readable } from "node:stream";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
 
@@ -139,6 +140,92 @@ function inferContentType(path, fallback = "application/octet-stream") {
   return CONTENT_TYPE_BY_EXTENSION[ext] || fallback;
 }
 
+async function bufferFromDownloadData(source) {
+  if (!source) return { buffer: null, size: 0 };
+
+  if (Buffer.isBuffer(source)) {
+    return { buffer: source, size: source.length };
+  }
+
+  if (source instanceof ArrayBuffer) {
+    const buffer = Buffer.from(source);
+    return { buffer, size: buffer.length };
+  }
+
+  if (ArrayBuffer.isView(source)) {
+    const buffer = Buffer.from(source.buffer, source.byteOffset, source.byteLength);
+    return { buffer, size: buffer.length };
+  }
+
+  if (typeof source.arrayBuffer === "function") {
+    const arrayBuffer = await source.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const size = typeof source.size === "number" ? source.size : buffer.length;
+    return { buffer, size };
+  }
+
+  if (typeof source.getReader === "function") {
+    const buffer = await consumeReadableStream(source);
+    return { buffer, size: buffer.length };
+  }
+
+  if (typeof source.stream === "function") {
+    const stream = source.stream();
+    if (stream) {
+      if (typeof stream.getReader === "function") {
+        const buffer = await consumeReadableStream(stream);
+        return { buffer, size: buffer.length };
+      }
+      if (typeof stream[Symbol.asyncIterator] === "function") {
+        const buffer = await consumeAsyncIterable(stream);
+        return { buffer, size: buffer.length };
+      }
+    }
+  }
+
+  if (typeof source[Symbol.asyncIterator] === "function") {
+    const buffer = await consumeAsyncIterable(source);
+    return { buffer, size: buffer.length };
+  }
+
+  if (source instanceof Readable) {
+    const buffer = await consumeAsyncIterable(source);
+    return { buffer, size: buffer.length };
+  }
+
+  return { buffer: null, size: 0 };
+}
+
+async function consumeReadableStream(readable) {
+  const reader = readable.getReader();
+  const chunks = [];
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(Buffer.isBuffer(value) ? value : Buffer.from(value));
+      }
+    }
+  } finally {
+    if (reader.releaseLock) {
+      reader.releaseLock();
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
+async function consumeAsyncIterable(iterable) {
+  const chunks = [];
+  for await (const chunk of iterable) {
+    if (chunk) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
 router.get("/proxy", async (req, res) => {
   if (!ensureSupabase(res)) return;
 
@@ -242,27 +329,43 @@ router.get("/proxy", async (req, res) => {
       try {
         const direct = await supabase.storage.from(bucket).download(path);
         if (!direct.error && direct.data) {
-          const arrayBuffer = await direct.data.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
+          attempts.push({ source: "direct", status: 200 });
           const contentType =
             (typeof direct.data.type === "string" && direct.data.type) || inferContentType(path);
           res.setHeader("Content-Type", contentType);
           res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
-          res.setHeader("Content-Length", String(buffer.length));
-          if (method === "HEAD") {
+
+          if (method === "HEAD" && typeof direct.data.size === "number") {
+            res.setHeader("Content-Length", String(direct.data.size));
             res.status(200).end();
-          } else {
-            res.status(200).send(buffer);
+            return;
           }
-          return;
-        }
-        if (direct.error) {
+
+          const { buffer, size } = await bufferFromDownloadData(direct.data);
+          if (buffer) {
+            if (size) {
+              res.setHeader("Content-Length", String(size));
+            }
+            if (method === "HEAD") {
+              res.status(200).end();
+            } else {
+              res.status(200).send(buffer);
+            }
+            return;
+          }
+
+          errors.push({ source: "direct", message: "Direct download produced empty payload" });
+        } else if (direct.error) {
+          attempts.push({
+            source: "direct",
+            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+          });
           errors.push({
-            source: "direct", 
+            source: "direct",
             status: typeof direct.error.status === "number" ? direct.error.status : undefined,
             message: direct.error.message || "Direct download failed",
           });
-        } else if (!direct.data) {
+        } else {
           errors.push({ source: "direct", message: "Direct download returned empty response" });
         }
       } catch (error) {
