@@ -463,59 +463,67 @@ function replaceUrls(value, context) {
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) {
-      return { value, changed: false };
+      return { value, changed: false, count: 0 };
     }
 
     if (context.oldPublicUrl && trimmed === context.oldPublicUrl) {
-      return { value: context.newPublicUrl, changed: true };
+      return { value: context.newPublicUrl, changed: true, count: 1 };
     }
 
     if (context.fromPath && trimmed === context.fromPath) {
-      return { value: context.toPath, changed: true };
+      return { value: context.toPath, changed: true, count: 1 };
     }
 
     const proxy =
       context.fromPath && context.toPath ? updateProxyReference(value, context.fromPath, context.toPath) : null;
     if (proxy) {
-      return { value: proxy, changed: true };
+      return { value: proxy, changed: true, count: 1 };
     }
 
-    return { value, changed: false };
+    return { value, changed: false, count: 0 };
   }
 
   if (Array.isArray(value)) {
     let mutated = false;
+    let totalCount = 0;
     const next = value.map((entry) => {
       const replaced = replaceUrls(entry, context);
+      if (replaced.count) totalCount += replaced.count;
       if (replaced.changed) mutated = true;
       return replaced.changed ? replaced.value : entry;
     });
-    return mutated ? { value: next, changed: true } : { value, changed: false };
+    return mutated
+      ? { value: next, changed: true, count: totalCount }
+      : { value, changed: false, count: totalCount };
   }
 
   if (value && typeof value === "object") {
     let mutated = false;
+    let totalCount = 0;
     const next = { ...value };
     for (const [key, entry] of Object.entries(value)) {
       const replaced = replaceUrls(entry, context);
+      if (replaced.count) totalCount += replaced.count;
       if (replaced.changed) {
         next[key] = replaced.value;
         mutated = true;
       }
     }
-    return mutated ? { value: next, changed: true } : { value, changed: false };
+    return mutated
+      ? { value: next, changed: true, count: totalCount }
+      : { value, changed: false, count: totalCount };
   }
 
-  return { value, changed: false };
+  return { value, changed: false, count: 0 };
 }
 
 // Replace stored references (including nested JSON + proxy URLs) in a settings table row
 async function replaceUrlInTable(table, { fromPath, toPath, oldPublicUrl, newPublicUrl }) {
-  if (!supabase) return;
+  if (!supabase) return 0;
   const sel = await supabase.from(table).select("*").limit(1).maybeSingle();
   if (sel.error) throw sel.error;
   const row = sel.data;
-  if (!row) return;
+  if (!row) return 0;
 
   const context = {
     fromPath: typeof fromPath === "string" ? fromPath.trim() : "",
@@ -525,13 +533,14 @@ async function replaceUrlInTable(table, { fromPath, toPath, oldPublicUrl, newPub
   };
 
   const replaced = replaceUrls(row, context);
-  if (!replaced.changed) return;
+  if (!replaced.changed) return 0;
 
   const upd = await supabase
     .from(table)
     .update({ ...replaced.value, updated_at: new Date().toISOString() })
     .eq("id", row.id);
   if (upd.error) throw upd.error;
+  return typeof replaced.count === "number" ? replaced.count : 0;
 }
 
 // --- LIST --------------------------------------------------------------
@@ -716,8 +725,9 @@ router.post("/rename", requireAdmin, async (req, res) => {
 
     // Update references in both settings tables where values equal oldUrl
     const replacement = { fromPath, toPath, oldPublicUrl: oldUrl, newPublicUrl: newUrl };
-    await replaceUrlInTable("settings_draft", replacement);
-    await replaceUrlInTable("settings_public", replacement);
+    const draftUpdates = await replaceUrlInTable("settings_draft", replacement);
+    const liveUpdates = await replaceUrlInTable("settings_public", replacement);
+    const totalUpdated = (draftUpdates || 0) + (liveUpdates || 0);
 
     try {
       await logAdminAction(req.user?.email || "unknown", "media.rename", {
@@ -725,9 +735,20 @@ router.post("/rename", requireAdmin, async (req, res) => {
         toPath,
         oldUrl,
         newUrl,
+        totalUpdated,
       });
     } catch {}
-    res.json({ success: true, fromPath, toPath, url: newUrl });
+    res.json({
+      success: true,
+      fromPath,
+      toPath,
+      url: newUrl,
+      replacements: {
+        draft: draftUpdates || 0,
+        live: liveUpdates || 0,
+      },
+      totalUpdated,
+    });
   } catch (err) {
     console.error("POST /api/storage/rename error:", err);
     res.status(500).json({ error: "Failed to rename" });

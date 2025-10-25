@@ -469,20 +469,56 @@ export default function AdminMediaManager() {
   const onRename = async (item) => {
     const current = item.name;
     const suggestion = window.prompt("Rename file", current);
-    if (!suggestion || suggestion === current) return;
+    if (suggestion == null) return;
+    const trimmed = suggestion.trim();
+    if (!trimmed || trimmed === current) return;
 
     try {
+      setError(null);
       const response = await fetch(api("/api/storage/rename"), {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fromPath: item.path, toName: suggestion }),
+        body: JSON.stringify({ fromPath: item.path, toName: trimmed }),
       });
+      const raw = await response.text();
+      let payload: any = null;
+      if (raw) {
+        try {
+          payload = JSON.parse(raw);
+        } catch {
+          payload = null;
+        }
+      }
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Rename failed");
+        const message =
+          (payload && (payload.error || payload.message)) || raw || "Rename failed";
+        throw new Error(message);
       }
       await load();
+      settingsCache.current = {};
+
+      const totalUpdated = typeof payload?.totalUpdated === "number" ? payload.totalUpdated : 0;
+      const replacements = (payload?.replacements ?? {}) as { draft?: number; live?: number };
+      const draftCount = typeof replacements.draft === "number" ? replacements.draft : 0;
+      const liveCount = typeof replacements.live === "number" ? replacements.live : 0;
+      const detailParts: string[] = [];
+      if (draftCount > 0) detailParts.push(`${draftCount} in Draft settings`);
+      if (liveCount > 0) detailParts.push(`${liveCount} in Live settings`);
+
+      const lines = [`Renamed “${current}” to “${trimmed}”.`];
+      if (totalUpdated > 0) {
+        lines.push(
+          `Updated ${totalUpdated} reference${totalUpdated === 1 ? "" : "s"} across site settings automatically.`
+        );
+        if (detailParts.length > 0) {
+          lines.push(detailParts.join(" · "));
+        }
+      } else {
+        lines.push("No stored settings referenced the previous name.");
+      }
+      lines.push("All areas now use the renamed file.");
+      window.alert(lines.join("\n"));
     } catch (err) {
       console.error(err);
       setError(err?.message || "Rename failed");
