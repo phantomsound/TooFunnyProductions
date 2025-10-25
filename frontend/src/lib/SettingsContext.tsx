@@ -3,7 +3,7 @@
    -------------------------------------------------------------------------
    Draft/Live context with save draft, pull live, publish, reload and stage.
    ========================================================================= */
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "./api";
 import { useAuth } from "../hooks/useAuth";
@@ -194,6 +194,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [lock, setLock] = useState<LockState>(null);
   const [lockLoading, setLockLoading] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
+  const liveCacheRef = useRef<Settings | null>(null);
 
   const lockOwner = useMemo(() => {
     if (!lock?.holder_email) return null;
@@ -203,18 +204,51 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const hasLock = Boolean(lockOwner && myEmail && lockOwner === myEmail);
   const lockedByOther = Boolean(lockOwner && lockOwner !== myEmail);
 
-  const load = useCallback(async (s: Stage) => {
-    setLoading(true);
-    try {
-      const r = await fetch(api(`/api/settings?stage=${s}`), { credentials: "include" });
-      const d = await r.json().catch(() => ({}));
-      const safe = sanitizeSettings(d || {});
-      setSettings(safe);
-      setInitial(safe);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (s: Stage) => {
+      setLoading(true);
+
+      const fetchStage = async (target: Stage): Promise<Settings> => {
+        const response = await fetch(api(`/api/settings?stage=${target}`), { credentials: "include" });
+        const data = await response.json().catch(() => ({}));
+        return sanitizeSettings(data || {});
+      };
+
+      try {
+        if (s === "live") {
+          const safeLive = await fetchStage("live");
+          liveCacheRef.current = safeLive;
+          setSettings(safeLive);
+          setInitial(safeLive);
+          return;
+        }
+
+        const [draftResult, liveResult] = await Promise.allSettled([
+          fetchStage("draft"),
+          fetchStage("live"),
+        ]);
+
+        if (draftResult.status === "rejected") {
+          throw draftResult.reason;
+        }
+
+        const safeDraft = draftResult.value;
+
+        let safeLive: Settings | null = liveCacheRef.current;
+        if (liveResult.status === "fulfilled") {
+          safeLive = liveResult.value;
+          liveCacheRef.current = liveResult.value;
+        }
+
+        const merged = sanitizeSettings({ ...(safeLive || {}), ...(safeDraft || {}) });
+        setSettings(merged);
+        setInitial(merged);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => { load(stage); }, [stage, load]);
 

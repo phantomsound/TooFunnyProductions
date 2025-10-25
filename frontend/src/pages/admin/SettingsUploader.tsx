@@ -27,12 +27,14 @@ export default function SettingsUploader({
   pickerKind,
   allowLibrary = true,
 }: SettingsUploaderProps): JSX.Element {
-  const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<UploadError>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(value || "");
   const [showLibrary, setShowLibrary] = useState(false);
+  const [pendingName, setPendingName] = useState<string | null>(null);
+  const [pendingIsImage, setPendingIsImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
 
   const derivedPickerKind = useMemo(() => {
     if (pickerKind) return pickerKind;
@@ -43,50 +45,55 @@ export default function SettingsUploader({
   }, [accept, pickerKind]);
 
   useEffect(() => {
-    if (!file) {
-      setPreviewUrl(value || "");
-      return;
-    }
+    setPreviewUrl(value || "");
+  }, [value]);
 
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-
+  useEffect(() => {
     return () => {
-      URL.revokeObjectURL(objectUrl);
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
     };
-  }, [file, value]);
+  }, []);
 
   const resetSelection = (nextPreview: string | undefined) => {
-    setFile(null);
+    setPendingName(null);
+    setPendingIsImage(false);
     setPreviewUrl(nextPreview ?? "");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (disabled) return;
+    if (disabled || uploading) return;
     setError(null);
     const next = event.target.files?.[0] ?? null;
     if (!next) {
       resetSelection(value || "");
       return;
     }
-    setFile(next);
+    setPendingName(next.name);
+    setPendingIsImage(next.type.startsWith("image/"));
+    const objectUrl = URL.createObjectURL(next);
+    objectUrlRef.current = objectUrl;
+    setPreviewUrl(objectUrl);
+    void uploadSelectedFile(next);
   };
 
-  const handleUpload = async () => {
+  const uploadSelectedFile = async (selected: File) => {
     if (disabled) return;
-    if (!file) {
-      setError("Select a file before uploading.");
-      return;
-    }
 
     try {
       setUploading(true);
       setError(null);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", selected);
 
       const response = await fetch(api("/api/storage/upload"), {
         method: "POST",
@@ -102,6 +109,7 @@ export default function SettingsUploader({
       if (typeof out.url === "string") {
         onChange(out.url);
         resetSelection(out.url);
+        setPreviewUrl(out.url);
       } else {
         throw new Error("Upload response missing url");
       }
@@ -109,6 +117,7 @@ export default function SettingsUploader({
       console.error("Upload error", err);
       const message = err instanceof Error ? err.message : "Upload failed";
       setError(message || "Upload failed");
+      resetSelection(value || "");
     } finally {
       setUploading(false);
     }
@@ -127,9 +136,9 @@ export default function SettingsUploader({
     resetSelection(url);
   };
 
-  const isImage = file
-    ? file.type.startsWith("image/")
-    : !!previewUrl && /\.(png|jpe?g|gif|webp|svg)$/i.test(previewUrl);
+  const isImage =
+    pendingIsImage ||
+    (!!previewUrl && /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(previewUrl.split("?")[0] ?? ""));
 
   const resourceName = useMemo(() => {
     if (!buttonLabel) return "file";
@@ -149,7 +158,7 @@ export default function SettingsUploader({
   const resourceArticle = useMemo(() => (resourceName.match(/^[aeiou]/i) ? "an" : "a"), [resourceName]);
 
   const currentFileDisplay = useMemo(() => {
-    if (file?.name) return file.name;
+    if (pendingName) return pendingName;
     if (!value) return "No file selected";
     try {
       const url = new URL(value);
@@ -160,7 +169,19 @@ export default function SettingsUploader({
       const segments = value.split("/").filter(Boolean);
       return segments.length > 0 ? decodeURIComponent(segments[segments.length - 1]) : value;
     }
-  }, [file?.name, value]);
+  }, [pendingName, value]);
+
+  const statusMessage = useMemo(() => {
+    if (pendingName) {
+      return uploading
+        ? `Uploading ${resourceArticle} ${resourceName}…`
+        : `${resourceTitle} selected`;
+    }
+    if (value) return `${resourceTitle} currently in use`;
+    return `Select ${resourceArticle} ${resourceName} to upload`;
+  }, [pendingName, uploading, resourceArticle, resourceName, resourceTitle, value]);
+
+  const interactionsDisabled = disabled || uploading;
 
   return (
     <div className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900/80 p-4 text-neutral-100 shadow-sm">
@@ -170,9 +191,11 @@ export default function SettingsUploader({
           <button
             type="button"
             onClick={handleClear}
-            disabled={disabled}
+            disabled={interactionsDisabled}
             className={`text-xs font-semibold transition ${
-              disabled ? "cursor-not-allowed text-red-400/60" : "text-red-300 hover:text-red-200"
+              interactionsDisabled
+                ? "cursor-not-allowed text-red-400/60"
+                : "text-red-300 hover:text-red-200"
             }`}
           >
             Clear
@@ -186,7 +209,7 @@ export default function SettingsUploader({
         accept={accept}
         onChange={handleFileChange}
         className="hidden"
-        disabled={disabled}
+        disabled={interactionsDisabled}
       />
 
       <div className="space-y-2">
@@ -194,11 +217,11 @@ export default function SettingsUploader({
           <button
             type="button"
             onClick={() => {
-              if (!disabled) fileInputRef.current?.click();
+              if (!interactionsDisabled) fileInputRef.current?.click();
             }}
-            disabled={disabled}
+            disabled={interactionsDisabled}
             className={`rounded px-3 py-2 text-sm font-semibold transition ${
-              disabled
+              interactionsDisabled
                 ? "cursor-not-allowed bg-neutral-800 text-neutral-500"
                 : "bg-yellow-400 text-black hover:bg-yellow-300"
             }`}
@@ -208,13 +231,7 @@ export default function SettingsUploader({
 
           <div className="flex-1 rounded border border-dashed border-neutral-700 bg-neutral-950/50 px-3 py-2 text-xs leading-tight text-neutral-300">
             <p className="truncate font-semibold text-neutral-100">{currentFileDisplay}</p>
-            <p className="text-[11px] text-neutral-400">
-              {file
-                ? `${resourceTitle} ready to upload`
-                : value
-                ? `${resourceTitle} currently in use`
-                : `Select ${resourceArticle} ${resourceName} to upload`}
-            </p>
+            <p className="text-[11px] text-neutral-400">{statusMessage}</p>
           </div>
         </div>
 
@@ -222,9 +239,9 @@ export default function SettingsUploader({
           <button
             type="button"
             onClick={() => setShowLibrary(true)}
-            disabled={disabled}
+            disabled={interactionsDisabled}
             className={`w-full rounded border px-3 py-2 text-sm font-semibold transition ${
-              disabled
+              interactionsDisabled
                 ? "cursor-not-allowed border-neutral-700 text-neutral-500"
                 : "border-neutral-700 text-neutral-200 hover:border-yellow-300 hover:text-yellow-200"
             }`}
@@ -246,20 +263,9 @@ export default function SettingsUploader({
 
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={handleUpload}
-          disabled={uploading || disabled}
-          className={`rounded px-4 py-2 font-semibold transition ${
-            uploading || disabled
-              ? "cursor-not-allowed bg-neutral-700 text-neutral-400"
-              : "bg-yellow-400 text-black hover:bg-yellow-300"
-          }`}
-        >
-          {uploading ? "Uploading…" : `Upload ${resourceTitle}`}
-        </button>
-        {value && !file ? (
+      <div className="flex flex-wrap items-center gap-3">
+        {uploading ? <span className="text-xs text-neutral-400">Uploading…</span> : null}
+        {value ? (
           <a
             href={value}
             target="_blank"
