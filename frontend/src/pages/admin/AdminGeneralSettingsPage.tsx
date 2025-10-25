@@ -14,6 +14,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
     save,
     pullLive,
     publish,
+    publishing,
     lock,
     hasLock,
     lockedByOther,
@@ -139,10 +140,10 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
               <button
                 onClick={publish}
                 className="rounded bg-yellow-400 px-3 py-1 font-semibold text-black transition hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-200 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={lockLoading || lockedByOther}
+                disabled={lockLoading || lockedByOther || saving || publishing}
                 title="Copy the current Draft into Live"
               >
-                Publish to Live
+                {publishing ? "Publishing…" : "Publish to Live"}
               </button>
             </div>
           </div>
