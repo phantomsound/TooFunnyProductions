@@ -216,8 +216,8 @@ export default function SettingsUploader({
         disabled={interactionsDisabled}
       />
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-        <div className="flex-1 space-y-3">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] lg:items-start lg:gap-6">
+        <div className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <button
               type="button"
@@ -256,7 +256,7 @@ export default function SettingsUploader({
           ) : null}
         </div>
 
-        <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 lg:w-60 lg:shrink-0 xl:w-72">
+        <div className="w-full rounded-md border border-neutral-800 bg-neutral-950/60 p-3 lg:max-w-sm lg:justify-self-end">
           {hasPreview ? (
             isImage ? (
               <img src={resolvedPreviewUrl} alt="Preview" className="mx-auto max-h-40 object-contain" />
