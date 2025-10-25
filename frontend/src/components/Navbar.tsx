@@ -20,6 +20,11 @@ export default function Navbar() {
       ? settings.logo_url.trim()
       : "";
   const logoUrl = logoUrlRaw ? resolveMediaUrl(logoUrlRaw) : "";
+  const siteTitle =
+    typeof settings?.site_title === "string" && settings.site_title.trim().length > 0
+      ? settings.site_title.trim()
+      : "Too Funny Productions";
+  const homeHref = stageSuffix ? `/${stageSuffix}` : "/";
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -45,15 +50,20 @@ export default function Navbar() {
   return (
     <nav className="w-full border-b border-theme-surface bg-theme-header backdrop-blur">
       <div className="mx-auto flex h-12 max-w-6xl items-center justify-between px-4 text-theme-header">
-        <Link to={`/${stageSuffix}`} className="flex items-center gap-2">
+        <Link to={homeHref} className="flex items-center gap-3 overflow-hidden">
           {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt="Too Funny Productions"
-              className="h-9 w-auto max-w-[150px] object-contain"
-            />
+            <>
+              <img
+                src={logoUrl}
+                alt={siteTitle}
+                className="h-9 w-auto max-w-[150px] object-contain"
+              />
+              <span className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-theme-header whitespace-nowrap sm:text-[0.7rem]">
+                {siteTitle}
+              </span>
+            </>
           ) : (
-            <span className="font-semibold text-theme-accent">Too Funny Productions</span>
+            <span className="text-lg font-semibold text-theme-header">{siteTitle}</span>
           )}
         </Link>
 

@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
+import { normalizeHex, pickTextColor } from "../../lib/color";
 import SettingsColorPicker from "./SettingsColorPicker";
 import SettingsLinkManager from "./SettingsLinkManager";
 import SettingsUploader from "./SettingsUploader";
@@ -31,6 +32,7 @@ interface GeneralSettings {
   theme_accent: string;
   theme_bg: string;
   header_bg: string;
+  header_text_color: string;
   footer_bg: string;
   theme_use_global: boolean;
 
@@ -71,6 +73,13 @@ const coerceLinks = (value: unknown): FooterLink[] => {
 
 const sanitizeSettings = (raw: unknown): GeneralSettings => {
   const safe = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const accentColor = coerceColor(safe.theme_accent, "#FFD700");
+  const backgroundColor = coerceColor(safe.theme_bg, "#111111");
+  const headerBackground = coerceColor(safe.header_bg, "#000000");
+  const normalizedHeaderBg = normalizeHex(headerBackground, "#000000");
+  const defaultHeaderText = pickTextColor(normalizedHeaderBg);
+  const footerBackground = coerceColor(safe.footer_bg, "#000000");
+
   const sanitized: GeneralSettings = {
     site_title: coerceText(safe.site_title, "Too Funny Productions"),
     site_description: coerceText(safe.site_description),
@@ -86,10 +95,11 @@ const sanitizeSettings = (raw: unknown): GeneralSettings => {
     footer_links: coerceLinks(safe.footer_links),
     admin_quick_links: coerceLinks(safe.admin_quick_links).slice(0, 4),
 
-    theme_accent: coerceColor(safe.theme_accent, "#FFD700"),
-    theme_bg: coerceColor(safe.theme_bg, "#111111"),
-    header_bg: coerceColor(safe.header_bg, "#000000"),
-    footer_bg: coerceColor(safe.footer_bg, "#000000"),
+    theme_accent: normalizeHex(accentColor, "#FFD700"),
+    theme_bg: normalizeHex(backgroundColor, "#111111"),
+    header_bg: normalizedHeaderBg,
+    header_text_color: normalizeHex(coerceColor(safe.header_text_color, defaultHeaderText), defaultHeaderText),
+    footer_bg: normalizeHex(footerBackground, "#000000"),
     theme_use_global: coerceBool(safe.theme_use_global) !== false,
 
     maintenance_enabled: coerceBool(safe.maintenance_enabled),
@@ -240,6 +250,12 @@ export default function AdminSettingsGeneral(): JSX.Element {
             label="Header Background"
             value={local.header_bg}
             onChange={(value: string) => update("header_bg", value)}
+            disabled={disabled || !usingGlobalTheme}
+          />
+          <SettingsColorPicker
+            label="Header Text"
+            value={local.header_text_color}
+            onChange={(value: string) => update("header_text_color", value)}
             disabled={disabled || !usingGlobalTheme}
           />
           <SettingsColorPicker

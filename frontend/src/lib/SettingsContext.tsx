@@ -118,7 +118,9 @@ const computeTheme = (settings: Settings | null, pathname: string) => {
 
   const onAccent = pickTextColor(accent);
   const onBackground = pickTextColor(background);
-  const onHeader = pickTextColor(header);
+  const defaultHeaderText = pickTextColor(header);
+  const headerTextRaw = useGlobal ? source.header_text_color : source[`${prefix}_header_text_color`];
+  const headerText = normalizeHex(coerceHex(headerTextRaw, defaultHeaderText), defaultHeaderText);
   const onFooter = pickTextColor(footer);
 
   return {
@@ -134,8 +136,8 @@ const computeTheme = (settings: Settings | null, pathname: string) => {
     surface: blendColors(background, onBackground, 0.08),
     surfaceBorder: blendColors(onBackground, background, 0.82),
     header,
-    headerText: onHeader,
-    headerTextMuted: blendColors(onHeader, header, 0.55),
+    headerText,
+    headerTextMuted: blendColors(headerText, header, 0.55),
     footer,
     footerText: onFooter,
     footerTextMuted: blendColors(onFooter, footer, 0.55),

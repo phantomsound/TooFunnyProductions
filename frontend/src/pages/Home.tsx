@@ -222,10 +222,9 @@ export default function Home() {
   const heroSubtextSize = resolveSize(settings?.hero_subtext_size);
   const heroBadgeSize = resolveSize(settings?.hero_badge_size);
   const heroBadgeVariant = resolveVariant(settings?.hero_badge_variant);
-  const heroBadgeEnabled = resolveBool(settings?.hero_badge_enabled, true);
+  const heroBadgeEnabled = resolveBool(settings?.hero_badge_enabled, false);
   const heroBadgeUseTheme = resolveBool(settings?.hero_badge_use_theme_color, true);
-  const siteTitle = settings?.site_title?.trim() || "Too Funny Productions";
-  const heroBadgeLabel = settings?.hero_badge_label?.trim() || siteTitle;
+  const heroBadgeLabel = settings?.hero_badge_label?.trim() || "Live Comedy";
   const heroTitleClass = HERO_TITLE_CLASSES[heroTitleSize];
   const heroSubtextClass = HERO_SUBTEXT_CLASSES[heroSubtextSize];
   const heroBadgeClass = HERO_BADGE_CLASSES[heroBadgeSize];
