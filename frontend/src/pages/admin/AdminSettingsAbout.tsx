@@ -10,13 +10,9 @@ import SettingsUploader from "./SettingsUploader";
 import { normalizeAdminUrl } from "../../utils/url";
 import AdminPageThemeOverride from "./AdminPageThemeOverride";
 
-type SocialLinks = {
-  instagram?: string;
-  twitter?: string;
-  youtube?: string;
-  tiktok?: string;
-  website?: string;
-  linktree?: string;
+type SocialLink = {
+  label: string;
+  url: string;
 };
 
 type TeamMember = {
@@ -24,7 +20,7 @@ type TeamMember = {
   title: string;
   bio: string;
   photo_url: string;
-  socials: SocialLinks;
+  socials: SocialLink[];
 };
 
 type AboutSettings = {
@@ -36,15 +32,34 @@ type AboutSettings = {
   about_team: TeamMember[];
 };
 
-const sanitizeSocials = (value: unknown): SocialLinks => {
-  if (!value || typeof value !== "object") return {};
-  const obj = value as Record<string, unknown>;
-  const socials: SocialLinks = {};
-  for (const key of ["instagram", "twitter", "youtube", "tiktok", "website", "linktree"] as const) {
-    const raw = obj[key];
-    if (typeof raw === "string" && raw.trim()) socials[key] = raw.trim();
+const sanitizeSocials = (value: unknown): SocialLink[] => {
+  const links: SocialLink[] = [];
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (!entry || typeof entry !== "object") continue;
+      const obj = entry as Record<string, unknown>;
+      const label = typeof obj.label === "string" ? obj.label.trim() : "";
+      const url = typeof obj.url === "string" ? obj.url.trim() : "";
+      if (!url) continue;
+      links.push({ label, url });
+    }
+    return links;
   }
-  return socials;
+
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    for (const [rawLabel, rawUrl] of Object.entries(obj)) {
+      if (typeof rawUrl !== "string") continue;
+      const url = rawUrl.trim();
+      if (!url) continue;
+      const label = typeof rawLabel === "string" ? rawLabel.trim() || rawLabel : String(rawLabel);
+      links.push({ label, url });
+    }
+    return links;
+  }
+
+  return links;
 };
 
 const sanitizeTeam = (value: unknown): TeamMember[] => {
@@ -90,7 +105,7 @@ const blankMember: TeamMember = {
   title: "",
   bio: "",
   photo_url: "",
-  socials: {},
+  socials: [],
 };
 
 export default function AdminSettingsAbout(): JSX.Element {
@@ -133,18 +148,48 @@ export default function AdminSettingsAbout(): JSX.Element {
     );
   };
 
-  const updateSocial = (index: number, key: keyof SocialLinks, value: string) => {
+  const updateSocialLink = (
+    memberIndex: number,
+    socialIndex: number,
+    field: keyof SocialLink,
+    value: string
+  ) => {
+    applyTeamUpdate((team) =>
+      team.map((member, idx) => {
+        if (idx !== memberIndex) return member;
+        const socials = member.socials.map((social, sIdx) => {
+          if (sIdx !== socialIndex) return social;
+          if (field === "url") {
+            const trimmed = value.trim();
+            return { ...social, url: trimmed ? normalizeAdminUrl(trimmed) : "" };
+          }
+          if (field === "label") {
+            return { ...social, label: value };
+          }
+          return social;
+        });
+        return { ...member, socials };
+      })
+    );
+  };
+
+  const addSocialLink = (index: number) => {
     applyTeamUpdate((team) =>
       team.map((member, idx) => {
         if (idx !== index) return member;
-        const socials = { ...member.socials };
-        const trimmed = value.trim();
-        if (trimmed) {
-          socials[key] = normalizeAdminUrl(trimmed);
-        } else {
-          delete socials[key];
-        }
-        return { ...member, socials };
+        return { ...member, socials: [...member.socials, { label: "", url: "" }] };
+      })
+    );
+  };
+
+  const removeSocialLink = (memberIndex: number, socialIndex: number) => {
+    applyTeamUpdate((team) =>
+      team.map((member, idx) => {
+        if (idx !== memberIndex) return member;
+        return {
+          ...member,
+          socials: member.socials.filter((_, sIdx) => sIdx !== socialIndex),
+        };
       })
     );
   };
@@ -300,83 +345,123 @@ export default function AdminSettingsAbout(): JSX.Element {
                     </div>
                   </div>
                   <div className="flex flex-col gap-4 md:flex-row">
-                  <div className="md:w-1/3">
-                    <SettingsUploader
-                      label="Portrait"
-                      value={member.photo_url}
-                      onChange={(url) => updateMember(index, "photo_url", url)}
-                      accept="image/*"
-                      buttonLabel="Upload portrait"
-                      disabled={disabled}
-                      pickerKind="image"
-                    />
-                  </div>
-
-                  <div className="md:flex-1 space-y-3">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="text-sm font-semibold">
-                        Name
-                        <input
-                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black"
-                          value={member.name}
-                          onChange={(event) => updateMember(index, "name", event.target.value)}
-                          disabled={disabled}
-                        />
-                      </label>
-                      <label className="text-sm font-semibold">
-                        Role
-                        <input
-                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black"
-                          value={member.title}
-                          onChange={(event) => updateMember(index, "title", event.target.value)}
-                          disabled={disabled}
-                        />
-                      </label>
+                    <div className="md:w-1/3">
+                      <SettingsUploader
+                        label="Portrait"
+                        value={member.photo_url}
+                        onChange={(url) => updateMember(index, "photo_url", url)}
+                        accept="image/*"
+                        buttonLabel="Upload portrait"
+                        disabled={disabled}
+                        pickerKind="image"
+                      />
                     </div>
 
-                    <label className="text-sm font-semibold block">
-                      Bio
-                      <textarea
-                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black min-h-[80px]"
-                        value={member.bio}
-                        onChange={(event) => updateMember(index, "bio", event.target.value)}
-                        disabled={disabled}
-                      />
-                    </label>
-
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {(["instagram", "twitter", "youtube", "tiktok", "website", "linktree"] as const).map((network) => (
-                        <label key={network} className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          {network}
+                    <div className="md:flex-1 space-y-3">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="text-sm font-semibold">
+                          Name
                           <input
-                            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-black text-sm"
-                            value={member.socials[network] || ""}
-                            onChange={(event) => updateSocial(index, network, event.target.value)}
+                            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black"
+                            value={member.name}
+                            onChange={(event) => updateMember(index, "name", event.target.value)}
                             disabled={disabled}
-                            placeholder={
-                              network === "website"
-                                ? "https://toofunnyproductions.com"
-                                : network === "linktree"
-                                ? "https://linktr.ee/yourhandle"
-                                : `https://…/${network}`
-                            }
                           />
                         </label>
-                      ))}
-                    </div>
+                        <label className="text-sm font-semibold">
+                          Role
+                          <input
+                            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black"
+                            value={member.title}
+                            onChange={(event) => updateMember(index, "title", event.target.value)}
+                            disabled={disabled}
+                          />
+                        </label>
+                      </div>
 
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => removeMember(index)}
-                        disabled={disabled}
-                        className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Remove member
-                      </button>
+                      <label className="block text-sm font-semibold">
+                        Bio
+                        <textarea
+                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black min-h-[80px]"
+                          value={member.bio}
+                          onChange={(event) => updateMember(index, "bio", event.target.value)}
+                          disabled={disabled}
+                        />
+                      </label>
+
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Social links
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => addSocialLink(index)}
+                            disabled={disabled}
+                            className="rounded border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Add social link
+                          </button>
+                        </div>
+
+                        {member.socials.length === 0 ? (
+                          <p className="rounded border border-dashed border-gray-300 p-3 text-xs text-gray-500">
+                            No social links yet. Add one to highlight where fans can follow this collaborator.
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {member.socials.map((social, socialIndex) => (
+                              <div key={socialIndex} className="rounded border border-gray-200 bg-gray-50 p-3">
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Label
+                                    <input
+                                      className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-black text-sm"
+                                      value={social.label}
+                                      onChange={(event) => updateSocialLink(index, socialIndex, "label", event.target.value)}
+                                      disabled={disabled}
+                                      placeholder="Instagram"
+                                    />
+                                  </label>
+                                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Link
+                                    <input
+                                      className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-black text-sm"
+                                      value={social.url}
+                                      onChange={(event) => updateSocialLink(index, socialIndex, "url", event.target.value)}
+                                      disabled={disabled}
+                                      placeholder="https://example.com/your-handle"
+                                    />
+                                  </label>
+                                </div>
+                                <div className="mt-2 flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeSocialLink(index, socialIndex)}
+                                    disabled={disabled}
+                                    className="rounded border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    Remove link
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => removeMember(index)}
+                          disabled={disabled}
+                          className="rounded border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Remove member
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
                 </div>
               );
             })}

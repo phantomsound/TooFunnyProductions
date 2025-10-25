@@ -2,6 +2,47 @@ import React from "react";
 import { useSettings } from "../lib/SettingsContext";
 import { resolveMediaUrl } from "../utils/media";
 
+type TeamSocialLink = {
+  label: string;
+  url: string;
+};
+
+const toSocialLinks = (value: unknown): TeamSocialLink[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        const obj = entry as Record<string, unknown>;
+        const url = typeof obj.url === "string" ? obj.url.trim() : "";
+        if (!url) return null;
+        const label = typeof obj.label === "string" ? obj.label.trim() : "";
+        return { label, url };
+      })
+      .filter((link): link is TeamSocialLink => Boolean(link));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([rawLabel, rawUrl]) => {
+        if (typeof rawUrl !== "string") return null;
+        const url = rawUrl.trim();
+        if (!url) return null;
+        const label = typeof rawLabel === "string" ? rawLabel.trim() || rawLabel : String(rawLabel);
+        return { label, url };
+      })
+      .filter((link): link is TeamSocialLink => Boolean(link));
+  }
+
+  return [];
+};
+
+const formatSocialLabel = (link: TeamSocialLink): string => {
+  const trimmed = link.label?.trim();
+  if (trimmed) return trimmed;
+  const cleaned = link.url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+  return cleaned || "Link";
+};
+
 export default function About() {
   const { settings } = useSettings();
   const title = typeof settings?.about_title === "string" ? settings.about_title : "About Too Funny";
@@ -47,6 +88,7 @@ export default function About() {
         {team.map((m: any, i: number) => {
           const photoUrl = resolveMediaUrl(m?.photo_url);
           const hasPhoto = Boolean(photoUrl);
+          const socialLinks = toSocialLinks(m?.socials);
 
           return (
             <div key={i} className="rounded-lg border border-theme-surface bg-theme-surface p-4">
@@ -57,20 +99,28 @@ export default function About() {
                   Add a team photo to highlight this member.
                 </div>
               )}
-            <div className="text-lg font-semibold text-theme-base">{m.name}</div>
-            <div className="text-sm text-theme-muted">{m.title}</div>
-            {m.bio ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-theme-muted">{m.bio}</p> : null}
-            {m.socials && (
-              <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                {Object.entries(m.socials)
-                  .filter(([, url]) => typeof url === "string" && url)
-                  .map(([network, url]: [string, string]) => (
-                    <a key={network} href={url} target="_blank" rel="noopener noreferrer" className="text-theme-accent hover:text-theme-accent">
-                      {network.charAt(0).toUpperCase() + network.slice(1)}
-                    </a>
-                  ))}
-              </div>
-            )}
+
+              <div className="text-lg font-semibold text-theme-base">{m.name}</div>
+              <div className="text-sm text-theme-muted">{m.title}</div>
+              {m.bio ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-theme-muted">{m.bio}</p> : null}
+              {socialLinks.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                  {socialLinks.map((link, linkIndex) => {
+                    const label = formatSocialLabel(link);
+                    return (
+                      <a
+                        key={`${link.url}-${linkIndex}`}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-theme-accent hover:text-theme-accent"
+                      >
+                        {label}
+                      </a>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           );
         })}
