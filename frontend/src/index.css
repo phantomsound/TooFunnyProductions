@@ -159,6 +159,25 @@ label {
   border-color: var(--tf-accent);
 }
 
+@keyframes tf-notification-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.45);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(249, 115, 22, 0);
+    transform: scale(1.06);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    transform: scale(1);
+  }
+}
+
+.tf-notice-pulse {
+  animation: tf-notification-pulse 2.2s ease-in-out infinite;
+}
+
 .hover\:text-theme-accent:hover {
   color: var(--tf-accent);
 }
