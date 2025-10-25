@@ -42,6 +42,9 @@ type Settings = {
   hero_badge_use_theme_color?: boolean;
   hero_badge_color?: string;
   hero_badge_text_color?: string;
+  hero_title_font_size?: string;
+  hero_subtext_font_size?: string;
+  hero_badge_font_size?: string;
   site_title?: string;
   theme_accent?: string;
   theme_use_global?: boolean;
@@ -83,6 +86,21 @@ const resolveBool = (value: unknown, fallback: boolean): boolean => {
   if (value === true) return true;
   if (value === false) return false;
   return fallback;
+};
+
+const FONT_SIZE_SIMPLE = /^\d+(?:\.\d+)?(?:rem|em|px|vw|vh|ch|%)$/i;
+const FONT_SIZE_FUNCTION = /^(?:clamp|min|max|calc)\(\s*[-+0-9a-z.%\s,/*()]+\)$/i;
+const FONT_SIZE_VAR = /^var\(\s*--[a-z0-9_-]+(?:\s*,\s*[-+0-9a-z.%\s,/*()]+)?\s*\)$/i;
+
+const sanitizeFontSize = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 120) return null;
+  if (FONT_SIZE_SIMPLE.test(trimmed)) return trimmed;
+  if (FONT_SIZE_FUNCTION.test(trimmed)) return trimmed;
+  if (FONT_SIZE_VAR.test(trimmed)) return trimmed;
+  return null;
 };
 
 const HERO_TITLE_CLASSES: Record<SizeOption, string> = {
@@ -211,6 +229,13 @@ export default function Home() {
   const heroTitleClass = HERO_TITLE_CLASSES[heroTitleSize];
   const heroSubtextClass = HERO_SUBTEXT_CLASSES[heroSubtextSize];
   const heroBadgeClass = HERO_BADGE_CLASSES[heroBadgeSize];
+  const heroTitleFontSize = sanitizeFontSize(settings?.hero_title_font_size);
+  const heroSubtextFontSize = sanitizeFontSize(settings?.hero_subtext_font_size);
+  const heroBadgeFontSize = sanitizeFontSize(settings?.hero_badge_font_size);
+  const heroTitleStyle = heroTitleFontSize ? ({ fontSize: heroTitleFontSize } as React.CSSProperties) : undefined;
+  const heroSubtextStyle = heroSubtextFontSize
+    ? ({ fontSize: heroSubtextFontSize } as React.CSSProperties)
+    : undefined;
   const themeUsesGlobal = settings?.theme_use_global !== false;
   const themeAccentSource = (() => {
     const globalAccent = settings?.theme_accent?.trim();
@@ -226,7 +251,7 @@ export default function Home() {
   const customBadgeText = heroBadgeUseTheme
     ? pickTextColor(customBadgeColor)
     : normalizeHex(settings?.hero_badge_text_color || pickTextColor(customBadgeColor), pickTextColor(customBadgeColor));
-  const heroBadgeStyle = useMemo(() => {
+  const heroBadgeThemeStyle = useMemo(() => {
     if (!heroBadgeEnabled) return undefined;
     if (heroBadgeUseTheme) return undefined;
     if (heroBadgeVariant === "bold") {
@@ -244,6 +269,11 @@ export default function Home() {
       borderColor: softBorder,
     } as React.CSSProperties;
   }, [customBadgeColor, customBadgeText, heroBadgeEnabled, heroBadgeUseTheme, heroBadgeVariant]);
+  const heroBadgeStyle = useMemo(() => {
+    if (!heroBadgeEnabled) return heroBadgeThemeStyle;
+    if (!heroBadgeFontSize) return heroBadgeThemeStyle;
+    return { ...(heroBadgeThemeStyle || {}), fontSize: heroBadgeFontSize } as React.CSSProperties;
+  }, [heroBadgeEnabled, heroBadgeFontSize, heroBadgeThemeStyle]);
   const heroBadgeClasses = useMemo(() => {
     if (!heroBadgeEnabled) return "";
     const base = `inline-flex items-center gap-2 font-semibold uppercase ${heroBadgeClass}`;
@@ -289,10 +319,12 @@ export default function Home() {
                     {heroBadgeLabel}
                   </span>
                 ) : null}
-                <h1 className={`font-bold leading-tight text-theme-accent ${heroTitleClass}`}>
+                <h1 className={`font-bold leading-tight text-theme-accent ${heroTitleClass}`} style={heroTitleStyle}>
                   {heroTitle}
                 </h1>
-                <p className={`max-w-xl break-words text-theme-muted ${heroSubtextClass}`}>{heroSubtext}</p>
+                <p className={`max-w-xl break-words text-theme-muted ${heroSubtextClass}`} style={heroSubtextStyle}>
+                  {heroSubtext}
+                </p>
               </header>
 
               <div className="flex flex-wrap gap-4">

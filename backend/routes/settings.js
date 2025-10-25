@@ -59,6 +59,9 @@ const ALLOWED = new Set([
   "hero_title_size",
   "hero_subtext_size",
   "hero_badge_size",
+  "hero_title_font_size",
+  "hero_subtext_font_size",
+  "hero_badge_font_size",
   "hero_image_url",
   "featured_video_url",
   "who_title",
@@ -124,6 +127,11 @@ const ALLOWED = new Set([
 ]);
 
 const SIZE_FIELDS = new Set(["hero_title_size", "hero_subtext_size", "hero_badge_size"]);
+const FONT_SIZE_FIELDS = new Set([
+  "hero_title_font_size",
+  "hero_subtext_font_size",
+  "hero_badge_font_size",
+]);
 
 const coerceSize = (value) => {
   if (value === null) return "medium";
@@ -136,12 +144,30 @@ const coerceSize = (value) => {
   return "medium";
 };
 
+const FONT_SIZE_SIMPLE = /^\d+(?:\.\d+)?(?:rem|em|px|vw|vh|ch|%)$/i;
+const FONT_SIZE_FUNCTION = /^(?:clamp|min|max|calc)\(\s*[-+0-9a-z.%\s,/*()]+\)$/i;
+const FONT_SIZE_VAR = /^var\(\s*--[a-z0-9_-]+(?:\s*,\s*[-+0-9a-z.%\s,/*()]+)?\s*\)$/i;
+
+const coerceFontSize = (value) => {
+  if (value === null) return null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 120) return null;
+  if (FONT_SIZE_SIMPLE.test(trimmed)) return trimmed;
+  if (FONT_SIZE_FUNCTION.test(trimmed)) return trimmed;
+  if (FONT_SIZE_VAR.test(trimmed)) return trimmed;
+  return null;
+};
+
 function filterAllowed(obj) {
   const o = {};
   for (const [k, v] of Object.entries(obj || {})) {
     if (v === undefined || !ALLOWED.has(k)) continue;
     if (SIZE_FIELDS.has(k)) {
       o[k] = coerceSize(v);
+    } else if (FONT_SIZE_FIELDS.has(k)) {
+      o[k] = coerceFontSize(v);
     } else {
       o[k] = v;
     }
