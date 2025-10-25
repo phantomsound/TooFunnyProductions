@@ -165,6 +165,7 @@ type Ctx = {
   loading: boolean;
   isDirty: boolean;
   saving: boolean;
+  publishing: boolean;
   save: (payload?: Partial<Settings>) => Promise<void>; // saves draft only (no-op if stage=live)
   pullLive: () => Promise<void>;     // copies live -> draft and loads it
   publish: () => Promise<void>;      // copies draft -> live and reloads live
@@ -193,6 +194,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [initial, setInitial] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [lock, setLock] = useState<LockState>(null);
   const [lockLoading, setLockLoading] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
@@ -490,13 +492,27 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [load, stage]);
 
   const publish = useCallback(async () => {
-    const r = await fetch(api("/api/settings/publish"), { method: "POST", credentials: "include" });
-    const out = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(out?.error || "Failed to publish");
-    // after publish, reload live and switch to live
-    await load("live");
-    setStage("live");
-  }, [load]);
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      if (stage === "draft" && !lockedByOther) {
+        if (isDirty) {
+          await save();
+        } else if (!settings || Object.keys(settings).length === 0) {
+          await save();
+        }
+      }
+
+      const r = await fetch(api("/api/settings/publish"), { method: "POST", credentials: "include" });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(out?.error || "Failed to publish");
+      // after publish, reload live and switch to live
+      await load("live");
+      setStage("live");
+    } finally {
+      setPublishing(false);
+    }
+  }, [publishing, stage, lockedByOther, isDirty, save, settings, load]);
 
   const reload = useCallback(async () => { await load(stage); }, [stage, load]);
 
@@ -578,6 +594,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       acquireLock,
       releaseLock,
       refreshLock,
+      publishing,
     }),
     [
       stage,
@@ -585,6 +602,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       loading,
       isDirty,
       saving,
+      publishing,
       save,
       pullLive,
       publish,

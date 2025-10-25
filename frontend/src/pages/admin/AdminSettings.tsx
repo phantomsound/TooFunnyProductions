@@ -27,6 +27,7 @@ export default function AdminSettings() {
     save,
     pullLive,
     publish,
+    publishing,
     lock,
     hasLock,
     lockedByOther,
@@ -162,10 +163,10 @@ export default function AdminSettings() {
               <button
                 onClick={publish}
                 className="px-3 py-1 rounded bg-yellow-400 text-black font-semibold hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={lockLoading || lockedByOther}
+                disabled={lockLoading || lockedByOther || saving || publishing}
                 title="Copy the current Draft into Live"
               >
-                Publish to Live
+                {publishing ? "Publishing…" : "Publish to Live"}
               </button>
             </div>
           </div>
