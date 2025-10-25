@@ -33,6 +33,21 @@ const normalizeBool = (value: unknown, fallback: boolean): boolean => {
   return fallback;
 };
 
+const FONT_SIZE_SIMPLE = /^\d+(?:\.\d+)?(?:rem|em|px|vw|vh|ch|%)$/i;
+const FONT_SIZE_FUNCTION = /^(?:clamp|min|max|calc)\(\s*[-+0-9a-z.%\s,/*()]+\)$/i;
+const FONT_SIZE_VAR = /^var\(\s*--[a-z0-9_-]+(?:\s*,\s*[-+0-9a-z.%\s,/*()]+)?\s*\)$/i;
+
+const normalizeFontSize = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.length > 120) return "";
+  if (FONT_SIZE_SIMPLE.test(trimmed)) return trimmed;
+  if (FONT_SIZE_FUNCTION.test(trimmed)) return trimmed;
+  if (FONT_SIZE_VAR.test(trimmed)) return trimmed;
+  return "";
+};
+
 const TEXT_SIZE_OPTIONS: { label: string; value: SizeOption }[] = [
   { value: "small", label: "Small" },
   { value: "medium", label: "Medium" },
@@ -57,6 +72,9 @@ type HomeSettings = {
   hero_title_size: SizeOption;
   hero_subtext_size: SizeOption;
   hero_badge_size: SizeOption;
+  hero_title_font_size: string;
+  hero_subtext_font_size: string;
+  hero_badge_font_size: string;
   hero_badge_enabled: boolean;
   hero_badge_label: string;
   hero_badge_variant: BadgeVariant;
@@ -87,6 +105,9 @@ const sanitize = (raw: unknown): HomeSettings => {
     hero_title_size: normalizeSize(safe.hero_title_size),
     hero_subtext_size: normalizeSize(safe.hero_subtext_size),
     hero_badge_size: normalizeSize(safe.hero_badge_size),
+    hero_title_font_size: normalizeFontSize(safe.hero_title_font_size),
+    hero_subtext_font_size: normalizeFontSize(safe.hero_subtext_font_size),
+    hero_badge_font_size: normalizeFontSize(safe.hero_badge_font_size),
     hero_badge_enabled: normalizeBool(safe.hero_badge_enabled, true),
     hero_badge_label:
       typeof safe.hero_badge_label === "string" && safe.hero_badge_label.trim().length > 0
@@ -127,6 +148,27 @@ export default function AdminSettingsHome() {
     }
     setLocal((prev) => ({ ...prev, [key]: nextValue }));
     setField(key as string, nextValue);
+  };
+
+  type FontSizeKey = "hero_title_font_size" | "hero_subtext_font_size" | "hero_badge_font_size";
+
+  const updateFontSize = (key: FontSizeKey, raw: string) => {
+    if (disabled) return;
+    setLocal((prev) => ({ ...prev, [key]: raw }));
+    const normalized = normalizeFontSize(raw);
+    setField(key, normalized || null);
+  };
+
+  const finalizeFontSize = (key: FontSizeKey) => {
+    if (disabled) return;
+    setLocal((prev) => {
+      const current = prev[key];
+      const normalized = normalizeFontSize(current);
+      if (normalized === current) return prev;
+      const next = { ...prev, [key]: normalized };
+      setField(key, normalized || null);
+      return next;
+    });
   };
 
   return (
@@ -267,7 +309,7 @@ export default function AdminSettingsHome() {
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
               Highlight
             </label>
@@ -283,8 +325,22 @@ export default function AdminSettingsHome() {
                 </option>
               ))}
             </select>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Custom font size
+              </label>
+              <input
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                value={local.hero_badge_font_size}
+                onChange={(event) => updateFontSize("hero_badge_font_size", event.target.value)}
+                onBlur={() => finalizeFontSize("hero_badge_font_size")}
+                placeholder="e.g. 0.75rem or clamp(0.65rem, 2vw, 0.9rem)"
+                disabled={disabled}
+              />
+              <p className="text-[11px] text-gray-500">Leave blank to use the preset above.</p>
+            </div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
               Headline
             </label>
@@ -300,8 +356,22 @@ export default function AdminSettingsHome() {
                 </option>
               ))}
             </select>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Custom font size
+              </label>
+              <input
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                value={local.hero_title_font_size}
+                onChange={(event) => updateFontSize("hero_title_font_size", event.target.value)}
+                onBlur={() => finalizeFontSize("hero_title_font_size")}
+                placeholder="e.g. 3.5rem or clamp(2.8rem, 4vw, 4rem)"
+                disabled={disabled}
+              />
+              <p className="text-[11px] text-gray-500">Leave blank to use the preset above.</p>
+            </div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600">
               Supporting Text
             </label>
@@ -317,6 +387,20 @@ export default function AdminSettingsHome() {
                 </option>
               ))}
             </select>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                Custom font size
+              </label>
+              <input
+                className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                value={local.hero_subtext_font_size}
+                onChange={(event) => updateFontSize("hero_subtext_font_size", event.target.value)}
+                onBlur={() => finalizeFontSize("hero_subtext_font_size")}
+                placeholder="e.g. 1.1rem or clamp(1rem, 1.5vw, 1.3rem)"
+                disabled={disabled}
+              />
+              <p className="text-[11px] text-gray-500">Leave blank to use the preset above.</p>
+            </div>
           </div>
         </div>
       </section>

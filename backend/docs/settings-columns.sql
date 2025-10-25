@@ -116,6 +116,12 @@ alter table settings_draft  add column if not exists hero_subtext_size text defa
 alter table settings_public add column if not exists hero_subtext_size text;
 alter table settings_draft  add column if not exists hero_badge_size text default 'medium';
 alter table settings_public add column if not exists hero_badge_size text;
+alter table settings_draft  add column if not exists hero_title_font_size text;
+alter table settings_public add column if not exists hero_title_font_size text;
+alter table settings_draft  add column if not exists hero_subtext_font_size text;
+alter table settings_public add column if not exists hero_subtext_font_size text;
+alter table settings_draft  add column if not exists hero_badge_font_size text;
+alter table settings_public add column if not exists hero_badge_font_size text;
 alter table settings_draft  add column if not exists hero_image_url text;
 alter table settings_public add column if not exists hero_image_url text;
 alter table settings_draft  add column if not exists featured_video_url text;
