@@ -9,6 +9,8 @@ import { createClient } from "@supabase/supabase-js";
 import multer from "multer";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { extname } from "node:path";
+import { Readable } from "node:stream";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
 
@@ -113,6 +115,117 @@ function sanitizeProxyPath(input) {
   return withoutLeadingSlash;
 }
 
+const CONTENT_TYPE_BY_EXTENSION = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".svg": "image/svg+xml",
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".m4v": "video/x-m4v",
+  ".webm": "video/webm",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".ogg": "audio/ogg",
+  ".pdf": "application/pdf",
+};
+
+function inferContentType(path, fallback = "application/octet-stream") {
+  if (typeof path !== "string" || !path) return fallback;
+  const ext = extname(path).toLowerCase();
+  if (!ext) return fallback;
+  return CONTENT_TYPE_BY_EXTENSION[ext] || fallback;
+}
+
+async function bufferFromDownloadData(source) {
+  if (!source) return { buffer: null, size: 0 };
+
+  if (Buffer.isBuffer(source)) {
+    return { buffer: source, size: source.length };
+  }
+
+  if (source instanceof ArrayBuffer) {
+    const buffer = Buffer.from(source);
+    return { buffer, size: buffer.length };
+  }
+
+  if (ArrayBuffer.isView(source)) {
+    const buffer = Buffer.from(source.buffer, source.byteOffset, source.byteLength);
+    return { buffer, size: buffer.length };
+  }
+
+  if (typeof source.arrayBuffer === "function") {
+    const arrayBuffer = await source.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const size = typeof source.size === "number" ? source.size : buffer.length;
+    return { buffer, size };
+  }
+
+  if (typeof source.getReader === "function") {
+    const buffer = await consumeReadableStream(source);
+    return { buffer, size: buffer.length };
+  }
+
+  if (typeof source.stream === "function") {
+    const stream = source.stream();
+    if (stream) {
+      if (typeof stream.getReader === "function") {
+        const buffer = await consumeReadableStream(stream);
+        return { buffer, size: buffer.length };
+      }
+      if (typeof stream[Symbol.asyncIterator] === "function") {
+        const buffer = await consumeAsyncIterable(stream);
+        return { buffer, size: buffer.length };
+      }
+    }
+  }
+
+  if (typeof source[Symbol.asyncIterator] === "function") {
+    const buffer = await consumeAsyncIterable(source);
+    return { buffer, size: buffer.length };
+  }
+
+  if (source instanceof Readable) {
+    const buffer = await consumeAsyncIterable(source);
+    return { buffer, size: buffer.length };
+  }
+
+  return { buffer: null, size: 0 };
+}
+
+async function consumeReadableStream(readable) {
+  const reader = readable.getReader();
+  const chunks = [];
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(Buffer.isBuffer(value) ? value : Buffer.from(value));
+      }
+    }
+  } finally {
+    if (reader.releaseLock) {
+      reader.releaseLock();
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
+async function consumeAsyncIterable(iterable) {
+  const chunks = [];
+  for await (const chunk of iterable) {
+    if (chunk) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
 router.get("/proxy", async (req, res) => {
   if (!ensureSupabase(res)) return;
 
@@ -133,42 +246,146 @@ router.get("/proxy", async (req, res) => {
   }
 
   try {
-    const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
-    if (signed.error) {
-      const status = typeof signed.error.status === "number" ? signed.error.status : 502;
-      return res.status(status).json({ error: signed.error.message || "Failed to generate signed media URL" });
-    }
-    const signedUrl = signed.data?.signedUrl;
-    if (!signedUrl) {
-      return res.status(404).json({ error: "Media not found" });
-    }
-
     const method = req.method === "HEAD" ? "HEAD" : "GET";
-    const upstream = await fetchUpstream(signedUrl, method);
-    if (!upstream.ok) {
-      return res.status(upstream.status).json({ error: `Upstream fetch failed (${upstream.status})` });
+    const attempts = [];
+    const errors = [];
+
+    const relayResponse = (label, upstream) => {
+      if (!upstream || !upstream.ok) {
+        if (upstream) {
+          errors.push({
+            source: label,
+            status: upstream.status,
+            message: `Upstream fetch failed (${upstream.status})`,
+          });
+        }
+        return false;
+      }
+
+      const rawContentType = upstream.headers["content-type"] || "application/octet-stream";
+      const rawCacheControl = upstream.headers["cache-control"] || "public, max-age=1800, s-maxage=1800";
+      const rawContentLength = upstream.headers["content-length"];
+
+      const contentType = Array.isArray(rawContentType) ? rawContentType[0] : rawContentType;
+      const cacheControl = Array.isArray(rawCacheControl) ? rawCacheControl[0] : rawCacheControl;
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", cacheControl);
+      if (rawContentLength) {
+        const lengthValue = Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength;
+        if (lengthValue) {
+          res.setHeader("Content-Length", lengthValue);
+        }
+      }
+
+      if (method === "HEAD") {
+        res.status(upstream.status || 200).end();
+      } else {
+        res.status(upstream.status || 200).send(upstream.buffer ?? Buffer.alloc(0));
+      }
+
+      return true;
+    };
+
+    const fetchFromUrl = async (label, url) => {
+      try {
+        const upstream = await fetchUpstream(url, method);
+        attempts.push({ source: label, url, status: upstream.status });
+        if (relayResponse(label, upstream)) {
+          return true;
+        }
+      } catch (error) {
+        errors.push({ source: label, message: error?.message || String(error) });
+      }
+      return false;
+    };
+
+    const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+    if (!signed.error) {
+      const signedUrl = signed.data?.signedUrl;
+      if (signedUrl && (await fetchFromUrl("signed", signedUrl))) {
+        return;
+      }
+      if (!signedUrl) {
+        errors.push({ source: "signed", message: "Signed URL missing" });
+      }
+    } else {
+      errors.push({
+        source: "signed",
+        status: typeof signed.error.status === "number" ? signed.error.status : undefined,
+        message: signed.error.message || "Failed to generate signed media URL",
+      });
     }
 
-    const rawContentType = upstream.headers["content-type"] || "application/octet-stream";
-    const rawCacheControl = upstream.headers["cache-control"] || "public, max-age=1800, s-maxage=1800";
-    const rawContentLength = upstream.headers["content-length"];
+    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
+    const publicCandidate = publicData?.publicUrl;
+    if (publicCandidate && (await fetchFromUrl("public", publicCandidate))) {
+      return;
+    }
+    if (!publicCandidate) {
+      errors.push({ source: "public", message: "Public URL not available" });
+    }
 
-    const contentType = Array.isArray(rawContentType) ? rawContentType[0] : rawContentType;
-    const cacheControl = Array.isArray(rawCacheControl) ? rawCacheControl[0] : rawCacheControl;
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", cacheControl);
-    if (rawContentLength) {
-      const lengthValue = Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength;
-      if (lengthValue) {
-        res.setHeader("Content-Length", lengthValue);
+    if (supabase) {
+      try {
+        const direct = await supabase.storage.from(bucket).download(path);
+        if (!direct.error && direct.data) {
+          attempts.push({ source: "direct", status: 200 });
+          const contentType =
+            (typeof direct.data.type === "string" && direct.data.type) || inferContentType(path);
+          res.setHeader("Content-Type", contentType);
+          res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
+
+          if (method === "HEAD" && typeof direct.data.size === "number") {
+            res.setHeader("Content-Length", String(direct.data.size));
+            res.status(200).end();
+            return;
+          }
+
+          const { buffer, size } = await bufferFromDownloadData(direct.data);
+          if (buffer) {
+            if (size) {
+              res.setHeader("Content-Length", String(size));
+            }
+            if (method === "HEAD") {
+              res.status(200).end();
+            } else {
+              res.status(200).send(buffer);
+            }
+            return;
+          }
+
+          errors.push({ source: "direct", message: "Direct download produced empty payload" });
+        } else if (direct.error) {
+          attempts.push({
+            source: "direct",
+            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+          });
+          errors.push({
+            source: "direct",
+            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+            message: direct.error.message || "Direct download failed",
+          });
+        } else {
+          errors.push({ source: "direct", message: "Direct download returned empty response" });
+        }
+      } catch (error) {
+        errors.push({ source: "direct", message: error?.message || String(error) });
       }
     }
 
-    if (method === "HEAD") {
-      return res.status(upstream.status || 200).end();
-    }
+    const statusFromErrors = errors.find((entry) => typeof entry.status === "number")?.status;
+    const status = typeof statusFromErrors === "number" ? statusFromErrors : 502;
+    const message =
+      errors.find((entry) => typeof entry.message === "string")?.message || "Failed to proxy media";
 
-    res.status(upstream.status || 200).send(upstream.buffer ?? Buffer.alloc(0));
+    console.warn("/api/storage/proxy failed", {
+      bucket,
+      path,
+      attempts,
+      errors,
+    });
+
+    res.status(status).json({ error: message });
   } catch (err) {
     console.error("GET /api/storage/proxy error:", err);
     if (err && typeof err.status === "number") {
