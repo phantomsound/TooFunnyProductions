@@ -49,6 +49,10 @@ export default function AdminContactResponses() {
   const [notesDraft, setNotesDraft] = React.useState("");
   const [savingId, setSavingId] = React.useState<string | null>(null);
   const [exporting, setExporting] = React.useState(false);
+  const [showPendingList, setShowPendingList] = React.useState(false);
+  const pendingListRef = React.useRef<HTMLDivElement | null>(null);
+
+  const openResponses = React.useMemo(() => rows.filter((item) => !item.responded), [rows]);
 
   const buildQuery = React.useCallback(
     (format?: string) => {
@@ -103,6 +107,31 @@ export default function AdminContactResponses() {
     setSort("newest");
     setLimit("50");
   };
+
+  React.useEffect(() => {
+    if (!showPendingList) return;
+    const handleClickAway = (event: MouseEvent) => {
+      if (!pendingListRef.current) return;
+      if (event.target instanceof Node && !pendingListRef.current.contains(event.target)) {
+        setShowPendingList(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowPendingList(false);
+    };
+    document.addEventListener("mousedown", handleClickAway);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickAway);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showPendingList]);
+
+  React.useEffect(() => {
+    if (openResponses.length === 0) {
+      setShowPendingList(false);
+    }
+  }, [openResponses.length]);
 
   const toggleResponded = async (row: ContactResponse) => {
     setSavingId(row.id);
@@ -183,12 +212,95 @@ export default function AdminContactResponses() {
   return (
     <div className="space-y-6 text-gray-900">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Contact Responses</h2>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-2xl font-bold">Contact Responses</h2>
+            {openResponses.length > 0 ? (
+              <div className="relative" ref={pendingListRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowPendingList((open) => !open)}
+                  className="flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700 shadow-sm transition hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-white"
+                  aria-haspopup="dialog"
+                  aria-expanded={showPendingList}
+                >
+                  <span className="tf-notice-pulse flex h-7 w-7 items-center justify-center rounded-full bg-orange-500 text-[11px] font-bold uppercase tracking-wide text-white shadow">{openResponses.length}</span>
+                  <span>Awaiting reply</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className={`h-3 w-3 transition-transform ${showPendingList ? "rotate-180" : ""}`}
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 10.939l3.71-3.71a.75.75 0 111.06 1.061l-4.24 4.24a.75.75 0 01-1.06 0l-4.24-4.24a.75.75 0 01.02-1.06z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+                {showPendingList ? (
+                  <div className="absolute left-0 z-20 mt-2 w-80 max-w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-orange-200 bg-white p-3 text-left text-orange-900 shadow-xl">
+                    <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-orange-600">
+                      <span>Awaiting response</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPendingList(false)}
+                        className="rounded px-2 py-1 text-[10px] font-semibold text-orange-500 transition hover:bg-orange-100 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                      {openResponses.map((pending) => (
+                        <div
+                          key={pending.id}
+                          className="rounded border border-orange-100 bg-orange-50 p-2 text-xs shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-semibold text-orange-900">{pending.name || "(unknown)"}</span>
+                            <span className="text-[10px] font-medium text-orange-600/80">
+                              {new Date(pending.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-orange-600">{pending.email}</div>
+                          <p
+                            className="mt-1 text-[11px] text-orange-700/80"
+                            style={{
+                              display: "-webkit-box",
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {pending.message}
+                          </p>
+                          {pending.notes ? (
+                            <div className="mt-2 rounded border border-orange-100 bg-white/80 p-2 text-[10px] text-orange-700">
+                              <div className="font-semibold uppercase tracking-wide text-[9px] text-orange-500">Notes</div>
+                              <div className="mt-1 whitespace-pre-wrap">{pending.notes}</div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
           <p className="text-sm text-gray-500">
             Track every form submission and mark when your team has responded.
           </p>
           <p className="text-xs text-gray-500">{total} total submissions.</p>
+          <p className={`text-xs font-medium ${openResponses.length === 0 ? "text-emerald-600" : "text-orange-600"}`}>
+            {openResponses.length === 0
+              ? "All responses have been marked as handled."
+              : openResponses.length === 1
+              ? "1 response is awaiting attention."
+              : `${openResponses.length} responses are awaiting attention.`}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
