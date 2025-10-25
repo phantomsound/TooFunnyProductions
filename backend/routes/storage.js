@@ -134,9 +134,14 @@ router.get("/proxy", async (req, res) => {
 
   try {
     const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
-    if (signed.error) throw signed.error;
+    if (signed.error) {
+      const status = typeof signed.error.status === "number" ? signed.error.status : 502;
+      return res.status(status).json({ error: signed.error.message || "Failed to generate signed media URL" });
+    }
     const signedUrl = signed.data?.signedUrl;
-    if (!signedUrl) throw new Error("Failed to generate signed media URL");
+    if (!signedUrl) {
+      return res.status(404).json({ error: "Media not found" });
+    }
 
     const method = req.method === "HEAD" ? "HEAD" : "GET";
     const upstream = await fetchUpstream(signedUrl, method);
@@ -166,6 +171,9 @@ router.get("/proxy", async (req, res) => {
     res.status(upstream.status || 200).send(upstream.buffer ?? Buffer.alloc(0));
   } catch (err) {
     console.error("GET /api/storage/proxy error:", err);
+    if (err && typeof err.status === "number") {
+      return res.status(err.status).json({ error: err.message || "Failed to proxy media" });
+    }
     res.status(500).json({ error: "Failed to proxy media" });
   }
 });
