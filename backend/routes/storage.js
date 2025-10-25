@@ -92,13 +92,34 @@ function ensureSupabase(res) {
   return true;
 }
 
+function sanitizeProxyPath(input) {
+  if (typeof input !== "string") return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const plusNormalized = trimmed.replace(/\+/g, " ");
+  let decoded;
+  try {
+    decoded = decodeURIComponent(plusNormalized);
+  } catch (error) {
+    return null;
+  }
+
+  const withoutLeadingSlash = decoded.replace(/^\/+/g, "");
+  if (!withoutLeadingSlash || withoutLeadingSlash.includes("..")) {
+    return null;
+  }
+
+  return withoutLeadingSlash;
+}
+
 router.get("/proxy", async (req, res) => {
   if (!ensureSupabase(res)) return;
 
   const bucket = typeof req.query.bucket === "string" ? req.query.bucket.trim() : "";
-  const path = typeof req.query.path === "string" ? req.query.path.trim() : "";
+  const rawPath = typeof req.query.path === "string" ? req.query.path.trim() : "";
 
-  if (!bucket || !path) {
+  if (!bucket || !rawPath) {
     return res.status(400).json({ error: "bucket and path query parameters are required" });
   }
 
@@ -106,7 +127,8 @@ router.get("/proxy", async (req, res) => {
     return res.status(403).json({ error: "Access to requested bucket is not allowed" });
   }
 
-  if (path.includes("..")) {
+  const path = sanitizeProxyPath(rawPath);
+  if (!path) {
     return res.status(400).json({ error: "Invalid path" });
   }
 
