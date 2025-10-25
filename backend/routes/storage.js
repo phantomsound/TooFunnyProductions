@@ -7,6 +7,8 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import multer from "multer";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
 
@@ -14,6 +16,68 @@ const router = Router();
 const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_KEY ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) : null;
+
+const hasNativeFetch = typeof fetch === "function";
+
+function requestWithNode(url, method) {
+  return new Promise((resolve, reject) => {
+    try {
+      const parsed = new URL(url);
+      const client = parsed.protocol === "https:" ? httpsRequest : httpRequest;
+      const req = client(
+        {
+          method,
+          hostname: parsed.hostname,
+          port: parsed.port || (parsed.protocol === "https:" ? 443 : 80),
+          path: `${parsed.pathname}${parsed.search}`,
+          headers: { Accept: "*/*" },
+        },
+        (res) => {
+          const chunks = [];
+          if (method !== "HEAD") {
+            res.on("data", (chunk) => {
+              chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            });
+          }
+          res.on("end", () => {
+            const normalizedHeaders = Object.fromEntries(
+              Object.entries(res.headers || {}).map(([key, value]) => [key.toLowerCase(), value])
+            );
+            resolve({
+              ok: (res.statusCode || 500) >= 200 && (res.statusCode || 500) < 300,
+              status: res.statusCode || 500,
+              headers: normalizedHeaders,
+              buffer: method === "HEAD" ? null : Buffer.concat(chunks),
+            });
+          });
+        }
+      );
+      req.on("error", reject);
+      req.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function fetchUpstream(url, method) {
+  if (hasNativeFetch) {
+    const response = await fetch(url, { method });
+    const headers = {};
+    response.headers.forEach((value, key) => {
+      headers[key.toLowerCase()] = value;
+    });
+    const buffer = method === "HEAD" ? null : Buffer.from(await response.arrayBuffer());
+    return {
+      ok: response.ok,
+      status: response.status,
+      headers,
+      buffer,
+    };
+  }
+
+  return requestWithNode(url, method);
+}
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -52,27 +116,32 @@ router.get("/proxy", async (req, res) => {
     const signedUrl = signed.data?.signedUrl;
     if (!signedUrl) throw new Error("Failed to generate signed media URL");
 
-    const upstream = await fetch(signedUrl, { method: req.method === "HEAD" ? "HEAD" : "GET" });
+    const method = req.method === "HEAD" ? "HEAD" : "GET";
+    const upstream = await fetchUpstream(signedUrl, method);
     if (!upstream.ok) {
       return res.status(upstream.status).json({ error: `Upstream fetch failed (${upstream.status})` });
     }
 
-    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
-    const cacheControl = upstream.headers.get("cache-control") || "public, max-age=1800, s-maxage=1800";
-    const contentLength = upstream.headers.get("content-length");
+    const rawContentType = upstream.headers["content-type"] || "application/octet-stream";
+    const rawCacheControl = upstream.headers["cache-control"] || "public, max-age=1800, s-maxage=1800";
+    const rawContentLength = upstream.headers["content-length"];
 
+    const contentType = Array.isArray(rawContentType) ? rawContentType[0] : rawContentType;
+    const cacheControl = Array.isArray(rawCacheControl) ? rawCacheControl[0] : rawCacheControl;
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", cacheControl);
-    if (contentLength) {
-      res.setHeader("Content-Length", contentLength);
+    if (rawContentLength) {
+      const lengthValue = Array.isArray(rawContentLength) ? rawContentLength[0] : rawContentLength;
+      if (lengthValue) {
+        res.setHeader("Content-Length", lengthValue);
+      }
     }
 
-    if (req.method === "HEAD") {
-      return res.status(200).end();
+    if (method === "HEAD") {
+      return res.status(upstream.status || 200).end();
     }
 
-    const arrayBuffer = await upstream.arrayBuffer();
-    res.send(Buffer.from(arrayBuffer));
+    res.status(upstream.status || 200).send(upstream.buffer ?? Buffer.alloc(0));
   } catch (err) {
     console.error("GET /api/storage/proxy error:", err);
     res.status(500).json({ error: "Failed to proxy media" });
@@ -299,7 +368,7 @@ router.get("/inspect", requireAdmin, async (req, res) => {
 
     let publicUrlStatus = null;
     try {
-      const head = await fetch(url, { method: "HEAD" });
+      const head = await fetchUpstream(url, "HEAD");
       publicUrlStatus = head.status;
     } catch {}
 
