@@ -1,5 +1,6 @@
 import React from "react";
 import { useSettings } from "../lib/SettingsContext";
+import { resolveMediaUrl } from "../utils/media";
 
 export default function Merch() {
   const { settings } = useSettings();
@@ -16,11 +17,19 @@ export default function Merch() {
       <p className="mb-8 whitespace-pre-wrap break-words text-theme-muted">{intro}</p>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((m: any, i: number) => (
-          <div key={i} className="rounded border border-theme-surface bg-theme-surface p-4">
-            {m.image_url && (
-              <img src={m.image_url} alt={m.title} className="mb-3 h-48 w-full rounded object-cover" />
-            )}
+        {items.map((m: any, i: number) => {
+          const imageUrl = resolveMediaUrl(m?.image_url);
+          const hasImage = Boolean(imageUrl);
+
+          return (
+            <div key={i} className="rounded border border-theme-surface bg-theme-surface p-4">
+              {hasImage ? (
+                <img src={imageUrl} alt={m?.title || "Merch item"} className="mb-3 h-48 w-full rounded object-cover" />
+              ) : (
+                <div className="mb-3 flex h-48 w-full items-center justify-center rounded bg-theme-background text-xs text-theme-muted">
+                  Add an image to showcase this item.
+                </div>
+              )}
             <div className="text-lg font-semibold text-theme-base">{m.title}</div>
             {m.price && <div className="mb-2 text-sm text-theme-muted">${m.price}</div>}
             {m.description ? (
@@ -36,8 +45,9 @@ export default function Merch() {
                 Buy
               </a>
             )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {items.length === 0 && <div className="text-theme-muted">No merch items yet.</div>}

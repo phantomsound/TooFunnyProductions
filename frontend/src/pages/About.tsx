@@ -1,5 +1,6 @@
 import React from "react";
 import { useSettings } from "../lib/SettingsContext";
+import { resolveMediaUrl } from "../utils/media";
 
 export default function About() {
   const { settings } = useSettings();
@@ -43,9 +44,19 @@ export default function About() {
       <h2 className="mb-2 text-2xl font-semibold text-theme-accent">Meet the Team</h2>
       <p className="mb-6 whitespace-pre-wrap break-words text-theme-muted">{teamIntro}</p>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {team.map((m: any, i: number) => (
-          <div key={i} className="rounded-lg border border-theme-surface bg-theme-surface p-4">
-            {m.photo_url && <img src={m.photo_url} alt={m.name} className="mb-3 h-48 w-full rounded object-cover" />}
+        {team.map((m: any, i: number) => {
+          const photoUrl = resolveMediaUrl(m?.photo_url);
+          const hasPhoto = Boolean(photoUrl);
+
+          return (
+            <div key={i} className="rounded-lg border border-theme-surface bg-theme-surface p-4">
+              {hasPhoto ? (
+                <img src={photoUrl} alt={m?.name || "Team member"} className="mb-3 h-48 w-full rounded object-cover" />
+              ) : (
+                <div className="mb-3 flex h-48 w-full items-center justify-center rounded bg-theme-background text-xs text-theme-muted">
+                  Add a team photo to highlight this member.
+                </div>
+              )}
             <div className="text-lg font-semibold text-theme-base">{m.name}</div>
             <div className="text-sm text-theme-muted">{m.title}</div>
             {m.bio ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-theme-muted">{m.bio}</p> : null}
@@ -60,8 +71,9 @@ export default function About() {
                   ))}
               </div>
             )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

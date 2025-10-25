@@ -28,6 +28,57 @@ function ensureSupabase(res) {
   return true;
 }
 
+router.get("/proxy", async (req, res) => {
+  if (!ensureSupabase(res)) return;
+
+  const bucket = typeof req.query.bucket === "string" ? req.query.bucket.trim() : "";
+  const path = typeof req.query.path === "string" ? req.query.path.trim() : "";
+
+  if (!bucket || !path) {
+    return res.status(400).json({ error: "bucket and path query parameters are required" });
+  }
+
+  if (bucket !== BUCKET) {
+    return res.status(403).json({ error: "Access to requested bucket is not allowed" });
+  }
+
+  if (path.includes("..")) {
+    return res.status(400).json({ error: "Invalid path" });
+  }
+
+  try {
+    const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+    if (signed.error) throw signed.error;
+    const signedUrl = signed.data?.signedUrl;
+    if (!signedUrl) throw new Error("Failed to generate signed media URL");
+
+    const upstream = await fetch(signedUrl, { method: req.method === "HEAD" ? "HEAD" : "GET" });
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ error: `Upstream fetch failed (${upstream.status})` });
+    }
+
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    const cacheControl = upstream.headers.get("cache-control") || "public, max-age=1800, s-maxage=1800";
+    const contentLength = upstream.headers.get("content-length");
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", cacheControl);
+    if (contentLength) {
+      res.setHeader("Content-Length", contentLength);
+    }
+
+    if (req.method === "HEAD") {
+      return res.status(200).end();
+    }
+
+    const arrayBuffer = await upstream.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (err) {
+    console.error("GET /api/storage/proxy error:", err);
+    res.status(500).json({ error: "Failed to proxy media" });
+  }
+});
+
 function publicUrl(path) {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }

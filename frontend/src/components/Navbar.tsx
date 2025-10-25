@@ -6,6 +6,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import useAuth from "../hooks/useAuth";
 import { useSettings } from "../lib/SettingsContext";
+import { resolveMediaUrl } from "../utils/media";
 
 export default function Navbar() {
   const { search, pathname } = useLocation();
@@ -14,10 +15,11 @@ export default function Navbar() {
   const { settings } = useSettings();
   const { user } = useAuth();
 
-  const logoUrl =
+  const logoUrlRaw =
     typeof settings?.logo_url === "string" && settings.logo_url.trim().length > 0
-      ? settings.logo_url
-      : null;
+      ? settings.logo_url.trim()
+      : "";
+  const logoUrl = logoUrlRaw ? resolveMediaUrl(logoUrlRaw) : "";
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 

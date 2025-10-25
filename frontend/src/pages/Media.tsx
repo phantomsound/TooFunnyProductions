@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { useSettings } from "../lib/SettingsContext";
+import { resolveMediaUrl } from "../utils/media";
 
 const isArchiveTitle = (value: unknown): boolean =>
   typeof value === "string" && value.trim().toLowerCase() === "archive";
@@ -28,18 +29,30 @@ export default function Media() {
         <div key={idx} className="mb-10">
           <h2 className="mb-4 text-2xl font-semibold text-theme-accent">{s.title}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {(s.items || []).map((it: any, i: number) => (
-              <div key={i} className="rounded border border-theme-surface bg-theme-surface p-3">
-                {it.type === "video" ? (
-                  <div className="aspect-video mb-2 w-full overflow-hidden rounded">
-                    <video src={it.url} controls preload="metadata" className="h-full w-full object-cover" />
-                  </div>
-                ) : (
-                  <img src={it.url} alt={it.title || ""} className="mb-2 h-48 w-full rounded object-cover" />
-                )}
-                {it.title && <div className="break-words text-sm text-theme-muted">{it.title}</div>}
-              </div>
-            ))}
+            {(s.items || []).map((it: any, i: number) => {
+              const mediaUrl = resolveMediaUrl(it?.url);
+              const isVideo = it?.type === "video";
+              const hasMedia = Boolean(mediaUrl);
+
+              return (
+                <div key={i} className="rounded border border-theme-surface bg-theme-surface p-3">
+                  {hasMedia ? (
+                    isVideo ? (
+                      <div className="aspect-video mb-2 w-full overflow-hidden rounded">
+                        <video src={mediaUrl} controls preload="metadata" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <img src={mediaUrl} alt={it?.title || ""} className="mb-2 h-48 w-full rounded object-cover" />
+                    )
+                  ) : (
+                    <div className="flex h-48 w-full items-center justify-center rounded bg-theme-background text-xs text-theme-muted">
+                      Media coming soon.
+                    </div>
+                  )}
+                  {it?.title && <div className="break-words text-sm text-theme-muted">{it.title}</div>}
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}

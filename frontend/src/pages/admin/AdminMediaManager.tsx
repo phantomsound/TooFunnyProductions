@@ -1,6 +1,7 @@
 import React from "react";
 import { api } from "../../lib/api";
 import { useSettings } from "../../lib/SettingsContext";
+import { resolveMediaUrl } from "../../utils/media";
 
 type Stage = "draft" | "live";
 type PathSegment = string | number;
@@ -425,62 +426,67 @@ export default function AdminMediaManager() {
         <div className="text-sm text-neutral-400">No media files found.</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
-            <article key={item.path} className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 shadow-sm">
-              <div className="flex h-48 items-center justify-center bg-neutral-800">
-                {isImage(item.name, item.mime_type) ? (
-                  <img src={item.url} alt={item.name} className="max-h-48 w-full object-contain" />
-                ) : isVideo(item.name, item.mime_type) ? (
-                  <video src={item.url} controls preload="metadata" className="max-h-48 w-full object-contain" />
-                ) : (
-                  <span className="truncate px-4 text-xs text-neutral-400">{item.name}</span>
-                )}
-              </div>
-              <div className="space-y-2 p-4 text-sm">
-                <div className="truncate font-semibold text-neutral-100" title={item.name}>
-                  {item.name}
+          {items.map((item) => {
+            const previewUrl = resolveMediaUrl(item.url);
+
+            return (
+              <article key={item.path} className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 shadow-sm">
+                <div className="flex h-48 items-center justify-center bg-neutral-800">
+                  {isImage(item.name, item.mime_type) ? (
+                    <img src={previewUrl} alt={item.name} className="max-h-48 w-full object-contain" />
+                  ) : isVideo(item.name, item.mime_type) ? (
+                    <video src={previewUrl} controls preload="metadata" className="max-h-48 w-full object-contain" />
+                  ) : (
+                    <span className="truncate px-4 text-xs text-neutral-400">{item.name}</span>
+                  )}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-400">
-                  <span>{humanSize(item.size)}</span>
-                  <span>•</span>
-                  <span>{new Date(item.updated_at || item.created_at || Date.now()).toLocaleString()}</span>
+                <div className="space-y-2 p-4 text-sm">
+                  <div className="truncate font-semibold text-neutral-100" title={item.name}>
+                    {item.name}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-400">
+                    <span>{humanSize(item.size)}</span>
+                    <span>•</span>
+                    <span>{new Date(item.updated_at || item.created_at || Date.now()).toLocaleString()}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
+                      onClick={() => onCopy(item)}
+                    >
+                      {copiedPath === item.path ? "Copied!" : "Copy URL"}
+                    </button>
+                    <a
+                      className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
+                      href={previewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View
+                    </a>
+                    <button
+                      className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
+                      onClick={() => onRename(item)}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      className={`ml-auto rounded px-2 py-1 text-xs text-white transition ${
+                        checkingPath === item.path
+                          ? "cursor-wait bg-red-700/70"
+                          : "bg-red-600 hover:bg-red-500"
+                      }`}
+                      onClick={() => onDelete(item)}
+                      disabled={checkingPath === item.path}
+                    >
+                      {checkingPath === item.path ? "Checking…" : "Delete"}
+                    </button>
+                  </div>
+                  {renderReferences(item)}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
-                    onClick={() => onCopy(item)}
-                  >
-                    {copiedPath === item.path ? "Copied!" : "Copy URL"}
-                  </button>
-                  <a
-                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open
-                  </a>
-                  <button
-                    className="rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-neutral-800"
-                    onClick={() => onRename(item)}
-                  >
-                    Rename
-                  </button>
-                  <button
-                    className={`ml-auto rounded px-2 py-1 text-xs text-white transition ${
-                      checkingPath === item.path
-                        ? "cursor-wait bg-red-700/70"
-                        : "bg-red-600 hover:bg-red-500"
-                    }`}
-                    onClick={() => onDelete(item)}
-                    disabled={checkingPath === item.path}
-                  >
-                    {checkingPath === item.path ? "Checking…" : "Delete"}
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
     </div>

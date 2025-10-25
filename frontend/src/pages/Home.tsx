@@ -8,6 +8,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { useSettings } from "../lib/SettingsContext";
 import { api } from "../lib/api";
+import { resolveMediaUrl } from "../utils/media";
 import { blendColors, normalizeHex, pickTextColor } from "../lib/color";
 
 type SizeOption = "small" | "medium" | "large";
@@ -128,8 +129,12 @@ export default function Home() {
   const heroTitle = settings?.hero_title?.trim() || "Comedy that’s Too Funny";
   const heroSubtext =
     settings?.hero_subtext?.trim() || "Original sketch, live shows, and shamelessly fun chaos.";
-  const heroImage = settings?.hero_image_url?.trim() || "";
-  const heroVideo = settings?.featured_video_url?.trim() || "";
+  const heroImageRaw =
+    typeof settings?.hero_image_url === "string" ? settings.hero_image_url.trim() : "";
+  const heroVideoRaw =
+    typeof settings?.featured_video_url === "string" ? settings.featured_video_url.trim() : "";
+  const heroImage = resolveMediaUrl(heroImageRaw);
+  const heroVideo = resolveMediaUrl(heroVideoRaw);
   const heroTitleSize = resolveSize(settings?.hero_title_size);
   const heroSubtextSize = resolveSize(settings?.hero_subtext_size);
   const heroBadgeSize = resolveSize(settings?.hero_badge_size);

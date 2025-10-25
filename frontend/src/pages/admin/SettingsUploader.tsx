@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import MediaPickerModal, {
   type MediaPickerItem,
 } from "../../components/MediaPickerModal";
+import { resolveMediaUrl } from "../../utils/media";
 
 type SettingsUploaderProps = {
   label: string;
@@ -140,6 +141,9 @@ export default function SettingsUploader({
     pendingIsImage ||
     (!!previewUrl && /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(previewUrl.split("?")[0] ?? ""));
 
+  const resolvedPreviewUrl = resolveMediaUrl(previewUrl);
+  const hasPreview = Boolean(previewUrl);
+
   const resourceName = useMemo(() => {
     if (!buttonLabel) return "file";
     const cleaned = buttonLabel
@@ -251,15 +255,19 @@ export default function SettingsUploader({
         ) : null}
       </div>
 
-      {previewUrl ? (
-        <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3">
-          {isImage ? (
-            <img src={previewUrl} alt="Preview" className="mx-auto max-h-40 object-contain" />
+      <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3">
+        {hasPreview ? (
+          isImage ? (
+            <img src={resolvedPreviewUrl} alt="Preview" className="mx-auto max-h-40 object-contain" />
           ) : (
             <p className="break-all text-xs text-neutral-300">{previewUrl}</p>
-          )}
-        </div>
-      ) : null}
+          )
+        ) : (
+          <div className="flex h-40 items-center justify-center text-xs text-neutral-500">
+            No file selected yet.
+          </div>
+        )}
+      </div>
 
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
 
