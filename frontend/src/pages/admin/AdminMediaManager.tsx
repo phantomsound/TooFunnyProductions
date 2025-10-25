@@ -1,5 +1,115 @@
 import React from "react";
 import { api } from "../../lib/api";
+import { useSettings } from "../../lib/SettingsContext";
+
+type Stage = "draft" | "live";
+type PathSegment = string | number;
+
+const STAGE_ORDER: Stage[] = ["draft", "live"];
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+
+const toTitleCase = (value: string): string =>
+  value.replace(/(^\w|\s\w)/g, (match) => match.toUpperCase());
+
+const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+const collectReferences = (settings: Record<string, unknown>, targetUrl: string): PathSegment[][] => {
+  const matches: PathSegment[][] = [];
+  if (!targetUrl) return matches;
+  const trimmed = targetUrl.trim();
+  const visit = (value: unknown, path: PathSegment[]) => {
+    if (typeof value === "string") {
+      if (value.trim() === trimmed) {
+        matches.push(path);
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => visit(entry, [...path, index]));
+      return;
+    }
+    if (isRecord(value)) {
+      Object.entries(value).forEach(([key, entry]) => visit(entry, [...path, key]));
+    }
+  };
+  visit(settings, []);
+  return matches;
+};
+
+const describeReference = (path: PathSegment[], settings: Record<string, unknown>): string => {
+  if (path.length === 0) return "Unknown location";
+  const [first, ...rest] = path;
+  if (typeof first !== "string") {
+    return path
+      .map((segment) => (typeof segment === "number" ? `Item ${segment + 1}` : toTitleCase(segment.replace(/_/g, " "))))
+      .join(" → ");
+  }
+
+  switch (first) {
+    case "logo_url":
+      return "General settings → Logo";
+    case "favicon_url":
+      return "General settings → Favicon";
+    case "hero_image_url":
+      return "Home page → Hero image";
+    case "featured_video_url":
+      return "Home page → Featured video";
+    case "who_image_url":
+      return "Home page → Who We Are image";
+    case "media_sections": {
+      const sectionIndex = typeof rest[0] === "number" ? rest[0] : -1;
+      const sections = asArray<any>(settings["media_sections"]);
+      const section = sectionIndex >= 0 ? sections[sectionIndex] : null;
+      const sectionTitle =
+        section && typeof section?.title === "string" && section.title.trim()
+          ? section.title.trim()
+          : `Section ${sectionIndex + 1}`;
+      if (rest[1] === "items" && typeof rest[2] === "number") {
+        const items = asArray<any>(section?.items);
+        const itemIndex = rest[2];
+        const item = items[itemIndex];
+        const type = typeof item?.type === "string" ? item.type : "media";
+        const typeLabel = type === "video" ? "Video" : type === "image" ? "Image" : "Media";
+        const title =
+          item && typeof item?.title === "string" && item.title.trim()
+            ? item.title.trim()
+            : `${typeLabel} ${itemIndex + 1}`;
+        return `Media page → ${sectionTitle} → ${typeLabel}: ${title}`;
+      }
+      return `Media page → ${sectionTitle}`;
+    }
+    case "about_team": {
+      const memberIndex = typeof rest[0] === "number" ? rest[0] : -1;
+      const members = asArray<any>(settings["about_team"]);
+      const member = memberIndex >= 0 ? members[memberIndex] : null;
+      const name =
+        member && typeof member?.name === "string" && member.name.trim()
+          ? member.name.trim()
+          : `Team member ${memberIndex + 1}`;
+      return `About page → ${name} photo`;
+    }
+    case "merch_items": {
+      const itemIndex = typeof rest[0] === "number" ? rest[0] : -1;
+      const items = asArray<any>(settings["merch_items"]);
+      const item = itemIndex >= 0 ? items[itemIndex] : null;
+      const title =
+        item && typeof item?.title === "string" && item.title.trim()
+          ? item.title.trim()
+          : `Product ${itemIndex + 1}`;
+      return `Merch page → ${title} image`;
+    }
+    default:
+      break;
+  }
+
+  return path
+    .map((segment) =>
+      typeof segment === "number" ? `Item ${segment + 1}` : toTitleCase(String(segment).replace(/_/g, " "))
+    )
+    .join(" → ");
+};
 
 const SORT_OPTIONS = [
   { id: "newest", label: "Newest", sort: "updated_at", direction: "desc" },
@@ -33,11 +143,64 @@ export default function AdminMediaManager() {
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState(null);
   const [copiedPath, setCopiedPath] = React.useState(null);
+  const [checkingPath, setCheckingPath] = React.useState<string | null>(null);
 
   const [search, setSearch] = React.useState("");
   const [activeSortId, setActiveSortId] = React.useState(SORT_OPTIONS[0].id);
 
   const activeSort = SORT_OPTIONS.find((s) => s.id === activeSortId) ?? SORT_OPTIONS[0];
+
+  const { settings: activeSettings, stage: activeStage } = useSettings();
+  const settingsCache = React.useRef<Partial<Record<Stage, Record<string, unknown>>>>({});
+
+  React.useEffect(() => {
+    if (activeSettings) {
+      settingsCache.current[activeStage as Stage] = activeSettings as Record<string, unknown>;
+    }
+  }, [activeSettings, activeStage]);
+
+  const ensureStageSettings = React.useCallback(
+    async (stage: Stage): Promise<Record<string, unknown>> => {
+      if (settingsCache.current[stage]) {
+        return settingsCache.current[stage] as Record<string, unknown>;
+      }
+      try {
+        const response = await fetch(api(`/api/settings?stage=${stage}`), { credentials: "include" });
+        const data = await response.json().catch(() => ({}));
+        const sanitized = isRecord(data) ? (data as Record<string, unknown>) : {};
+        settingsCache.current[stage] = sanitized;
+        return sanitized;
+      } catch (err) {
+        console.error(`Failed to load ${stage} settings for dependency check`, err);
+        const fallback = settingsCache.current[stage];
+        return (fallback ? (fallback as Record<string, unknown>) : {});
+      }
+    },
+    []
+  );
+
+  const findReferences = React.useCallback(
+    async (targetUrl: string) => {
+      if (!targetUrl) return [] as { stage: Stage; description: string }[];
+      const references: { stage: Stage; description: string }[] = [];
+      const seen = new Set<string>();
+      for (const stage of STAGE_ORDER) {
+        const settings = await ensureStageSettings(stage);
+        if (!settings) continue;
+        const matches = collectReferences(settings, targetUrl);
+        matches.forEach((path) => {
+          const description = describeReference(path, settings);
+          const key = `${stage}:${description}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            references.push({ stage, description });
+          }
+        });
+      }
+      return references;
+    },
+    [ensureStageSettings]
+  );
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -101,6 +264,34 @@ export default function AdminMediaManager() {
   };
 
   const onDelete = async (item) => {
+    const url = typeof item.url === "string" ? item.url.trim() : "";
+    let blocked = false;
+    if (url) {
+      setCheckingPath(item.path);
+      try {
+        const references = await findReferences(url);
+        if (references.length > 0) {
+          blocked = true;
+          const message = [
+            `“${item.name}” is still used in:`,
+            ...references.map((reference) => {
+              const stageLabel = reference.stage === "draft" ? "Draft" : "Live";
+              return `• ${reference.description} (${stageLabel} settings)`;
+            }),
+            "",
+            "Update those areas to use a different file, then try deleting again.",
+          ].join("\n");
+          window.alert(message);
+        }
+      } catch (err) {
+        console.error("Failed to check media dependencies", err);
+      } finally {
+        setCheckingPath(null);
+      }
+    }
+
+    if (blocked) return;
+
     if (!window.confirm(`Delete \"${item.name}\"? This cannot be undone.`)) return;
     try {
       const response = await fetch(api("/api/storage/delete"), {
@@ -276,10 +467,15 @@ export default function AdminMediaManager() {
                     Rename
                   </button>
                   <button
-                    className="ml-auto rounded bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-500"
+                    className={`ml-auto rounded px-2 py-1 text-xs text-white transition ${
+                      checkingPath === item.path
+                        ? "cursor-wait bg-red-700/70"
+                        : "bg-red-600 hover:bg-red-500"
+                    }`}
                     onClick={() => onDelete(item)}
+                    disabled={checkingPath === item.path}
                   >
-                    Delete
+                    {checkingPath === item.path ? "Checking…" : "Delete"}
                   </button>
                 </div>
               </div>
