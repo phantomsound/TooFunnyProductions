@@ -14,11 +14,14 @@ import { blendColors, normalizeHex, pickTextColor } from "../lib/color";
 type SizeOption = "small" | "medium" | "large";
 type BadgeVariant = "soft" | "bold";
 
+const FALLBACK_HERO_IMAGE = "/assets/home.jpg";
+
 type Settings = {
   hero_title?: string;
   hero_subtext?: string;
   hero_image_url?: string;
   logo_url?: string;
+  updated_at?: string;
   featured_video_url?: string;
   who_title?: string;
   who_body?: string;
@@ -43,6 +46,25 @@ type Settings = {
   theme_accent?: string;
   theme_use_global?: boolean;
   home_theme_accent?: string;
+};
+
+const toVersionParam = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return "";
+  return String(parsed);
+};
+
+const appendQueryParams = (input: string, params: Record<string, string | null | undefined>): string => {
+  const entries = Object.entries(params).filter(([, value]) => typeof value === "string" && value);
+  if (!entries.length) return input;
+
+  const [base, hash] = input.split("#", 2);
+  const query = entries
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value as string)}`)
+    .join("&");
+
+  return `${base}${base.includes("?") ? "&" : "?"}${query}${hash ? `#${hash}` : ""}`;
 };
 
 const resolveSize = (value: unknown): SizeOption => {
@@ -141,7 +163,17 @@ export default function Home() {
   })();
   const heroVideoRaw =
     typeof settings?.featured_video_url === "string" ? settings.featured_video_url.trim() : "";
-  const heroImage = resolveMediaUrl(heroImageRaw);
+  const heroImageVersion = useMemo(() => toVersionParam(settings?.updated_at), [settings?.updated_at]);
+  const heroImage = useMemo(() => {
+    const resolved = resolveMediaUrl(heroImageRaw);
+    const source = resolved || FALLBACK_HERO_IMAGE;
+    if (!source) return "";
+    const shouldAugment = Boolean(resolved);
+    return appendQueryParams(source, {
+      stage: shouldAugment && isDraftPreview ? "draft" : null,
+      v: shouldAugment && heroImageVersion ? heroImageVersion : null,
+    });
+  }, [heroImageRaw, heroImageVersion, isDraftPreview]);
   const heroVideo = resolveMediaUrl(heroVideoRaw);
   const heroTitleSize = resolveSize(settings?.hero_title_size);
   const heroSubtextSize = resolveSize(settings?.hero_subtext_size);
