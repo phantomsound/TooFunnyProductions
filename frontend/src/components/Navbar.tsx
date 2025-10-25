@@ -27,10 +27,10 @@ export default function Navbar() {
 
   const navLinks = [
     { label: "Home", to: "/" },
-    { label: "About", to: "/about" },
-    { label: "Events", to: "/events" },
     { label: "Media", to: "/media" },
     { label: "Merch", to: "/merch" },
+    { label: "Events", to: "/events" },
+    { label: "About", to: "/about" },
     { label: "Contact", to: "/contact" },
   ];
 
