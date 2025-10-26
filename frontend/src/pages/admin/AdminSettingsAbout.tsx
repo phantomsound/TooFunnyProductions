@@ -355,6 +355,7 @@ export default function AdminSettingsAbout(): JSX.Element {
                         disabled={disabled}
                         pickerKind="image"
                         appearance="light"
+                        layout="stacked"
                       />
                     </div>
 

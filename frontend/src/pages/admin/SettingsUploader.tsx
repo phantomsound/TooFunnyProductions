@@ -15,6 +15,7 @@ type SettingsUploaderProps = {
   pickerKind?: "image" | "video" | "any";
   allowLibrary?: boolean;
   appearance?: "dark" | "light";
+  layout?: "auto" | "stacked" | "inline";
 };
 
 type UploadError = string | null;
@@ -29,6 +30,7 @@ export default function SettingsUploader({
   pickerKind,
   allowLibrary = true,
   appearance = "dark",
+  layout = "auto",
 }: SettingsUploaderProps): JSX.Element {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<UploadError>(null);
@@ -239,6 +241,19 @@ export default function SettingsUploader({
         error: "text-xs text-red-400",
       };
 
+  const layoutClasses = useMemo(() => {
+    if (layout === "inline") {
+      return "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:items-start lg:gap-6";
+    }
+
+    if (layout === "stacked") {
+      return "grid gap-4";
+    }
+
+    // auto: prefer stacked layout except on very wide screens where there is ample room
+    return "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] xl:items-start xl:gap-6";
+  }, [layout]);
+
   return (
     <div className={palette.container}>
       <div className="flex items-center justify-between gap-3">
@@ -264,7 +279,7 @@ export default function SettingsUploader({
         disabled={interactionsDisabled}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:items-start lg:gap-6">
+      <div className={layoutClasses}>
         <div className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <button
