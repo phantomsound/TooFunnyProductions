@@ -43,21 +43,20 @@ const sanitizeSocials = (value: unknown): SocialLink[] => {
       const obj = entry as Record<string, unknown>;
       const label = typeof obj.label === "string" ? obj.label.trim() : "";
       const url = typeof obj.url === "string" ? obj.url.trim() : "";
-      if (!url) continue;
       links.push({ label, url });
+      if (links.length >= MAX_SOCIAL_LINKS) break;
     }
-    return links.slice(0, MAX_SOCIAL_LINKS);
+    return links;
   }
 
   if (value && typeof value === "object") {
     const obj = value as Record<string, unknown>;
     for (const [rawLabel, rawUrl] of Object.entries(obj)) {
-      if (typeof rawUrl !== "string") continue;
-      const url = rawUrl.trim();
-      if (!url) continue;
-      const label = typeof rawLabel === "string" ? rawLabel.trim() || rawLabel : String(rawLabel);
-      if (links.length >= MAX_SOCIAL_LINKS) break;
+      const label =
+        typeof rawLabel === "string" ? rawLabel.trim() || rawLabel : String(rawLabel);
+      const url = typeof rawUrl === "string" ? rawUrl.trim() : "";
       links.push({ label, url });
+      if (links.length >= MAX_SOCIAL_LINKS) break;
     }
     return links;
   }
@@ -350,8 +349,8 @@ export default function AdminSettingsAbout(): JSX.Element {
                       </button>
                     </div>
                   </div>
-                  <div className="grid gap-6 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
-                    <div className="lg:pt-1">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                    <div className="lg:w-64 lg:flex-shrink-0 lg:pt-1">
                       <SettingsUploader
                         label="Portrait"
                         value={member.photo_url}
@@ -365,7 +364,7 @@ export default function AdminSettingsAbout(): JSX.Element {
                       />
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="flex-1 space-y-4 lg:min-w-0">
                       <div className="grid gap-4 sm:grid-cols-2">
                         <label className="text-sm font-semibold">
                           Name
@@ -425,7 +424,10 @@ export default function AdminSettingsAbout(): JSX.Element {
                         ) : (
                           <div className="space-y-4">
                             {member.socials.map((social, socialIndex) => (
-                              <div key={socialIndex} className="rounded border border-gray-200 bg-gray-50 p-4 space-y-4">
+                              <div
+                                key={socialIndex}
+                                className="rounded border border-gray-200 bg-gray-50 p-4 space-y-4"
+                              >
                                 <div className="grid gap-4 sm:grid-cols-2">
                                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Label
