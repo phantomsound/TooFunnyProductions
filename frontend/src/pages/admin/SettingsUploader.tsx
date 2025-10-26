@@ -194,22 +194,24 @@ export default function SettingsUploader({
   const palette = appearance === "light"
     ? {
         container: "space-y-4 rounded-lg border border-gray-200 bg-white p-4 text-gray-900 shadow-sm",
-        label: "text-sm font-semibold uppercase tracking-wide text-gray-500",
+        label: "text-sm font-semibold uppercase tracking-wide text-gray-600",
         clearButton: interactionsDisabled
           ? "text-xs font-semibold text-red-400/60 cursor-not-allowed"
           : "text-xs font-semibold text-red-600 hover:text-red-500",
         chooseButton: interactionsDisabled
           ? "rounded px-3 py-2 text-sm font-semibold cursor-not-allowed bg-gray-100 text-gray-400"
           : "rounded px-3 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500",
-        fileSummary: "flex-1 rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs leading-tight text-gray-600",
+        fileSummary: "rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs leading-tight text-gray-600",
         fileSummaryTitle: "truncate font-semibold text-gray-900",
         fileSummaryStatus: "text-[11px] text-gray-500",
         browseButton: interactionsDisabled
           ? "w-full rounded border px-3 py-2 text-sm font-semibold cursor-not-allowed border-gray-200 text-gray-400"
-          : "w-full rounded border px-3 py-2 text-sm font-semibold border-gray-300 text-gray-700 hover:border-blue-300 hover:text-blue-600",
-        preview: "w-full rounded-md border border-gray-200 bg-gray-50 p-3 lg:max-w-[220px] lg:justify-self-end",
-        previewPlaceholder: "flex h-40 items-center justify-center text-xs text-gray-400",
-        previewImage: "mx-auto max-h-40 rounded-md object-cover",
+          : "w-full rounded border px-3 py-2 text-sm font-semibold border-gray-300 text-gray-700 transition hover:border-blue-300 hover:text-blue-600",
+        preview: "flex w-full flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3 shadow-inner",
+        previewPlaceholder: "flex items-center justify-center rounded border border-dashed border-gray-300 bg-white text-xs text-gray-400",
+        previewImageFrame: "relative w-full overflow-hidden rounded border border-gray-200 bg-white",
+        previewImage: "absolute inset-0 h-full w-full",
+        previewImageStandalone: "mx-auto max-h-48 w-full rounded-md object-contain",
         previewText: "break-all text-xs text-gray-600",
         statusRow: "flex flex-wrap items-center gap-3",
         uploadingText: "text-xs text-gray-500",
@@ -225,21 +227,30 @@ export default function SettingsUploader({
         chooseButton: interactionsDisabled
           ? "rounded px-3 py-2 text-sm font-semibold cursor-not-allowed bg-neutral-800 text-neutral-500"
           : "rounded px-3 py-2 text-sm font-semibold bg-yellow-400 text-black hover:bg-yellow-300",
-        fileSummary: "flex-1 rounded border border-dashed border-neutral-700 bg-neutral-950/50 px-3 py-2 text-xs leading-tight text-neutral-300",
+        fileSummary: "rounded border border-dashed border-neutral-700 bg-neutral-950/50 px-3 py-2 text-xs leading-tight text-neutral-300",
         fileSummaryTitle: "truncate font-semibold text-neutral-100",
         fileSummaryStatus: "text-[11px] text-neutral-400",
         browseButton: interactionsDisabled
           ? "w-full rounded border px-3 py-2 text-sm font-semibold cursor-not-allowed border-neutral-700 text-neutral-500"
           : "w-full rounded border px-3 py-2 text-sm font-semibold border-neutral-700 text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200",
-        preview: "w-full rounded-md border border-neutral-800 bg-neutral-950/60 p-3 lg:max-w-sm lg:justify-self-end",
-        previewPlaceholder: "flex h-40 items-center justify-center text-xs text-neutral-500",
-        previewImage: "mx-auto max-h-40 object-contain",
+        preview: "flex w-full flex-col gap-3 rounded-md border border-neutral-800 bg-neutral-950/60 p-4 shadow-inner",
+        previewPlaceholder: "flex items-center justify-center rounded border border-dashed border-neutral-700 text-xs text-neutral-500",
+        previewImageFrame: "relative w-full overflow-hidden rounded border border-neutral-800 bg-neutral-900",
+        previewImage: "absolute inset-0 h-full w-full",
+        previewImageStandalone: "mx-auto max-h-48 w-full rounded-md object-contain",
         previewText: "break-all text-xs text-neutral-300",
         statusRow: "flex flex-wrap items-center gap-3",
         uploadingText: "text-xs text-neutral-400",
         viewButton: "rounded border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200",
         error: "text-xs text-red-400",
       };
+
+  const containerExtras = useMemo(() => {
+    if (layout === "stacked") {
+      return "w-full lg:max-w-[260px]";
+    }
+    return "w-full";
+  }, [layout]);
 
   const layoutClasses = useMemo(() => {
     if (layout === "inline") {
@@ -254,8 +265,67 @@ export default function SettingsUploader({
     return "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] xl:items-start xl:gap-6";
   }, [layout]);
 
+  const controlRowClasses = useMemo(() => {
+    if (layout === "inline") {
+      return "flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3";
+    }
+
+    if (layout === "auto") {
+      return "flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 xl:flex-col xl:items-stretch";
+    }
+
+    // stacked layout keeps controls vertical to prevent overflow in tight columns
+    return "flex flex-col gap-2";
+  }, [layout]);
+
+  const previewExtras = useMemo(() => {
+    if (layout === "inline") {
+      return "items-center lg:ml-auto";
+    }
+
+    if (layout === "auto") {
+      return "items-center xl:ml-auto";
+    }
+
+    return "items-start";
+  }, [layout]);
+
+  const fileSummaryExtras = useMemo(() => {
+    if (layout === "stacked") {
+      return "w-full";
+    }
+
+    if (layout === "auto") {
+      return "sm:flex-1 xl:w-full";
+    }
+
+    return "flex-1";
+  }, [layout]);
+
+  const previewImageFitClass = useMemo(() => {
+    if (!isImage) return "";
+    if (layout === "stacked") {
+      return "object-cover object-bottom";
+    }
+    return "";
+  }, [isImage, layout]);
+
+  const previewFrameExtras = useMemo(() => {
+    if (layout === "stacked") {
+      return "aspect-[3/4]";
+    }
+    return "";
+  }, [layout]);
+
+  const previewPlaceholderExtras = useMemo(() => {
+    if (layout === "stacked") {
+      return "aspect-[3/4] w-full";
+    }
+    return "min-h-[9rem] w-full";
+  }, [layout]);
+
   return (
-    <div className={palette.container}>
+    <div className={`${palette.container} ${containerExtras}`}>
       <div className="flex items-center justify-between gap-3">
         <p className={palette.label}>{label}</p>
         {value && (
@@ -281,7 +351,7 @@ export default function SettingsUploader({
 
       <div className={layoutClasses}>
         <div className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className={controlRowClasses}>
             <button
               type="button"
               onClick={() => {
@@ -293,7 +363,7 @@ export default function SettingsUploader({
               {`Choose ${resourceTitle} from computer`}
             </button>
 
-            <div className={palette.fileSummary}>
+            <div className={`${palette.fileSummary} ${fileSummaryExtras}`}>
               <p className={palette.fileSummaryTitle}>{currentFileDisplay}</p>
               <p className={palette.fileSummaryStatus}>{statusMessage}</p>
             </div>
@@ -311,15 +381,29 @@ export default function SettingsUploader({
           ) : null}
         </div>
 
-        <div className={palette.preview}>
+        <div className={`${palette.preview} ${previewExtras}`}>
           {hasPreview ? (
             isImage ? (
-              <img src={resolvedPreviewUrl} alt="Preview" className={palette.previewImage} />
+              layout === "stacked" ? (
+                <div className={`${palette.previewImageFrame} ${previewFrameExtras}`}>
+                  <img
+                    src={resolvedPreviewUrl}
+                    alt="Preview"
+                    className={`${palette.previewImage} ${previewImageFitClass}`}
+                  />
+                </div>
+              ) : (
+                <img
+                  src={resolvedPreviewUrl}
+                  alt="Preview"
+                  className={palette.previewImageStandalone}
+                />
+              )
             ) : (
               <p className={palette.previewText}>{previewUrl}</p>
             )
           ) : (
-            <div className={palette.previewPlaceholder}>
+            <div className={`${palette.previewPlaceholder} ${previewPlaceholderExtras}`}>
               No file selected yet.
             </div>
           )}
