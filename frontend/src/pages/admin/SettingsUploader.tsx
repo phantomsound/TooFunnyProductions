@@ -141,12 +141,16 @@ export default function SettingsUploader({
     resetSelection(url);
   };
 
+  const normalizedPreviewUrl = previewUrl.trim();
+  const hasPreview = normalizedPreviewUrl.length > 0;
+
   const isImage =
     pendingIsImage ||
-    (!!previewUrl && /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(previewUrl.split("?")[0] ?? ""));
+    (hasPreview &&
+      (derivedPickerKind === "image" ||
+        /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(normalizedPreviewUrl.split("?")[0] ?? "")));
 
-  const resolvedPreviewUrl = resolveMediaUrl(previewUrl);
-  const hasPreview = Boolean(previewUrl);
+  const resolvedPreviewUrl = resolveMediaUrl(normalizedPreviewUrl);
 
   const resourceName = useMemo(() => {
     if (!buttonLabel) return "file";
