@@ -170,6 +170,7 @@ export default function AdminSettingsMerch(): JSX.Element {
                   buttonLabel="Upload image"
                   disabled={disabled}
                   pickerKind="image"
+                  layout="inline"
                 />
 
                 <div className="space-y-3">
