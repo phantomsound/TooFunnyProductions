@@ -175,6 +175,27 @@ export default function AdminSettingsAbout(): JSX.Element {
     );
   };
 
+  const moveSocialLink = (
+    memberIndex: number,
+    socialIndex: number,
+    direction: "up" | "down"
+  ) => {
+    if (disabled) return;
+    applyTeamUpdate((team) =>
+      team.map((member, idx) => {
+        if (idx !== memberIndex) return member;
+        const targetIndex = direction === "up" ? socialIndex - 1 : socialIndex + 1;
+        if (targetIndex < 0 || targetIndex >= member.socials.length) {
+          return member;
+        }
+        const socials = [...member.socials];
+        const [moved] = socials.splice(socialIndex, 1);
+        socials.splice(targetIndex, 0, moved);
+        return { ...member, socials };
+      })
+    );
+  };
+
   const addSocialLink = (index: number) => {
     applyTeamUpdate((team) =>
       team.map((member, idx) => {
@@ -238,44 +259,44 @@ export default function AdminSettingsAbout(): JSX.Element {
         </div>
       ) : null}
 
-      <section className="space-y-3">
-        <div>
-          <label className="block text-sm font-semibold mb-1">About Page Title</label>
+      <section className="space-y-4">
+        <label className="flex flex-col gap-2 text-sm font-semibold">
+          <span>About Page Title</span>
           <input
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            className="w-full rounded border border-gray-300 px-3 py-2 text-black"
             value={local.about_title}
             onChange={(event) => updateField("about_title", event.target.value)}
             disabled={disabled}
           />
-        </div>
+        </label>
 
-        <div>
-          <label className="block text-sm font-semibold mb-1">Intro Paragraph</label>
+        <label className="flex flex-col gap-2 text-sm font-semibold">
+          <span>Intro Paragraph</span>
           <textarea
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black min-h-[120px]"
+            className="min-h-[120px] w-full rounded border border-gray-300 px-3 py-2 text-black"
             value={local.about_body}
             onChange={(event) => updateField("about_body", event.target.value)}
             disabled={disabled}
           />
-        </div>
+        </label>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-4">
         <h3 className="text-lg font-semibold">Mission</h3>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="block text-sm font-semibold">
-            Mission Heading
+          <label className="flex flex-col gap-2 text-sm font-semibold">
+            <span>Mission Heading</span>
             <input
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-gray-300 px-3 py-2 text-black"
               value={local.about_mission_title}
               onChange={(event) => updateField("about_mission_title", event.target.value)}
               disabled={disabled}
             />
           </label>
-          <label className="block text-sm font-semibold">
-            Mission Copy
+          <label className="flex flex-col gap-2 text-sm font-semibold">
+            <span>Mission Copy</span>
             <textarea
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-black min-h-[100px]"
+              className="min-h-[100px] w-full rounded border border-gray-300 px-3 py-2 text-black"
               value={local.about_mission_body}
               onChange={(event) => updateField("about_mission_body", event.target.value)}
               disabled={disabled}
@@ -304,10 +325,10 @@ export default function AdminSettingsAbout(): JSX.Element {
           </button>
         </div>
 
-        <label className="block text-sm font-semibold">
-          Team Intro Blurb
+        <label className="flex flex-col gap-2 text-sm font-semibold">
+          <span>Team Intro Blurb</span>
           <textarea
-            className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-black min-h-[80px]"
+            className="min-h-[80px] w-full rounded border border-gray-300 px-3 py-2 text-black"
             value={local.about_team_intro}
             onChange={(event) => updateField("about_team_intro", event.target.value)}
             disabled={disabled}
@@ -426,8 +447,33 @@ export default function AdminSettingsAbout(): JSX.Element {
                             {member.socials.map((social, socialIndex) => (
                               <div
                                 key={socialIndex}
-                                className="rounded border border-gray-200 bg-gray-50 p-4 space-y-4"
+                                className="space-y-4 rounded border border-gray-200 bg-gray-50 p-4"
                               >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-gray-500">
+                                    Link {socialIndex + 1}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => moveSocialLink(index, socialIndex, "up")}
+                                      disabled={disabled || socialIndex === 0}
+                                      className="rounded border border-gray-200 px-2 py-1 text-[0.7rem] font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      Move up
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => moveSocialLink(index, socialIndex, "down")}
+                                      disabled={
+                                        disabled || socialIndex === member.socials.length - 1
+                                      }
+                                      className="rounded border border-gray-200 px-2 py-1 text-[0.7rem] font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      Move down
+                                    </button>
+                                  </div>
+                                </div>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                                     Label
