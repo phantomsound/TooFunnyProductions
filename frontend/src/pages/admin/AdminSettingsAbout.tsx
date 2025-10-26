@@ -15,6 +15,8 @@ type SocialLink = {
   url: string;
 };
 
+const MAX_SOCIAL_LINKS = 10;
+
 type TeamMember = {
   name: string;
   title: string;
@@ -44,7 +46,7 @@ const sanitizeSocials = (value: unknown): SocialLink[] => {
       if (!url) continue;
       links.push({ label, url });
     }
-    return links;
+    return links.slice(0, MAX_SOCIAL_LINKS);
   }
 
   if (value && typeof value === "object") {
@@ -54,6 +56,7 @@ const sanitizeSocials = (value: unknown): SocialLink[] => {
       const url = rawUrl.trim();
       if (!url) continue;
       const label = typeof rawLabel === "string" ? rawLabel.trim() || rawLabel : String(rawLabel);
+      if (links.length >= MAX_SOCIAL_LINKS) break;
       links.push({ label, url });
     }
     return links;
@@ -177,6 +180,9 @@ export default function AdminSettingsAbout(): JSX.Element {
     applyTeamUpdate((team) =>
       team.map((member, idx) => {
         if (idx !== index) return member;
+        if (member.socials.length >= MAX_SOCIAL_LINKS) {
+          return member;
+        }
         return { ...member, socials: [...member.socials, { label: "", url: "" }] };
       })
     );
@@ -222,7 +228,7 @@ export default function AdminSettingsAbout(): JSX.Element {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {lockedByOther ? (
         <div className="rounded border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">
           Draft is locked by another editor. Fields are read-only until they release the lock.
@@ -280,7 +286,7 @@ export default function AdminSettingsAbout(): JSX.Element {
       </section>
 
       <section className="space-y-4">
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h3 className="text-lg font-semibold">Team Members</h3>
             <p className="text-sm text-gray-600">
@@ -314,13 +320,13 @@ export default function AdminSettingsAbout(): JSX.Element {
             No team members yet. Use “Add team member” to feature your collaborators.
           </p>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {local.about_team.map((member, index) => {
               const canMoveUp = index > 0;
               const canMoveDown = index < local.about_team.length - 1;
 
               return (
-                <div key={index} className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                <div key={index} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
                   <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                       Member {index + 1}
@@ -394,17 +400,23 @@ export default function AdminSettingsAbout(): JSX.Element {
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Social links
+                            Social links ({member.socials.length}/{MAX_SOCIAL_LINKS})
                           </span>
                           <button
                             type="button"
                             onClick={() => addSocialLink(index)}
-                            disabled={disabled}
+                            disabled={disabled || member.socials.length >= MAX_SOCIAL_LINKS}
                             className="rounded border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Add social link
                           </button>
                         </div>
+
+                        {member.socials.length >= MAX_SOCIAL_LINKS ? (
+                          <p className="text-xs text-gray-500">
+                            Maximum of {MAX_SOCIAL_LINKS} links reached for this member.
+                          </p>
+                        ) : null}
 
                         {member.socials.length === 0 ? (
                           <p className="rounded border border-dashed border-gray-300 p-4 text-sm text-gray-500">

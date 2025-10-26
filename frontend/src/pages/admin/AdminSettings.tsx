@@ -76,7 +76,7 @@ export default function AdminSettings() {
 
   return (
     <div className="min-h-screen bg-gray-100 text-black">
-      <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="mx-auto max-w-6xl px-3 py-5 sm:px-5 sm:py-6 lg:px-6">
         {/* Header actions */}
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <h2 className="text-2xl font-bold">Page Configurations</h2>
@@ -184,12 +184,12 @@ export default function AdminSettings() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:overflow-visible">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded capitalize ${
+              className={`min-w-fit rounded px-4 py-2 capitalize ${
                 activeTab === tab ? "bg-yellow-400 text-black font-semibold" : "bg-gray-200 hover:bg-gray-300"
               }`}
             >

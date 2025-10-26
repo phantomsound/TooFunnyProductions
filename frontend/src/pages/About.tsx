@@ -7,6 +7,8 @@ type TeamSocialLink = {
   url: string;
 };
 
+const MAX_TEAM_SOCIAL_LINKS = 10;
+
 const toSocialLinks = (value: unknown): TeamSocialLink[] => {
   if (Array.isArray(value)) {
     return value
@@ -18,7 +20,8 @@ const toSocialLinks = (value: unknown): TeamSocialLink[] => {
         const label = typeof obj.label === "string" ? obj.label.trim() : "";
         return { label, url };
       })
-      .filter((link): link is TeamSocialLink => Boolean(link));
+      .filter((link): link is TeamSocialLink => Boolean(link))
+      .slice(0, MAX_TEAM_SOCIAL_LINKS);
   }
 
   if (value && typeof value === "object") {
@@ -30,7 +33,8 @@ const toSocialLinks = (value: unknown): TeamSocialLink[] => {
         const label = typeof rawLabel === "string" ? rawLabel.trim() || rawLabel : String(rawLabel);
         return { label, url };
       })
-      .filter((link): link is TeamSocialLink => Boolean(link));
+      .filter((link): link is TeamSocialLink => Boolean(link))
+      .slice(0, MAX_TEAM_SOCIAL_LINKS);
   }
 
   return [];
