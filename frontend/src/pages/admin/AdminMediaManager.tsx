@@ -125,6 +125,12 @@ const SORT_OPTIONS = [
   { id: "size", label: "Size", sort: "size", direction: "desc" },
 ];
 
+const USAGE_FILTERS = [
+  { id: "all", label: "All files" },
+  { id: "used", label: "Used files" },
+  { id: "unused", label: "Unused files" },
+] as const;
+
 const humanSize = (n) => {
   if (n == null) return "";
   if (n === 0) return "0 B";
@@ -155,6 +161,9 @@ export default function AdminMediaManager() {
 
   const [search, setSearch] = React.useState("");
   const [activeSortId, setActiveSortId] = React.useState(SORT_OPTIONS[0].id);
+  const [usageFilter, setUsageFilter] = React.useState<(typeof USAGE_FILTERS)[number]["id"]>(
+    USAGE_FILTERS[0].id
+  );
 
   const activeSort = SORT_OPTIONS.find((s) => s.id === activeSortId) ?? SORT_OPTIONS[0];
 
@@ -359,6 +368,36 @@ export default function AdminMediaManager() {
     },
     [expandedPaths, referencesByPath, toggleReferences]
   );
+
+  const usageDataLoading = React.useMemo(() => {
+    if (!items || items.length === 0) return false;
+    return items.some((item) => {
+      const path = typeof item?.path === "string" ? item.path : "";
+      if (!path) return false;
+      const state = referencesByPath[path];
+      return !state || state.status !== "loaded";
+    });
+  }, [items, referencesByPath]);
+
+  const filteredItems = React.useMemo(() => {
+    if (!items) return [];
+    if (usageFilter === "all") return items;
+
+    return items.filter((item) => {
+      const path = typeof item?.path === "string" ? item.path : "";
+      const state = path ? referencesByPath[path] : undefined;
+      if (!state || state.status !== "loaded") {
+        return false;
+      }
+
+      const referenceCount = state.references?.length ?? 0;
+      if (usageFilter === "used") {
+        return referenceCount > 0;
+      }
+
+      return referenceCount === 0;
+    });
+  }, [items, referencesByPath, usageFilter]);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -569,7 +608,7 @@ export default function AdminMediaManager() {
         </div>
       </header>
 
-      <section className="grid gap-4 rounded border border-neutral-800 bg-neutral-900/70 p-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 rounded border border-neutral-800 bg-neutral-900/70 p-4 md:grid-cols-2 xl:grid-cols-5">
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-xs font-semibold uppercase text-neutral-500">Search</span>
           <input
@@ -588,6 +627,24 @@ export default function AdminMediaManager() {
                 onClick={() => setActiveSortId(option.id)}
                 className={`rounded-full px-3 py-1 text-sm ${
                   activeSortId === option.id
+                    ? "bg-neutral-100 text-neutral-900"
+                    : "border border-neutral-700 text-neutral-300 hover:bg-neutral-800"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 text-sm md:col-span-2 xl:col-span-1">
+          <span className="text-xs font-semibold uppercase text-neutral-500">Usage</span>
+          <div className="flex flex-wrap gap-2">
+            {USAGE_FILTERS.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setUsageFilter(option.id)}
+                className={`rounded-full px-3 py-1 text-sm ${
+                  usageFilter === option.id
                     ? "bg-neutral-100 text-neutral-900"
                     : "border border-neutral-700 text-neutral-300 hover:bg-neutral-800"
                 }`}
@@ -617,9 +674,18 @@ export default function AdminMediaManager() {
         <div className="text-sm text-neutral-400">Loading media…</div>
       ) : items.length === 0 ? (
         <div className="text-sm text-neutral-400">No media files found.</div>
+      ) : filteredItems.length === 0 && usageFilter !== "all" ? (
+        <div className="space-y-2 text-sm text-neutral-400">
+          <div>No media files match this filter.</div>
+          {usageDataLoading && (
+            <div className="text-xs text-neutral-500">
+              Usage information is still loading. Files will appear here once their usage is determined.
+            </div>
+          )}
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => {
+          {filteredItems.map((item) => {
             const previewUrl = resolveMediaUrl(item.url);
 
             return (
