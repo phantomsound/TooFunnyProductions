@@ -199,6 +199,7 @@ export default function AdminSettingsGeneral(): JSX.Element {
             buttonLabel="Select Logo"
             disabled={disabled}
             pickerKind="image"
+            layout="inline"
           />
           <SettingsUploader
             label="Favicon"
@@ -208,6 +209,7 @@ export default function AdminSettingsGeneral(): JSX.Element {
             buttonLabel="Select Favicon"
             disabled={disabled}
             pickerKind="image"
+            layout="inline"
           />
         </div>
       </section>
