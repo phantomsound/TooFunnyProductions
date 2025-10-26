@@ -193,30 +193,36 @@ export default function SettingsUploader({
 
   const palette = appearance === "light"
     ? {
-        container: "space-y-4 rounded-lg border border-gray-200 bg-white p-4 text-gray-900 shadow-sm",
-        label: "text-sm font-semibold uppercase tracking-wide text-gray-600",
+        container:
+          "space-y-5 rounded-xl border border-slate-300 bg-slate-50/90 p-4 text-slate-900 shadow-sm backdrop-blur",
+        label: "text-sm font-semibold uppercase tracking-wide text-slate-600",
         clearButton: interactionsDisabled
-          ? "text-xs font-semibold text-red-400/60 cursor-not-allowed"
-          : "text-xs font-semibold text-red-600 hover:text-red-500",
+          ? "text-xs font-semibold text-rose-400/60 cursor-not-allowed"
+          : "text-xs font-semibold text-rose-600 hover:text-rose-500",
         chooseButton: interactionsDisabled
-          ? "rounded px-3 py-2 text-sm font-semibold cursor-not-allowed bg-gray-100 text-gray-400"
-          : "rounded px-3 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500",
-        fileSummary: "rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs leading-tight text-gray-600",
-        fileSummaryTitle: "truncate font-semibold text-gray-900",
-        fileSummaryStatus: "text-[11px] text-gray-500",
+          ? "rounded-lg bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+          : "rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500",
+        fileSummary:
+          "rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-xs leading-tight text-slate-600",
+        fileSummaryTitle: "truncate font-semibold text-slate-900",
+        fileSummaryStatus: "text-[11px] text-slate-500",
         browseButton: interactionsDisabled
-          ? "w-full rounded border px-3 py-2 text-sm font-semibold cursor-not-allowed border-gray-200 text-gray-400"
-          : "w-full rounded border px-3 py-2 text-sm font-semibold border-gray-300 text-gray-700 transition hover:border-blue-300 hover:text-blue-600",
-        preview: "flex w-full flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-3 shadow-inner",
-        previewPlaceholder: "flex items-center justify-center rounded border border-dashed border-gray-300 bg-white text-xs text-gray-400",
-        previewImageFrame: "relative w-full overflow-hidden rounded border border-gray-200 bg-white",
+          ? "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed"
+          : "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-600",
+        preview:
+          "flex w-full flex-col gap-3 rounded-xl border border-slate-300 bg-white/90 p-3 shadow-inner backdrop-blur-sm",
+        previewPlaceholder:
+          "flex min-h-[12rem] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-400",
+        previewImageFrame:
+          "relative w-full overflow-hidden rounded-lg border border-slate-300 bg-slate-100 shadow-sm",
         previewImage: "absolute inset-0 h-full w-full",
         previewImageStandalone: "mx-auto max-h-48 w-full rounded-md object-contain",
-        previewText: "break-all text-xs text-gray-600",
-        statusRow: "flex flex-wrap items-center gap-3",
-        uploadingText: "text-xs text-gray-500",
-        viewButton: "rounded border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-blue-300 hover:text-blue-600",
-        error: "text-xs text-red-500",
+        previewText: "break-all text-xs text-slate-600",
+        statusRow: "flex flex-wrap items-center gap-3 pt-1",
+        uploadingText: "text-xs text-slate-500",
+        viewButton:
+          "rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-600",
+        error: "text-xs text-rose-500",
       }
     : {
         container: "space-y-4 rounded-lg border border-neutral-800 bg-neutral-900/80 p-4 text-neutral-100 shadow-sm",
@@ -247,7 +253,7 @@ export default function SettingsUploader({
 
   const containerExtras = useMemo(() => {
     if (layout === "stacked") {
-      return "w-full lg:max-w-[260px]";
+      return "w-full lg:w-[260px] lg:flex-shrink-0";
     }
     return "w-full";
   }, [layout]);
@@ -258,7 +264,7 @@ export default function SettingsUploader({
     }
 
     if (layout === "stacked") {
-      return "grid gap-4";
+      return "flex flex-col gap-4";
     }
 
     // auto: prefer stacked layout except on very wide screens where there is ample room
@@ -278,6 +284,25 @@ export default function SettingsUploader({
     return "flex flex-col gap-2";
   }, [layout]);
 
+  const primaryColumnExtras = useMemo(() => {
+    if (layout === "stacked") {
+      return "order-2";
+    }
+    return "";
+  }, [layout]);
+
+  const chooseButtonExtras = useMemo(() => {
+    if (layout === "stacked") {
+      return "w-full";
+    }
+
+    if (layout === "auto") {
+      return "w-full sm:w-auto xl:w-full";
+    }
+
+    return "w-full sm:w-auto";
+  }, [layout]);
+
   const previewExtras = useMemo(() => {
     if (layout === "inline") {
       return "items-center lg:ml-auto";
@@ -287,7 +312,7 @@ export default function SettingsUploader({
       return "items-center xl:ml-auto";
     }
 
-    return "items-start";
+    return "order-1 items-center";
   }, [layout]);
 
   const fileSummaryExtras = useMemo(() => {
@@ -305,21 +330,21 @@ export default function SettingsUploader({
   const previewImageFitClass = useMemo(() => {
     if (!isImage) return "";
     if (layout === "stacked") {
-      return "object-cover object-bottom";
+      return "object-cover object-[center_bottom]";
     }
     return "";
   }, [isImage, layout]);
 
   const previewFrameExtras = useMemo(() => {
     if (layout === "stacked") {
-      return "aspect-[3/4]";
+      return "aspect-[3/4] max-w-[240px]";
     }
     return "";
   }, [layout]);
 
   const previewPlaceholderExtras = useMemo(() => {
     if (layout === "stacked") {
-      return "aspect-[3/4] w-full";
+      return "aspect-[3/4] w-full max-w-[240px]";
     }
     return "min-h-[9rem] w-full";
   }, [layout]);
@@ -350,7 +375,7 @@ export default function SettingsUploader({
       />
 
       <div className={layoutClasses}>
-        <div className="space-y-3">
+        <div className={`space-y-3 ${primaryColumnExtras}`}>
           <div className={controlRowClasses}>
             <button
               type="button"
@@ -358,7 +383,7 @@ export default function SettingsUploader({
                 if (!interactionsDisabled) fileInputRef.current?.click();
               }}
               disabled={interactionsDisabled}
-              className={palette.chooseButton}
+              className={`${palette.chooseButton} ${chooseButtonExtras}`}
             >
               {`Choose ${resourceTitle} from computer`}
             </button>
