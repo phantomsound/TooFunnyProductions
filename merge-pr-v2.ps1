@@ -34,6 +34,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Ensure UTF-8 output so downstream tools (like npm run doctor) render symbols correctly
+try {
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+  # Ignore encoding errors; fallback to default console encoding
+}
 $script:didSelfStash = $false
 
 function Ensure-AtRepoRoot {
