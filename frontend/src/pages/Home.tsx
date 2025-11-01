@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import PageContainer from "../components/PageContainer";
 import { useSettings } from "../lib/SettingsContext";
 import { api } from "../lib/api";
 import { resolveMediaUrl } from "../utils/media";
@@ -308,9 +309,9 @@ export default function Home() {
 
   return (
     <main className="bg-theme-background text-theme-base">
-      <div className="mx-auto w-full max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pt-20 lg:max-w-7xl lg:px-8 xl:px-10">
+      <PageContainer padded={false} className="pb-20 pt-16 sm:pt-20">
         <section className="overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-2xl sm:rounded-[2.25rem] sm:p-8 lg:p-14">
-          <div className="grid gap-9 sm:gap-11 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:items-start lg:gap-12">
+          <div className="grid gap-9 sm:gap-11 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start md:gap-10 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:gap-12">
             <div className="flex min-w-0 flex-col gap-10">
               <header className="space-y-4">
                 {heroBadgeEnabled ? (
@@ -369,14 +370,14 @@ export default function Home() {
             </div>
 
             <div className="grid min-w-0 gap-5 sm:gap-7">
-              <div className="w-full rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] sm:p-5 lg:p-8">
-                <div className="flex justify-center">
+              <div className="w-full min-w-0 rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] sm:p-5 lg:p-8">
+                <div className="flex w-full justify-center">
                   <div className="relative mx-auto aspect-[3/2] min-h-[200px] w-full min-w-0 overflow-hidden rounded-2xl border border-theme-surface bg-theme-background max-h-[55vh] sm:min-h-[280px] sm:max-h-none lg:min-h-[360px]">
                     {heroImage ? (
                       <img
                         src={heroImage}
                         alt={heroTitle || "Too Funny Productions hero"}
-                        className="h-full w-full max-h-full max-w-full object-cover"
+                        className="h-full w-full max-h-full max-w-full bg-theme-background object-contain object-center md:object-cover"
                         onError={handleHeroImageError}
                       />
                     ) : (
@@ -388,18 +389,18 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="relative w-full overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl sm:p-5 lg:p-6">
+              <div className="relative w-full min-w-0 overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl sm:p-5 lg:p-6">
                 <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-theme-accent-soft">
                   Featured Video
                 </p>
-                <div className="flex justify-center">
+                <div className="flex w-full justify-center">
                   <div className="mx-auto aspect-video w-full min-w-0 overflow-hidden rounded-2xl border border-theme-surface bg-theme-background max-h-[55vh] sm:max-h-none">
                     {heroVideo ? (
                       <video
                         src={heroVideo}
                         controls
                         preload="metadata"
-                        className="h-full w-full max-h-full max-w-full object-cover"
+                        className="h-full w-full max-h-full max-w-full bg-theme-background object-contain object-center md:object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-theme-muted">
@@ -413,7 +414,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mt-16 grid gap-8 sm:mt-[4.5rem] sm:gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
+        <section className="mt-16 grid gap-8 sm:mt-[4.5rem] sm:gap-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
           <div className="min-w-0 w-full rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg sm:p-7 md:p-8">
             <div className="space-y-4">
               <div className="space-y-2">
@@ -527,7 +528,7 @@ export default function Home() {
             </section>
           </div>
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

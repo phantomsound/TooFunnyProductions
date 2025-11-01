@@ -1,4 +1,5 @@
 import React from "react";
+import PageContainer from "../components/PageContainer";
 import { useSettings } from "../lib/SettingsContext";
 
 export default function Events() {
@@ -12,7 +13,7 @@ export default function Events() {
       : "Here’s where you can catch Too Funny Productions next.";
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 text-theme-base sm:px-6 sm:py-12 lg:px-8">
+    <PageContainer className="text-theme-base">
       <h1 className="mb-3 text-3xl font-bold text-theme-accent">{title}</h1>
       <p className="mb-8 whitespace-pre-wrap break-words text-theme-muted">{intro}</p>
 
@@ -47,6 +48,6 @@ export default function Events() {
         ))}
         {past.length === 0 && <div className="text-theme-muted">No past shows yet.</div>}
       </div>
-    </div>
+    </PageContainer>
   );
 }

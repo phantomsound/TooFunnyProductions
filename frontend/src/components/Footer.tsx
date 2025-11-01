@@ -48,7 +48,7 @@ const Footer: React.FC = () => {
 
   return (
     <footer className="bg-theme-footer text-theme-footer">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-12">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-8 px-4 py-12 sm:px-6 md:px-8 lg:px-10 xl:px-12">
         <div className="grid gap-10 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="space-y-4">
             <p className="text-sm font-semibold uppercase tracking-[0.35em] text-theme-accent-soft">

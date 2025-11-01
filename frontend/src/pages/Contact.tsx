@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import PageContainer from "../components/PageContainer";
 import { useSettings } from "../lib/SettingsContext";
 import { api } from "../lib/api";
 
@@ -44,7 +45,7 @@ export default function Contact() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 text-theme-base sm:px-6 sm:py-12 lg:px-8">
+    <PageContainer className="text-theme-base">
       <h1 className="mb-3 text-3xl font-bold text-theme-accent">{title}</h1>
       <p className="mb-8 whitespace-pre-wrap break-words text-theme-muted">{intro}</p>
 
@@ -142,6 +143,6 @@ export default function Contact() {
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }
