@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import PageContainer from "../components/PageContainer";
 import { useSettings } from "../lib/SettingsContext";
 import { api } from "../lib/api";
 import { resolveMediaUrl } from "../utils/media";
@@ -308,9 +309,9 @@ export default function Home() {
 
   return (
     <main className="bg-theme-background text-theme-base">
-      <div className="mx-auto w-full max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pt-20 lg:max-w-7xl lg:px-8 xl:px-10">
+      <PageContainer padded={false} className="pb-20 pt-16 sm:pt-20">
         <section className="overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-2xl sm:rounded-[2.25rem] sm:p-8 lg:p-14">
-          <div className="grid gap-9 sm:gap-11 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:items-start lg:gap-12">
+          <div className="grid gap-9 sm:gap-11 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start md:gap-10 lg:grid-cols-[minmax(0,0.84fr)_minmax(0,1.16fr)] lg:gap-12">
             <div className="flex min-w-0 flex-col gap-10">
               <header className="space-y-4">
                 {heroBadgeEnabled ? (
@@ -413,7 +414,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mt-16 grid gap-8 sm:mt-[4.5rem] sm:gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
+        <section className="mt-16 grid gap-8 sm:mt-[4.5rem] sm:gap-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
           <div className="min-w-0 w-full rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg sm:p-7 md:p-8">
             <div className="space-y-4">
               <div className="space-y-2">
@@ -527,7 +528,7 @@ export default function Home() {
             </section>
           </div>
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }
