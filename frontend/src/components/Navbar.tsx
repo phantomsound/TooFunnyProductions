@@ -49,7 +49,7 @@ export default function Navbar() {
 
   return (
     <nav className="w-full border-b border-theme-surface bg-theme-header backdrop-blur">
-      <div className="mx-auto flex h-12 max-w-6xl items-center justify-between px-4 text-theme-header">
+      <div className="mx-auto flex h-12 w-full max-w-screen-xl items-center justify-between px-4 text-theme-header sm:px-6 md:px-8 lg:px-10 xl:px-12">
         <Link to={homeHref} className="flex items-center gap-3 overflow-hidden">
           {logoUrl ? (
             <>
@@ -58,7 +58,7 @@ export default function Navbar() {
                 alt={siteTitle}
                 className="h-9 w-auto max-w-[150px] object-contain"
               />
-              <span className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-theme-header whitespace-nowrap sm:text-[0.7rem]">
+              <span className="whitespace-nowrap text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-theme-header sm:text-[0.7rem] md:text-[0.75rem]">
                 {siteTitle}
               </span>
             </>
@@ -128,7 +128,7 @@ export default function Navbar() {
 
       {isMobileMenuOpen ? (
         <div className="border-t border-theme-surface bg-theme-header text-theme-header md:hidden">
-          <div className="mx-auto flex max-w-6xl flex-col px-4 py-2">
+          <div className="mx-auto flex w-full max-w-screen-xl flex-col px-4 py-2">
             {navLinks.map((link) => (
               <Link
                 key={link.label}
