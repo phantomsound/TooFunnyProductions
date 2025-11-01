@@ -370,8 +370,8 @@ export default function Home() {
             </div>
 
             <div className="grid min-w-0 gap-5 sm:gap-7">
-              <div className="w-full rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] sm:p-5 lg:p-8">
-                <div className="flex justify-center">
+              <div className="w-full min-w-0 rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.45)] sm:p-5 lg:p-8">
+                <div className="flex w-full justify-center">
                   <div className="relative mx-auto aspect-[3/2] min-h-[200px] w-full min-w-0 overflow-hidden rounded-2xl border border-theme-surface bg-theme-background max-h-[55vh] sm:min-h-[280px] sm:max-h-none lg:min-h-[360px]">
                     {heroImage ? (
                       <img
@@ -389,11 +389,11 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="relative w-full overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl sm:p-5 lg:p-6">
+              <div className="relative w-full min-w-0 overflow-hidden rounded-3xl border border-theme-surface bg-theme-surface p-4 shadow-xl sm:p-5 lg:p-6">
                 <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-theme-accent-soft">
                   Featured Video
                 </p>
-                <div className="flex justify-center">
+                <div className="flex w-full justify-center">
                   <div className="mx-auto aspect-video w-full min-w-0 overflow-hidden rounded-2xl border border-theme-surface bg-theme-background max-h-[55vh] sm:max-h-none">
                     {heroVideo ? (
                       <video
