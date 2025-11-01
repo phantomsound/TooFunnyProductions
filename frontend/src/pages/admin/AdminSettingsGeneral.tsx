@@ -17,6 +17,13 @@ interface FooterLink {
   url: string;
 }
 
+interface AdminProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url: string;
+}
+
 interface GeneralSettings {
   site_title: string;
   site_description: string;
@@ -28,6 +35,7 @@ interface GeneralSettings {
   footer_text: string;
   footer_links: FooterLink[];
   admin_quick_links: FooterLink[];
+  admin_profiles: AdminProfile[];
 
   theme_accent: string;
   theme_bg: string;
@@ -71,6 +79,31 @@ const coerceLinks = (value: unknown): FooterLink[] => {
     .map((item) => ({ label: item.label, url: item.url }));
 };
 
+const generateId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
+const coerceProfiles = (value: unknown): AdminProfile[] => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const profiles: AdminProfile[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const raw = item as Partial<AdminProfile> & { email?: string; avatar_url?: string };
+    const email = typeof raw.email === "string" ? raw.email.trim().toLowerCase() : "";
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+    profiles.push({
+      id: typeof raw.id === "string" && raw.id.trim() ? raw.id : generateId(),
+      name: typeof raw.name === "string" ? raw.name : "",
+      email,
+      avatar_url: typeof raw.avatar_url === "string" ? normalizeAdminUrl(raw.avatar_url) : "",
+    });
+  }
+  return profiles;
+};
+
 const sanitizeSettings = (raw: unknown): GeneralSettings => {
   const safe = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const accentColor = coerceColor(safe.theme_accent, "#FFD700");
@@ -94,6 +127,7 @@ const sanitizeSettings = (raw: unknown): GeneralSettings => {
     ),
     footer_links: coerceLinks(safe.footer_links),
     admin_quick_links: coerceLinks(safe.admin_quick_links).slice(0, 4),
+    admin_profiles: coerceProfiles(safe.admin_profiles),
 
     theme_accent: normalizeHex(accentColor, "#FFD700"),
     theme_bg: normalizeHex(backgroundColor, "#111111"),
@@ -138,7 +172,43 @@ export default function AdminSettingsGeneral(): JSX.Element {
   };
 
   const footerLinks = local.footer_links;
+  const adminProfiles = local.admin_profiles;
   const usingGlobalTheme = local.theme_use_global;
+
+  const updateProfiles = (updater: (profiles: AdminProfile[]) => AdminProfile[]) => {
+    if (disabled) return;
+    setLocal((prev) => {
+      const nextProfiles = updater(prev.admin_profiles);
+      setField("admin_profiles", nextProfiles);
+      return { ...prev, admin_profiles: nextProfiles };
+    });
+  };
+
+  const handleProfileChange = (id: string, field: keyof AdminProfile, value: string) => {
+    updateProfiles((profiles) =>
+      profiles.map((profile) => {
+        if (profile.id !== id) return profile;
+        if (field === "email") {
+          return { ...profile, email: value.trim().toLowerCase() };
+        }
+        if (field === "avatar_url") {
+          return { ...profile, avatar_url: normalizeAdminUrl(value) };
+        }
+        return { ...profile, [field]: value };
+      })
+    );
+  };
+
+  const handleAddProfile = () => {
+    updateProfiles((profiles) => [
+      ...profiles,
+      { id: generateId(), name: "", email: "", avatar_url: "" },
+    ]);
+  };
+
+  const handleRemoveProfile = (id: string) => {
+    updateProfiles((profiles) => profiles.filter((profile) => profile.id !== id));
+  };
 
   return (
     <div className="space-y-10 text-neutral-100">
@@ -317,6 +387,90 @@ export default function AdminSettingsGeneral(): JSX.Element {
           disabled={disabled}
           maxItems={4}
         />
+      </section>
+
+      <section>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h3 className="mb-2 text-xl font-semibold text-yellow-200">Admin Messaging Profiles</h3>
+            <p className="text-sm text-neutral-300">
+              These profiles appear inside the Admin Messages panel so teammates know who&apos;s online. Provide the name, email,
+              and Google avatar URL for each administrator.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAddProfile}
+            disabled={disabled}
+            className="inline-flex h-10 items-center justify-center rounded border border-blue-500/60 bg-blue-500/10 px-4 text-sm font-semibold text-blue-200 transition hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Add Admin
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          {adminProfiles.length === 0 ? (
+            <div className="rounded border border-dashed border-neutral-700 bg-neutral-900/40 p-4 text-sm text-neutral-400">
+              No admin profiles configured yet. Add your first teammate to unlock the messaging roster and presence indicators.
+            </div>
+          ) : null}
+
+          {adminProfiles.map((profile) => (
+            <div key={profile.id} className="rounded border border-neutral-800 bg-neutral-900/80 p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-neutral-100">
+                    {profile.name || profile.email || "New Admin"}
+                  </div>
+                  <div className="text-xs uppercase tracking-[0.2em] text-neutral-500">Messaging Identity</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveProfile(profile.id)}
+                  disabled={disabled}
+                  className="rounded border border-red-500/50 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-200 transition hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-400/40 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+                  <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Name</span>
+                  <input
+                    className="w-full rounded border border-neutral-700 !bg-neutral-950 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
+                    value={profile.name}
+                    onChange={(event) => handleProfileChange(profile.id, "name", event.target.value)}
+                    disabled={disabled}
+                  />
+                </label>
+                <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+                  <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Email</span>
+                  <input
+                    className="w-full rounded border border-neutral-700 !bg-neutral-950 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
+                    value={profile.email}
+                    onChange={(event) => handleProfileChange(profile.id, "email", event.target.value)}
+                    disabled={disabled}
+                  />
+                </label>
+                <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+                  <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">Avatar URL</span>
+                  <input
+                    className="w-full rounded border border-neutral-700 !bg-neutral-950 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
+                    value={profile.avatar_url}
+                    onChange={(event) => handleProfileChange(profile.id, "avatar_url", event.target.value)}
+                    disabled={disabled}
+                  />
+                </label>
+              </div>
+
+              <p className="mt-3 text-xs text-neutral-400">
+                Online presence indicators in the messaging drawer will key off this email address. Make sure it matches the
+                Google account used for admin sign-in.
+              </p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Maintenance Mode */}

@@ -17,6 +17,7 @@
     "nodemailer": "^7.0.9",
     "passport": "^0.6.0",
     "passport-google-oauth20": "^2.0.0",
+    "ws": "^8.18.0",
     "toofunny-root": "file:.."
   },
   "devDependencies": {
