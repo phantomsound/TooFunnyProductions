@@ -221,12 +221,14 @@ function resetUnread(conversation, email) {
 
 export async function listConversations({ search, archived } = {}) {
   const state = await readStore();
-  const archived = archiveExpired(state.conversations);
+  const archivedCandidates = archiveExpired(state.conversations);
   const changed =
-    archived.length !== state.conversations.length ||
-    archived.some((conversation, index) => conversation.archived_at !== state.conversations[index]?.archived_at);
+    archivedCandidates.length !== state.conversations.length ||
+    archivedCandidates.some(
+      (conversation, index) => conversation.archived_at !== state.conversations[index]?.archived_at
+    );
   if (changed) {
-    state.conversations = archived;
+    state.conversations = archivedCandidates;
     await writeStore(state);
   }
 
@@ -416,9 +418,14 @@ export async function searchConversations(term) {
 
 export async function bootstrapMessagingStore() {
   const state = await readStore();
-  const archived = archiveExpired(state.conversations);
-  if (archived !== state.conversations) {
-    state.conversations = archived;
+  const archivedCandidates = archiveExpired(state.conversations);
+  const changed =
+    archivedCandidates.length !== state.conversations.length ||
+    archivedCandidates.some(
+      (conversation, index) => conversation.archived_at !== state.conversations[index]?.archived_at
+    );
+  if (changed) {
+    state.conversations = archivedCandidates;
     await writeStore(state);
   }
 }
