@@ -377,7 +377,7 @@ export default function Home() {
                       <img
                         src={heroImage}
                         alt={heroTitle || "Too Funny Productions hero"}
-                        className="h-full w-full max-h-full max-w-full object-contain bg-theme-background object-center xl:object-cover"
+                        className="h-full w-full max-h-full max-w-full bg-theme-background object-contain object-center md:object-cover"
                         onError={handleHeroImageError}
                       />
                     ) : (
@@ -400,7 +400,7 @@ export default function Home() {
                         src={heroVideo}
                         controls
                         preload="metadata"
-                        className="h-full w-full max-h-full max-w-full object-contain bg-theme-background object-center xl:object-cover"
+                        className="h-full w-full max-h-full max-w-full bg-theme-background object-contain object-center md:object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-theme-muted">
