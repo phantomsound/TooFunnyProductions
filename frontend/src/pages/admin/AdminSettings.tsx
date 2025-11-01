@@ -76,9 +76,9 @@ export default function AdminSettings() {
 
   return (
     <div className="min-h-screen bg-gray-100 text-black">
-      <div className="mx-auto max-w-6xl px-3 py-5 sm:px-5 sm:py-6 lg:px-6">
+      <div className="space-y-8 pb-10">
         {/* Header actions */}
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <h2 className="text-2xl font-bold">Page Configurations</h2>
           <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
             <div className="flex flex-col gap-1 text-right">
@@ -176,7 +176,7 @@ export default function AdminSettings() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 rounded-lg border border-neutral-300 bg-white/70 p-4 text-sm text-neutral-700">
+        <div className="rounded-lg border border-neutral-300 bg-white/70 p-4 text-sm text-neutral-700">
           <p className="font-semibold text-neutral-900">Configure each page’s content here.</p>
           <p className="mt-2">
             Looking for logos, theme colors, or maintenance mode? Head to <span className="font-semibold">General Settings</span>
@@ -184,7 +184,7 @@ export default function AdminSettings() {
           </p>
         </div>
 
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:overflow-visible">
+        <div className="flex gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:overflow-visible">
           {TABS.map((tab) => (
             <button
               key={tab}
@@ -198,7 +198,7 @@ export default function AdminSettings() {
           ))}
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">{renderTab()}</div>
+        <div className="rounded-lg bg-white p-6 shadow-md">{renderTab()}</div>
       </div>
 
       <AdminSettingsSnapshots
