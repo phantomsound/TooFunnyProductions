@@ -32,15 +32,19 @@ router.get("/audit", requireAdmin, async (req, res) => {
       return res.status(500).json({ error: "Supabase not configured." });
     }
 
-    const { limit, actor, action, q, direction } = req.query;
+    const { limit, actor, action, q, direction, includeMessaging } = req.query;
 
-    const items = await listAdminActions({
+    let items = await listAdminActions({
       limit: limit ? Number(limit) : undefined,
       actor: actor ? String(actor) : undefined,
       action: action ? String(action) : undefined,
       search: q ? String(q) : undefined,
       direction: direction ? String(direction) : undefined,
     });
+
+    if (!action && String(includeMessaging).toLowerCase() !== "true") {
+      items = items.filter((row) => row.action !== "messaging");
+    }
 
     const actors = Array.from(new Set(items.map((row) => row.actor_email).filter(Boolean))).sort();
     const actions = Array.from(new Set(items.map((row) => row.action).filter(Boolean))).sort();
