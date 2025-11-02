@@ -1,9 +1,11 @@
 import React, { useCallback, useMemo, useState } from "react";
 
-import { useSettings } from "../../lib/SettingsContext";
+import { useSettings, type AcquireSelection } from "../../lib/SettingsContext";
 import AdminSettingsSnapshots from "./AdminSettingsSnapshots";
 import AdminAllowlistManager from "./AdminAllowlistManager";
 import AdminSettingsGeneral from "./AdminSettingsGeneral";
+import AdminLockAcquireModal from "./AdminLockAcquireModal";
+import AdminPublishConfirm from "./AdminPublishConfirm";
 
 export default function AdminGeneralSettingsPage(): JSX.Element {
   const {
@@ -13,8 +15,8 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
     saving,
     save,
     pullLive,
-    publish,
     publishing,
+    settings,
     lock,
     hasLock,
     lockedByOther,
@@ -26,6 +28,8 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
   } = useSettings();
 
   const [showSnapshots, setShowSnapshots] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [showAcquireModal, setShowAcquireModal] = useState(false);
   const previewUrl = useMemo(() => `${window.location.origin}/?stage=draft`, []);
 
   const lockOwner = lock?.holder_email || null;
@@ -39,6 +43,16 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
     await reload();
     await acquireLock({ silent: true });
   }, [reload, acquireLock]);
+
+  const handleAcquireSelection = useCallback(
+    async (selection: AcquireSelection) => {
+      const success = await acquireLock({ silent: false, selection });
+      if (!success) {
+        throw new Error(lockError || "Failed to acquire lock");
+      }
+    },
+    [acquireLock, lockError]
+  );
 
   return (
     <div className="space-y-6 text-neutral-100">
@@ -73,7 +87,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
                   </button>
                 ) : (
                   <button
-                    onClick={() => acquireLock({ silent: false })}
+                    onClick={() => setShowAcquireModal(true)}
                     disabled={lockLoading || stage !== "draft"}
                     className="rounded border border-blue-500/60 bg-blue-500/10 px-2 py-1 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -138,7 +152,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
               </button>
 
               <button
-                onClick={publish}
+                onClick={() => setShowPublishConfirm(true)}
                 className="rounded bg-yellow-400 px-3 py-1 font-semibold text-black transition hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-200 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={lockLoading || lockedByOther || saving || publishing}
                 title="Copy the current Draft into Live"
@@ -163,6 +177,16 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
 
       <AdminAllowlistManager />
 
+      <AdminLockAcquireModal
+        open={showAcquireModal}
+        onClose={() => setShowAcquireModal(false)}
+        onSelect={handleAcquireSelection}
+      />
+      <AdminPublishConfirm
+        open={showPublishConfirm}
+        draftUpdatedAt={typeof settings?.updated_at === "string" ? settings.updated_at : null}
+        onClose={() => setShowPublishConfirm(false)}
+      />
       <AdminSettingsSnapshots
         open={showSnapshots}
         onClose={() => setShowSnapshots(false)}

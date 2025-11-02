@@ -17,33 +17,55 @@ The admin dashboard (`/admin`) lets allow-listed Google accounts manage public s
 ## 4. Draft Workflow & Publishing
 Content edits always happen on the **Draft** stage, then move to **Live** once reviewed.
 
+> **Need to build:** The items in Sections 4.2–4.7 are functional requirements for the admin workflow. Use the checklist below when planning engineering work so the UI, backend APIs, and audit log all support the behaviors authors expect.
+
+### 4.0 Implementation checklist
+- Draft lock acquisition opens a modal that lists all drafts and snapshots, with metadata (name, author, last edit, quick note) and the ability to clone the current Live snapshot into a brand-new draft.
+- Draft viewers without the lock stay in read-only mode but can inspect the active editor’s WIP snapshot.
+- Releasing a lock confirms unsaved changes and records an auto-saved draft when the editor chooses to exit without manually saving; the same auto-save runs on inactivity logout.
+- Snapshot management enforces the 20-draft / 10-published limits, quick notes are editable, and every save/delete/restore action is written to the Audit Log with actor + timestamp.
+- Scheduling UI enforces non-overlapping windows, supports push-now overrides with confirmation + audit trail, allows specifying follow-up snapshots or the global default, and automatically reverts when the window ends.
+- Auto logout shows a countdown warning, auto-saves the open draft, labels it accordingly, and records the event in the Audit Log.
+
 ### 4.1 Stage selector
 Use the dropdown at the top of General Settings to switch between **Live** (read-only preview) and **Draft** (editable). All inputs disable automatically when viewing Live or when another editor owns the draft lock.
 
 ### 4.2 Draft locking
-- **Acquire lock:** Click **Acquire** before making changes to prevent collisions. Only available while viewing Draft.
-- **Release lock:** When finished, click **Release** so teammates can edit.
+- **Acquire lock & pick your starting point:** Clicking **Acquire** opens a chooser that lets you resume an existing draft (tagged with name, author, last edit time, and quick note) or load any snapshot as-is. You can always start a fresh draft from the current Live snapshot—the system clones Live into Draft for you.
+- **Read-only when another admin is editing:** If someone else owns the lock, you can still inspect their work in Draft mode but inputs remain disabled until they release or you start your own draft from Live.
+- **Release lock:** When finished, click **Release** so teammates can edit. If unsaved changes exist, you’ll be prompted to save or intentionally discard. Choosing to release without saving creates an auto-labeled draft snapshot so nothing is lost.
 - **Status indicator:** Shows whether you hold the lock, another editor does, or no lock exists. Errors appear in red if a lock request fails.
 
 ### 4.3 Saving & syncing
-- **Save Draft:** Persists your pending changes to the Draft stage. Enabled only when Draft is dirty and unlocked.
+- **Save Draft:** Persists your pending changes to the Draft stage. Enabled only when Draft is dirty and unlocked. Auto-saves also trigger before an inactivity logout so you can resume later (the snapshot note records that it was auto-saved).
 - **Pull Current Live:** Copies Live content into Draft without publishing—useful to reset the draft before editing.
 - **Preview Draft:** Opens the public site with `?stage=draft` so you can review in context.
-- **Snapshots:** Opens the draft snapshots modal. From there you can save labeled checkpoints, restore a previous version (overwrites the current draft), or delete snapshots you no longer need.
+- **Snapshots:** Opens the draft snapshots modal for checkpoint management.
 
 ### 4.4 Publishing
 When Draft is ready, click **Publish to Live**. This copies the draft values to the Live stage. Ensure you hold the lock and have saved the latest edits first.
 
 ### 4.5 Draft snapshots & recovery
 The **Snapshots** modal lets you:
-- Save up to the 20 most recent snapshots (label optional).
+- Save up to 20 draft snapshots per admin workspace, each with a required name, optional quick note (free-form, editable after save), and metadata showing creator and last update time.
+- Store up to 10 deployed snapshots in the published pool for disaster recovery. Any admin can publish one of these directly or pull it into their Draft view.
 - Restore a snapshot back into Draft after confirming the overwrite prompt. The system reloads settings and reacquires the lock for you.
 - Delete outdated snapshots. Actions are audited and require confirmation.
+
+All snapshot and draft save events log to the Audit Log, including manual and automatic saves.
 
 ### 4.6 Draft safety tips
 - Save frequently and release the lock when idle.
 - Coordinate larger changes by naming snapshots (e.g., "Spring homepage refresh").
 - Use Pull Current Live to recover from accidental edits.
+
+### 4.7 Scheduling & publishing windows
+- **Push Now:** Immediately deploys the selected snapshot to Live after the usual confirmation checklist.
+- **Schedule deployment:** Choose a snapshot, start time, optional end time, and successor snapshot (or the global default) to restore when the window closes. Schedules cannot overlap—if a conflict arises, the UI prompts you to adjust either the existing or new window.
+- **Interrupting a schedule:** Attempting to Push Now during an active scheduled deployment triggers a confirmation explaining the impact. Confirming cancels the remainder of the schedule and records the override in the Audit Log.
+- **End-of-window behavior:** When a scheduled window ends, the system automatically applies the designated follow-up—either the default snapshot or the next scheduled deployment if it begins immediately. Gaps revert to the default snapshot.
+
+The Audit Log tracks who scheduled, modified, cancelled, or ran deployments, including overrides and automatic reverts.
 
 ## 5. General Settings Module
 This section controls global branding, theming, footer content, maintenance windows, quick links, and session policies.

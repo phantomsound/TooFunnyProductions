@@ -225,3 +225,38 @@ alter table settings_versions alter column created_at set default now();
 
 create index if not exists idx_settings_versions_created on settings_versions (created_at desc);
 create index if not exists idx_settings_versions_stage on settings_versions (stage);
+alter table settings_versions add column if not exists note text;
+alter table settings_versions add column if not exists kind text default 'draft';
+alter table settings_versions alter column kind set default 'draft';
+alter table settings_versions add column if not exists updated_at timestamptz not null default now();
+alter table settings_versions alter column updated_at set default now();
+alter table settings_versions add column if not exists published_at timestamptz;
+alter table settings_versions add column if not exists is_default boolean default false;
+alter table settings_versions alter column is_default set default false;
+create index if not exists idx_settings_versions_kind on settings_versions (kind);
+create index if not exists idx_settings_versions_status on settings_versions (status);
+
+alter table settings_lock add column if not exists active_version_id uuid;
+alter table settings_lock add column if not exists source_version_id uuid;
+alter table settings_lock add column if not exists auto_saved_version_id uuid;
+
+create table if not exists settings_deployments (
+  id uuid primary key default gen_random_uuid(),
+  snapshot_id uuid not null references settings_versions(id) on delete cascade,
+  fallback_snapshot_id uuid references settings_versions(id) on delete set null,
+  start_at timestamptz not null,
+  end_at timestamptz,
+  status text not null default 'scheduled',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by text,
+  updated_by text,
+  cancelled_at timestamptz,
+  cancelled_by text,
+  override_reason text,
+  activated_at timestamptz,
+  completed_at timestamptz
+);
+
+create index if not exists idx_settings_deployments_start on settings_deployments (start_at);
+create index if not exists idx_settings_deployments_status on settings_deployments (status);
