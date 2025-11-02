@@ -51,6 +51,523 @@ const supabase =
 
 const TBL = (stage) => (stage === "draft" ? "settings_draft" : "settings_public");
 
+const VERSION_KIND_DRAFT = "draft";
+const VERSION_KIND_AUTOSAVE = "autosave";
+const VERSION_KIND_PUBLISHED = "published";
+
+const VERSION_STATUS_ACTIVE = "active";
+const VERSION_STATUS_ARCHIVED = "archived";
+
+const SNAPSHOT_LIMITS = {
+  [VERSION_KIND_DRAFT]: 20,
+  [VERSION_KIND_AUTOSAVE]: 20,
+  [VERSION_KIND_PUBLISHED]: 10,
+};
+
+const VERSION_KINDS_FOR_LIMIT = new Set([VERSION_KIND_DRAFT, VERSION_KIND_AUTOSAVE, VERSION_KIND_PUBLISHED]);
+
+const ACTIVE_VERSION_KINDS = new Set([VERSION_KIND_DRAFT, VERSION_KIND_AUTOSAVE, VERSION_KIND_PUBLISHED]);
+
+const clampLimit = (value, fallback = 20) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(Math.max(Math.floor(num), 1), 200);
+};
+
+const windowsOverlap = (aStart, aEnd, bStart, bEnd) => {
+  const aS = aStart?.getTime?.() ?? null;
+  const aE = aEnd?.getTime?.() ?? null;
+  const bS = bStart?.getTime?.() ?? null;
+  const bE = bEnd?.getTime?.() ?? null;
+
+  if (aS === null || bS === null) return false;
+  const aEndMs = aE ?? Number.POSITIVE_INFINITY;
+  const bEndMs = bE ?? Number.POSITIVE_INFINITY;
+  return aS < bEndMs && bS < aEndMs;
+};
+
+const mapVersionRow = (row = {}) => ({
+  id: row.id,
+  stage: row.stage,
+  label: row.label,
+  note: row.note,
+  author_email: row.author_email,
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+  status: row.status,
+  kind: row.kind || VERSION_KIND_DRAFT,
+  published_at: row.published_at,
+  is_default: Boolean(row.is_default),
+});
+
+const mapLockRow = (row = {}) => ({
+  holder_email: row.holder_email || null,
+  acquired_at: row.acquired_at || null,
+  expires_at: row.expires_at || null,
+  active_version_id: row.active_version_id || null,
+  source_version_id: row.source_version_id || null,
+  auto_saved_version_id: row.auto_saved_version_id || null,
+});
+
+const normalizeKind = (kind) => {
+  if (!kind || typeof kind !== "string") return VERSION_KIND_DRAFT;
+  const trimmed = kind.trim().toLowerCase();
+  if (trimmed === VERSION_KIND_DRAFT) return VERSION_KIND_DRAFT;
+  if (trimmed === VERSION_KIND_AUTOSAVE) return VERSION_KIND_AUTOSAVE;
+  if (trimmed === VERSION_KIND_PUBLISHED) return VERSION_KIND_PUBLISHED;
+  return VERSION_KIND_DRAFT;
+};
+
+const getLimitForKind = (kind) => SNAPSHOT_LIMITS[normalizeKind(kind)] ?? 20;
+
+async function fetchVersionById(id, { includeData = false } = {}) {
+  if (!id) return null;
+  const columns = [
+    "id",
+    "stage",
+    "label",
+    "note",
+    "author_email",
+    "status",
+    "kind",
+    "created_at",
+    "updated_at",
+    "published_at",
+    "is_default",
+  ];
+  if (includeData) columns.push("data");
+
+  const sel = await supabase
+    .from("settings_versions")
+    .select(columns.join(", "))
+    .eq("id", id)
+    .maybeSingle();
+
+  if (sel.error) throw sel.error;
+  if (!sel.data) return null;
+
+  const version = mapVersionRow(sel.data);
+  if (includeData) {
+    version.data = filterAllowed(sel.data.data || {});
+  }
+  return version;
+}
+
+async function listVersionsInternal({
+  kind,
+  stage,
+  status = VERSION_STATUS_ACTIVE,
+  limit = 50,
+  includeData = false,
+} = {}) {
+  if (!supabase) throw new Error("Supabase not configured.");
+
+  let query = supabase
+    .from("settings_versions")
+    .select(
+      [
+        "id",
+        "stage",
+        "label",
+        "note",
+        "author_email",
+        "status",
+        "kind",
+        "created_at",
+        "updated_at",
+        "published_at",
+        "is_default",
+        includeData ? "data" : null,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    )
+    .eq("status", status)
+    .order("created_at", { ascending: false })
+    .limit(clampLimit(limit, 50));
+
+  if (kind) {
+    const normalized = normalizeKind(kind);
+    if (normalized === VERSION_KIND_PUBLISHED) {
+      query = query.eq("kind", VERSION_KIND_PUBLISHED);
+    } else if (normalized === VERSION_KIND_AUTOSAVE) {
+      query = query.eq("kind", VERSION_KIND_AUTOSAVE);
+    } else {
+      query = query.in("kind", [VERSION_KIND_DRAFT, VERSION_KIND_AUTOSAVE]);
+    }
+  }
+
+  if (stage) {
+    query = query.eq("stage", stage);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data || []).map((row) => {
+    const version = mapVersionRow(row);
+    if (includeData) {
+      version.data = filterAllowed(row.data || {});
+    }
+    return version;
+  });
+}
+
+async function enforceVersionLimits(kind) {
+  if (!supabase) throw new Error("Supabase not configured.");
+  const normalized = normalizeKind(kind);
+  if (!VERSION_KINDS_FOR_LIMIT.has(normalized)) return;
+
+  const limit = getLimitForKind(normalized);
+
+  const { data, error } = await supabase
+    .from("settings_versions")
+    .select("id, kind, created_at")
+    .eq("status", VERSION_STATUS_ACTIVE)
+    .in(
+      "kind",
+      normalized === VERSION_KIND_PUBLISHED
+        ? [VERSION_KIND_PUBLISHED]
+        : [VERSION_KIND_DRAFT, VERSION_KIND_AUTOSAVE]
+    )
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  const rows = data || [];
+  if (rows.length <= limit) return;
+
+  const excess = rows.slice(limit);
+  const ids = excess.map((row) => row.id).filter(Boolean);
+  if (ids.length === 0) return;
+
+  await supabase
+    .from("settings_versions")
+    .update({ status: VERSION_STATUS_ARCHIVED })
+    .in("id", ids);
+}
+
+async function markDefaultSnapshot(snapshotId, actorEmail) {
+  if (!supabase) throw new Error("Supabase not configured.");
+  if (!snapshotId) throw new Error("Missing snapshot id");
+
+  const now = new Date().toISOString();
+
+  const reset = await supabase
+    .from("settings_versions")
+    .update({ is_default: false, updated_at: now })
+    .eq("is_default", true);
+  if (reset.error) throw reset.error;
+
+  const upd = await supabase
+    .from("settings_versions")
+    .update({ is_default: true, updated_at: now })
+    .eq("id", snapshotId)
+    .select("id, label, stage, kind, note, updated_at")
+    .single();
+  if (upd.error) throw upd.error;
+
+  try {
+    await logAdminAction(actorEmail || "unknown", "settings.snapshot.set_default", {
+      snapshotId,
+      label: upd.data.label,
+      kind: upd.data.kind,
+    });
+  } catch (err) {
+    console.warn("Failed to log default snapshot", err?.message || err);
+  }
+
+  return mapVersionRow(upd.data);
+}
+
+async function insertVersion({
+  stage = "draft",
+  kind = VERSION_KIND_DRAFT,
+  label = null,
+  note = null,
+  authorEmail,
+  data = {},
+  status = VERSION_STATUS_ACTIVE,
+  publishedAt = null,
+}) {
+  if (!supabase) throw new Error("Supabase not configured.");
+
+  const normalizedKind = normalizeKind(kind);
+  const payload = {
+    stage,
+    kind: normalizedKind,
+    status,
+    label,
+    note,
+    author_email: authorEmail || null,
+    data: filterAllowed(data || {}),
+    published_at: publishedAt,
+    updated_at: new Date().toISOString(),
+  };
+
+  const insert = await supabase
+    .from("settings_versions")
+    .insert([payload])
+    .select(
+      "id, stage, label, note, author_email, status, kind, created_at, updated_at, published_at, is_default"
+    )
+    .single();
+  if (insert.error) throw insert.error;
+
+  await enforceVersionLimits(normalizedKind);
+
+  return mapVersionRow(insert.data);
+}
+
+async function updateVersionMetadata(id, { label, note, status, kind, isDefault, actorEmail }) {
+  if (!supabase) throw new Error("Supabase not configured.");
+  if (!id) throw new Error("Missing version id");
+
+  const patch = { updated_at: new Date().toISOString() };
+  if (label !== undefined) patch.label = label;
+  if (note !== undefined) patch.note = note;
+  if (status !== undefined) patch.status = status;
+  if (kind !== undefined) patch.kind = normalizeKind(kind);
+  if (isDefault === true) {
+    await markDefaultSnapshot(id, actorEmail);
+    return fetchVersionById(id);
+  }
+  if (isDefault === false) patch.is_default = false;
+
+  const upd = await supabase
+    .from("settings_versions")
+    .update(patch)
+    .eq("id", id)
+    .select(
+      "id, stage, label, note, author_email, status, kind, created_at, updated_at, published_at, is_default"
+    )
+    .single();
+  if (upd.error) throw upd.error;
+
+  if (patch.kind) {
+    await enforceVersionLimits(patch.kind);
+  }
+
+  return mapVersionRow(upd.data);
+}
+
+async function updateVersionData(id, data) {
+  if (!supabase) throw new Error("Supabase not configured.");
+  if (!id) throw new Error("Missing version id");
+  const clean = filterAllowed(data || {});
+  const upd = await supabase
+    .from("settings_versions")
+    .update({ data: clean, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select(
+      "id, stage, label, note, author_email, status, kind, created_at, updated_at, published_at, is_default"
+    )
+    .single();
+  if (upd.error) throw upd.error;
+  return mapVersionRow(upd.data);
+}
+
+const DEPLOYMENT_STATUS_SCHEDULED = "scheduled";
+const DEPLOYMENT_STATUS_RUNNING = "running";
+const DEPLOYMENT_STATUS_COMPLETED = "completed";
+const DEPLOYMENT_STATUS_CANCELLED = "cancelled";
+
+async function getDefaultSnapshot() {
+  if (!supabase) throw new Error("Supabase not configured.");
+  const sel = await supabase
+    .from("settings_versions")
+    .select(
+      "id, stage, label, note, author_email, status, kind, created_at, updated_at, published_at, is_default, data"
+    )
+    .eq("is_default", true)
+    .eq("status", VERSION_STATUS_ACTIVE)
+    .limit(1)
+    .maybeSingle();
+  if (sel.error) throw sel.error;
+  if (!sel.data) return null;
+  const version = mapVersionRow(sel.data);
+  version.data = filterAllowed(sel.data.data || {});
+  return version;
+}
+
+async function applySnapshotToStage(versionId, stage, actorEmail, reason) {
+  if (!supabase) throw new Error("Supabase not configured.");
+  if (!versionId) throw new Error("Missing snapshot id");
+  const version = await fetchVersionById(versionId, { includeData: true });
+  if (!version) throw new Error("Snapshot not found");
+
+  const targetId = await ensureSingleton(stage);
+  const payload = filterAllowed(version.data || {});
+  if (stage === "live") {
+    payload.published_at = new Date().toISOString();
+  }
+
+  const upd = await supabase
+    .from(TBL(stage))
+    .update(payload)
+    .eq("id", targetId)
+    .select("*")
+    .single();
+  if (upd.error) throw upd.error;
+
+  try {
+    await logAdminAction(actorEmail || "system", `settings.apply_${stage}_snapshot`, {
+      snapshotId: versionId,
+      label: version.label,
+      reason,
+    });
+  } catch (err) {
+    console.warn("Failed to log snapshot application", err?.message || err);
+  }
+
+  return { version, data: upd.data };
+}
+
+async function listDeployments({ status, includePast = false } = {}) {
+  if (!supabase) throw new Error("Supabase not configured.");
+  let query = supabase
+    .from("settings_deployments")
+    .select(
+      [
+        "id",
+        "snapshot_id",
+        "fallback_snapshot_id",
+        "start_at",
+        "end_at",
+        "status",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+        "cancelled_at",
+        "cancelled_by",
+        "override_reason",
+        "activated_at",
+        "completed_at",
+      ].join(", ")
+    )
+    .order("start_at", { ascending: true });
+
+  if (status) {
+    query = query.eq("status", status);
+  } else if (!includePast) {
+    query = query.in("status", [DEPLOYMENT_STATUS_SCHEDULED, DEPLOYMENT_STATUS_RUNNING]);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+async function loadDeployment(id) {
+  if (!supabase) throw new Error("Supabase not configured.");
+  if (!id) throw new Error("Missing deployment id");
+  const sel = await supabase
+    .from("settings_deployments")
+    .select(
+      [
+        "id",
+        "snapshot_id",
+        "fallback_snapshot_id",
+        "start_at",
+        "end_at",
+        "status",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+        "cancelled_at",
+        "cancelled_by",
+        "override_reason",
+        "activated_at",
+        "completed_at",
+      ].join(", ")
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (sel.error) throw sel.error;
+  return sel.data || null;
+}
+
+async function processDeploymentSchedule() {
+  if (!supabase) throw new Error("Supabase not configured.");
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const deployments = await listDeployments();
+
+  for (const deployment of deployments) {
+    const status = deployment.status;
+    if (status === DEPLOYMENT_STATUS_CANCELLED || status === DEPLOYMENT_STATUS_COMPLETED) continue;
+
+    const startAt = deployment.start_at ? new Date(deployment.start_at) : null;
+    const endAt = deployment.end_at ? new Date(deployment.end_at) : null;
+
+    if (status === DEPLOYMENT_STATUS_SCHEDULED && startAt && startAt <= now) {
+      await applySnapshotToStage(deployment.snapshot_id, "live", deployment.created_by, "scheduled_start");
+      const upd = await supabase
+        .from("settings_deployments")
+        .update({
+          status: DEPLOYMENT_STATUS_RUNNING,
+          activated_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq("id", deployment.id);
+      if (upd.error) throw upd.error;
+      try {
+        await logAdminAction(deployment.created_by || "system", "settings.schedule.started", {
+          deploymentId: deployment.id,
+          snapshotId: deployment.snapshot_id,
+        });
+      } catch (err) {
+        console.warn("Failed to log schedule start", err?.message || err);
+      }
+    } else if (status === DEPLOYMENT_STATUS_RUNNING) {
+      const shouldEnd = endAt && endAt <= now;
+      if (shouldEnd) {
+        let fallback = deployment.fallback_snapshot_id;
+        if (!fallback) {
+          const defaultSnapshot = await getDefaultSnapshot();
+          fallback = defaultSnapshot?.id || null;
+        }
+        if (fallback) {
+          await applySnapshotToStage(fallback, "live", deployment.updated_by || deployment.created_by, "scheduled_end");
+        }
+        const upd = await supabase
+          .from("settings_deployments")
+          .update({
+            status: DEPLOYMENT_STATUS_COMPLETED,
+            updated_at: nowIso,
+            completed_at: nowIso,
+          })
+          .eq("id", deployment.id);
+        if (upd.error) throw upd.error;
+        try {
+          await logAdminAction(deployment.updated_by || deployment.created_by || "system", "settings.schedule.completed", {
+            deploymentId: deployment.id,
+            snapshotId: deployment.snapshot_id,
+            fallbackSnapshotId: fallback,
+          });
+        } catch (err) {
+          console.warn("Failed to log schedule completion", err?.message || err);
+        }
+      }
+    }
+  }
+}
+
+async function writeDraftSettings(data) {
+  if (!supabase) throw new Error("Supabase not configured.");
+  const draftId = await ensureSingleton("draft");
+  const payload = filterAllowed(data || {});
+  const upd = await supabase
+    .from("settings_draft")
+    .update(payload)
+    .eq("id", draftId)
+    .select("*")
+    .single();
+  if (upd.error) throw upd.error;
+  return upd.data;
+}
+
 // Only these keys may be written to either table.
 // Add here when you introduce new columns.
 const ALLOWED = new Set([
@@ -256,6 +773,7 @@ router.get("/", async (req, res) => {
       const localSettings = await loadLocalSettings();
       return res.json(stripMetaFields(localSettings));
     }
+    await processDeploymentSchedule();
     const stage = req.query.stage === "draft" ? "draft" : "live";
     const table = TBL(stage);
 
@@ -278,6 +796,7 @@ router.get("/", async (req, res) => {
 router.put("/", requireAdmin, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    await processDeploymentSchedule();
     const stage = req.query.stage === "live" ? "live" : "draft";
     const table = TBL(stage);
 
@@ -312,6 +831,7 @@ router.put("/", requireAdmin, async (req, res) => {
 router.post("/pull-live", requireAdmin, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    await processDeploymentSchedule();
 
     const liveSel = await supabase
       .from("settings_public")
@@ -350,39 +870,83 @@ router.post("/pull-live", requireAdmin, async (req, res) => {
 router.post("/publish", requireAdmin, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    await processDeploymentSchedule();
 
-    const liveId = await ensureSingleton("live");
-    const draftId = await ensureSingleton("draft");
+    const actor = (req.user?.email || "unknown").toLowerCase();
+    const snapshotId = req.body?.snapshotId ? String(req.body.snapshotId) : null;
+    const publishLabelRaw = typeof req.body?.label === "string" ? req.body.label : null;
+    const publishNoteRaw = typeof req.body?.note === "string" ? req.body.note : null;
+    const setDefault = Boolean(req.body?.setDefault);
 
-    const draft = await supabase.from("settings_draft").select("*").eq("id", draftId).single();
-    if (draft.error) throw draft.error;
+    const publishedAt = new Date().toISOString();
 
-    const livePrev = await supabase.from("settings_public").select("*").eq("id", liveId).single();
-    if (livePrev.error) throw livePrev.error;
+    let liveResult = null;
+    let publishData = null;
+    let publishLabel = publishLabelRaw ? publishLabelRaw.trim() : null;
+    let publishNote = publishNoteRaw ? publishNoteRaw.trim() : null;
 
-    const payload = filterAllowed(draft.data || {});
-    payload.published_at = new Date().toISOString(); // will be ignored if column absent
+    if (snapshotId) {
+      const result = await applySnapshotToStage(snapshotId, "live", actor, "manual_publish_snapshot");
+      liveResult = result.data;
+      publishData = stripMetaFields(result.version.data || {});
+      if (!publishLabel) publishLabel = result.version.label || "Snapshot publish";
+      if (!publishNote && result.version.note) publishNote = result.version.note;
+    } else {
+      const liveId = await ensureSingleton("live");
+      const draftId = await ensureSingleton("draft");
 
-    const upd = await supabase
-      .from("settings_public")
-      .update(payload)
-      .eq("id", liveId)
-      .select("*")
-      .single();
-    if (upd.error) throw upd.error;
+      const draft = await supabase.from("settings_draft").select("*").eq("id", draftId).single();
+      if (draft.error) throw draft.error;
 
-    try {
-      const before = stripMetaFields(filterAllowed(livePrev.data || {}));
-      const after = stripMetaFields(payload);
-      const changed = diffSettings(before, after);
-      await logAdminAction(req.user?.email || "unknown", "settings.publish_draft_to_live", {
-        changed,
-        changedKeys: Object.keys(changed),
-        published_at: payload.published_at,
-      });
-    } catch {}
+      const livePrev = await supabase.from("settings_public").select("*").eq("id", liveId).single();
+      if (livePrev.error) throw livePrev.error;
 
-    res.json({ success: true, data: upd.data });
+      const payload = filterAllowed(draft.data || {});
+      payload.published_at = publishedAt;
+
+      const upd = await supabase
+        .from("settings_public")
+        .update(payload)
+        .eq("id", liveId)
+        .select("*")
+        .single();
+      if (upd.error) throw upd.error;
+
+      liveResult = upd.data;
+      publishData = stripMetaFields(payload);
+
+      try {
+        const before = stripMetaFields(filterAllowed(livePrev.data || {}));
+        const after = stripMetaFields(payload);
+        const changed = diffSettings(before, after);
+        await logAdminAction(actor, "settings.publish_draft_to_live", {
+          changed,
+          changedKeys: Object.keys(changed),
+          published_at: payload.published_at,
+        });
+      } catch (err) {
+        console.warn("Failed to log publish diff", err?.message || err);
+      }
+    }
+
+    if (!publishData) publishData = {};
+    const stored = await insertVersion({
+      stage: "live",
+      kind: VERSION_KIND_PUBLISHED,
+      label: publishLabel || "Manual publish",
+      note: publishNote || null,
+      authorEmail: actor,
+      data: publishData,
+      status: VERSION_STATUS_ACTIVE,
+      publishedAt,
+    });
+
+    let publishedSnapshot = stored;
+    if (setDefault) {
+      publishedSnapshot = await markDefaultSnapshot(stored.id, actor);
+    }
+
+    res.json({ success: true, data: liveResult, publishedSnapshot });
   } catch (err) {
     console.error("POST /api/settings/publish error:", err);
     res.status(500).json({ error: "Failed to publish draft to live" });
@@ -409,17 +973,48 @@ router.get("/lock", requireAdmin, async (_req, res) => {
       return res.json({ lock: null, locked: false });
     }
 
+    const lock = mapLockRow(row);
+    const [activeVersion, sourceVersion, autoSavedVersion] = await Promise.all([
+      lock.active_version_id ? fetchVersionById(lock.active_version_id) : Promise.resolve(null),
+      lock.source_version_id ? fetchVersionById(lock.source_version_id) : Promise.resolve(null),
+      lock.auto_saved_version_id ? fetchVersionById(lock.auto_saved_version_id) : Promise.resolve(null),
+    ]);
+
+    if (activeVersion) lock.active_version = activeVersion;
+    if (sourceVersion) lock.source_version = sourceVersion;
+    if (autoSavedVersion) lock.auto_saved_version = autoSavedVersion;
+
     res.json({
       locked: true,
-      lock: {
-        holder_email: row.holder_email,
-        acquired_at: row.acquired_at,
-        expires_at: row.expires_at,
-      },
+      lock,
     });
   } catch (err) {
     console.error("GET /api/settings/lock error:", err);
     res.status(500).json({ error: "Failed to read lock" });
+  }
+});
+
+router.get("/lock/options", requireAdmin, async (_req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+
+    const [drafts, published, defaultSnapshot] = await Promise.all([
+      listVersionsInternal({ kind: VERSION_KIND_DRAFT, stage: "draft", limit: 40 }),
+      listVersionsInternal({ kind: VERSION_KIND_PUBLISHED, stage: "live", limit: 20 }),
+      getDefaultSnapshot().catch((err) => {
+        console.warn("Failed to load default snapshot", err?.message || err);
+        return null;
+      }),
+    ]);
+
+    res.json({
+      drafts,
+      published,
+      defaultSnapshot,
+    });
+  } catch (err) {
+    console.error("GET /api/settings/lock/options error:", err);
+    res.status(500).json({ error: "Failed to load lock options" });
   }
 });
 
@@ -430,68 +1025,147 @@ router.post("/lock/acquire", requireAdmin, async (req, res) => {
     const ttlSeconds = Number(req.body?.ttlSeconds) || 300;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlSeconds * 1000);
+    const expiresAtIso = expiresAt.toISOString();
     const email = (req.user?.email || "unknown").toLowerCase();
+    const selection = req.body?.selection || null;
 
     const sel = await supabase.from("settings_lock").select("*").eq("id", 1).maybeSingle();
     if (sel.error && sel.error.code !== "PGRST116") throw sel.error;
 
     let row = sel.data;
     if (!row) {
-      const inserted = await supabase
-        .from("settings_lock")
-        .insert([
-          {
-            id: 1,
-            holder_email: email,
-            acquired_at: now.toISOString(),
-            expires_at: expiresAt.toISOString(),
-          },
-        ])
-        .select("*")
-        .single();
+      const inserted = await supabase.from("settings_lock").insert([{ id: 1 }]).select("*").single();
       if (inserted.error) throw inserted.error;
       row = inserted.data;
-    } else {
-      const currentHolder = (row.holder_email || "").toLowerCase();
-      const expires = row.expires_at ? new Date(row.expires_at) : null;
-      const expired = !expires || expires.getTime() < Date.now();
+    }
 
-      if (!expired && currentHolder && currentHolder !== email) {
-        return res.status(423).json({
-          error: `Draft locked by ${currentHolder}`,
-          lock: {
-            holder_email: row.holder_email,
-            acquired_at: row.acquired_at,
-            expires_at: row.expires_at,
-          },
-        });
-      }
+    const currentHolder = (row.holder_email || "").toLowerCase();
+    const expires = row.expires_at ? new Date(row.expires_at) : null;
+    const expired = !expires || expires.getTime() < Date.now();
 
+    if (currentHolder === email && !expired && !selection) {
       const update = await supabase
         .from("settings_lock")
-        .update({
-          holder_email: email,
-          acquired_at: now.toISOString(),
-          expires_at: expiresAt.toISOString(),
-        })
+        .update({ expires_at: expiresAtIso })
         .eq("id", 1)
         .select("*")
         .single();
       if (update.error) throw update.error;
-      row = update.data;
+      const lock = mapLockRow(update.data);
+      return res.json({ locked: true, lock });
     }
 
+    if (!expired && currentHolder && currentHolder !== email) {
+      return res.status(423).json({
+        error: `Draft locked by ${currentHolder}`,
+        lock: mapLockRow(row),
+      });
+    }
+
+    if (!selection || typeof selection.mode !== "string") {
+      return res.status(400).json({ error: "Selection required to acquire lock" });
+    }
+
+    const mode = String(selection.mode).toLowerCase();
+    let draftData = null;
+    let activeVersionId = null;
+    let sourceVersionId = null;
+
+    if (mode === "resume") {
+      const versionId = selection.versionId ? String(selection.versionId) : null;
+      if (!versionId) return res.status(400).json({ error: "versionId required to resume" });
+      const version = await fetchVersionById(versionId, { includeData: true });
+      if (!version) return res.status(404).json({ error: "Draft version not found" });
+      if (!ACTIVE_VERSION_KINDS.has(version.kind)) {
+        return res.status(400).json({ error: "Version cannot be resumed" });
+      }
+      draftData = version.data || {};
+      activeVersionId = version.id;
+      sourceVersionId = version.id;
+    } else if (mode === "snapshot") {
+      const versionId = selection.versionId ? String(selection.versionId) : null;
+      if (!versionId) return res.status(400).json({ error: "versionId required to load snapshot" });
+      const version = await fetchVersionById(versionId, { includeData: true });
+      if (!version) return res.status(404).json({ error: "Snapshot not found" });
+      draftData = version.data || {};
+      const newVersion = await insertVersion({
+        stage: "draft",
+        kind: VERSION_KIND_DRAFT,
+        label: selection.label || version.label || "Draft from snapshot",
+        note: selection.note || version.note || null,
+        authorEmail: email,
+        data: draftData,
+      });
+      activeVersionId = newVersion.id;
+      sourceVersionId = version.id;
+    } else if (mode === "new") {
+      const source = selection.source ? String(selection.source) : "live";
+      if (source === "blank") {
+        draftData = {};
+      } else {
+        const liveSel = await supabase
+          .from("settings_public")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (liveSel.error && liveSel.error.code !== "PGRST116") throw liveSel.error;
+        draftData = filterAllowed(liveSel.data || {});
+      }
+      const newVersion = await insertVersion({
+        stage: "draft",
+        kind: VERSION_KIND_DRAFT,
+        label: selection.label || "New draft", // optional user-supplied label
+        note: selection.note || null,
+        authorEmail: email,
+        data: draftData,
+      });
+      activeVersionId = newVersion.id;
+      sourceVersionId = selection.sourceVersionId ? String(selection.sourceVersionId) : null;
+    } else {
+      return res.status(400).json({ error: "Unsupported acquisition mode" });
+    }
+
+    const draft = await writeDraftSettings(draftData || {});
+
+    const update = await supabase
+      .from("settings_lock")
+      .update({
+        holder_email: email,
+        acquired_at: now.toISOString(),
+        expires_at: expiresAtIso,
+        active_version_id: activeVersionId,
+        source_version_id: sourceVersionId,
+        auto_saved_version_id: null,
+      })
+      .eq("id", 1)
+      .select("*")
+      .single();
+    if (update.error) throw update.error;
+
+    const lock = mapLockRow(update.data);
+    const [activeVersion, sourceVersion] = await Promise.all([
+      lock.active_version_id ? fetchVersionById(lock.active_version_id) : Promise.resolve(null),
+      lock.source_version_id ? fetchVersionById(lock.source_version_id) : Promise.resolve(null),
+    ]);
+    if (activeVersion) lock.active_version = activeVersion;
+    if (sourceVersion) lock.source_version = sourceVersion;
+
     try {
-      await logAdminAction(email, "settings.lock.acquire", { expires_at: row.expires_at });
-    } catch {}
+      await logAdminAction(email, "settings.lock.acquire", {
+        expires_at: lock.expires_at,
+        active_version_id: lock.active_version_id,
+        source_version_id: lock.source_version_id,
+        mode,
+      });
+    } catch (err) {
+      console.warn("Failed to log lock acquire", err?.message || err);
+    }
 
     res.json({
       locked: true,
-      lock: {
-        holder_email: row.holder_email,
-        acquired_at: row.acquired_at,
-        expires_at: row.expires_at,
-      },
+      lock,
+      draft,
     });
   } catch (err) {
     console.error("POST /api/settings/lock/acquire error:", err);
@@ -526,19 +1200,66 @@ router.post("/lock/release", requireAdmin, async (req, res) => {
       });
     }
 
+    const draftId = await ensureSingleton("draft");
+    const draftSel = await supabase.from("settings_draft").select("*").eq("id", draftId).single();
+    if (draftSel.error) throw draftSel.error;
+    const draftData = filterAllowed(draftSel.data || {});
+
+    let autoSavedVersion = null;
+    const doAutoSave = Boolean(req.body?.autoSave);
+
+    if (sel.data.active_version_id) {
+      try {
+        await updateVersionData(sel.data.active_version_id, draftData);
+      } catch (err) {
+        console.warn("Failed to sync active draft version", err?.message || err);
+      }
+    }
+
+    if (doAutoSave) {
+      const label = req.body?.autoSaveLabel || `Auto-save ${new Date().toLocaleString()}`;
+      const note =
+        typeof req.body?.autoSaveNote === "string"
+          ? req.body.autoSaveNote
+          : `Automatically saved before releasing by ${email}`;
+      try {
+        autoSavedVersion = await insertVersion({
+          stage: "draft",
+          kind: VERSION_KIND_AUTOSAVE,
+          label,
+          note,
+          authorEmail: email,
+          data: draftData,
+        });
+      } catch (err) {
+        console.warn("Failed to create auto-save snapshot", err?.message || err);
+      }
+    }
+
     const update = await supabase
       .from("settings_lock")
-      .update({ holder_email: null, acquired_at: null, expires_at: null })
+      .update({
+        holder_email: null,
+        acquired_at: null,
+        expires_at: null,
+        active_version_id: null,
+        source_version_id: null,
+        auto_saved_version_id: autoSavedVersion?.id || null,
+      })
       .eq("id", 1)
       .select("*")
       .single();
     if (update.error) throw update.error;
 
     try {
-      await logAdminAction(email, "settings.lock.release");
-    } catch {}
+      await logAdminAction(email, "settings.lock.release", {
+        auto_saved_version_id: autoSavedVersion?.id || null,
+      });
+    } catch (err) {
+      console.warn("Failed to log lock release", err?.message || err);
+    }
 
-    res.json({ lock: null, locked: false });
+    res.json({ lock: null, locked: false, autoSavedVersion });
   } catch (err) {
     console.error("POST /api/settings/lock/release error:", err);
     res.status(500).json({ error: "Failed to release lock" });
@@ -548,21 +1269,17 @@ router.post("/lock/release", requireAdmin, async (req, res) => {
 router.get("/versions", requireAdmin, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
-    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
-    const stageFilter = req.query.stage === "live" ? "live" : req.query.stage === "draft" ? "draft" : null;
+    const limit = clampLimit(req.query.limit, 20);
+    const stageFilter = req.query.stage === "live" ? "live" : req.query.stage === "draft" ? "draft" : undefined;
+    const kindFilter = req.query.kind ? String(req.query.kind) : undefined;
 
-    let query = supabase
-      .from("settings_versions")
-      .select("id, stage, label, author_email, created_at, status")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    const versions = await listVersionsInternal({
+      limit,
+      stage: stageFilter,
+      kind: kindFilter,
+    });
 
-    if (stageFilter) query = query.eq("stage", stageFilter);
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    res.json({ versions: data || [] });
+    res.json({ versions });
   } catch (err) {
     console.error("GET /api/settings/versions error:", err);
     res.status(500).json({ error: "Failed to list versions" });
@@ -574,6 +1291,9 @@ router.post("/versions", requireAdmin, async (req, res) => {
     if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
     const stage = req.body?.stage === "live" ? "live" : "draft";
     const label = typeof req.body?.label === "string" && req.body.label.trim().length > 0 ? req.body.label.trim() : null;
+    const note = typeof req.body?.note === "string" && req.body.note.trim().length > 0 ? req.body.note.trim() : null;
+    const kindRaw = req.body?.kind ? String(req.body.kind) : stage === "live" ? VERSION_KIND_PUBLISHED : VERSION_KIND_DRAFT;
+    const kind = normalizeKind(kindRaw);
     const email = (req.user?.email || "unknown").toLowerCase();
 
     const table = TBL(stage);
@@ -587,32 +1307,81 @@ router.post("/versions", requireAdmin, async (req, res) => {
 
     const snapshot = filterAllowed(sel.data || {});
 
-    const insert = await supabase
-      .from("settings_versions")
-      .insert([
-        {
-          stage,
-          label,
-          author_email: email,
-          data: snapshot,
-        },
-      ])
-      .select("id, stage, label, author_email, created_at, status")
-      .single();
-    if (insert.error) throw insert.error;
+    const version = await insertVersion({
+      stage,
+      kind,
+      label,
+      note,
+      authorEmail: email,
+      data: snapshot,
+      status: VERSION_STATUS_ACTIVE,
+      publishedAt: stage === "live" ? new Date().toISOString() : null,
+    });
+
+    if (req.body?.setDefault) {
+      await markDefaultSnapshot(version.id, email);
+    }
 
     try {
       await logAdminAction(email, "settings.version.create", {
         stage,
         label,
+        kind,
         snapshotKeys: Object.keys(stripMetaFields(snapshot)),
       });
-    } catch {}
+    } catch (err) {
+      console.warn("Failed to log version create", err?.message || err);
+    }
 
-    res.json({ success: true, version: insert.data });
+    res.json({ success: true, version });
   } catch (err) {
     console.error("POST /api/settings/versions error:", err);
     res.status(500).json({ error: "Failed to create version" });
+  }
+});
+
+router.patch("/versions/:id", requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    const versionId = req.params.id;
+    if (!versionId) return res.status(400).json({ error: "Missing version id" });
+
+    const email = (req.user?.email || "unknown").toLowerCase();
+    const label = req.body?.label;
+    const note = req.body?.note;
+    const kind = req.body?.kind;
+    const status = req.body?.status;
+    const isDefault = req.body?.isDefault;
+
+    const version = await updateVersionMetadata(versionId, {
+      label: typeof label === "string" ? label.trim() : undefined,
+      note: typeof note === "string" ? note.trim() : undefined,
+      kind: kind ? String(kind) : undefined,
+      status: status ? String(status) : undefined,
+      isDefault: typeof isDefault === "boolean" ? isDefault : undefined,
+      actorEmail: email,
+    });
+
+    try {
+      await logAdminAction(email, "settings.version.update", {
+        versionId,
+        label: version.label,
+        note: version.note,
+        kind: version.kind,
+        status: version.status,
+        is_default: version.is_default,
+      });
+    } catch (err) {
+      console.warn("Failed to log version update", err?.message || err);
+    }
+
+    res.json({ success: true, version });
+  } catch (err) {
+    console.error("PATCH /api/settings/versions/:id error:", err);
+    if (err?.message === "Missing version id") {
+      return res.status(400).json({ error: err.message });
+    }
+    res.status(500).json({ error: "Failed to update version" });
   }
 });
 
@@ -691,6 +1460,228 @@ router.delete("/versions/:id", requireAdmin, async (req, res) => {
   }
 });
 
+router.get("/deployments", requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    await processDeploymentSchedule();
+    const includePast = String(req.query.includePast).toLowerCase() === "true";
+    const deployments = await listDeployments({ includePast });
+    const ids = new Set();
+    for (const deployment of deployments) {
+      if (deployment.snapshot_id) ids.add(deployment.snapshot_id);
+      if (deployment.fallback_snapshot_id) ids.add(deployment.fallback_snapshot_id);
+    }
+
+    const versions = await Promise.all(Array.from(ids).map((id) => fetchVersionById(id).catch(() => null)));
+    const versionMap = new Map();
+    versions.forEach((version) => {
+      if (version) versionMap.set(version.id, version);
+    });
+
+    const enriched = deployments.map((deployment) => ({
+      ...deployment,
+      snapshot: deployment.snapshot_id ? versionMap.get(deployment.snapshot_id) || null : null,
+      fallback_snapshot: deployment.fallback_snapshot_id
+        ? versionMap.get(deployment.fallback_snapshot_id) || null
+        : null,
+    }));
+
+    res.json({ deployments: enriched });
+  } catch (err) {
+    console.error("GET /api/settings/deployments error:", err);
+    res.status(500).json({ error: "Failed to load deployments" });
+  }
+});
+
+router.post("/deployments", requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    const email = (req.user?.email || "unknown").toLowerCase();
+    const snapshotId = req.body?.snapshotId ? String(req.body.snapshotId) : null;
+    if (!snapshotId) return res.status(400).json({ error: "snapshotId is required" });
+
+    const startAtRaw = req.body?.startAt ? new Date(req.body.startAt) : null;
+    if (!startAtRaw || Number.isNaN(startAtRaw.getTime())) {
+      return res.status(400).json({ error: "startAt is required" });
+    }
+    const endAtRaw = req.body?.endAt ? new Date(req.body.endAt) : null;
+    if (endAtRaw && Number.isNaN(endAtRaw.getTime())) {
+      return res.status(400).json({ error: "Invalid endAt" });
+    }
+    if (endAtRaw && endAtRaw <= startAtRaw) {
+      return res.status(400).json({ error: "endAt must be after startAt" });
+    }
+
+    const fallbackSnapshotId = req.body?.fallbackSnapshotId ? String(req.body.fallbackSnapshotId) : null;
+
+    const existing = await listDeployments();
+    for (const deployment of existing) {
+      const existingStart = deployment.start_at ? new Date(deployment.start_at) : null;
+      const existingEnd = deployment.end_at ? new Date(deployment.end_at) : null;
+      if (windowsOverlap(startAtRaw, endAtRaw, existingStart, existingEnd)) {
+        return res.status(409).json({
+          error: "Deployment window overlaps with an existing schedule. Adjust the start or end time.",
+          conflictingDeploymentId: deployment.id,
+        });
+      }
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const startIso = startAtRaw.toISOString();
+    const endIso = endAtRaw ? endAtRaw.toISOString() : null;
+    const immediate = startAtRaw <= now;
+    const status = immediate ? DEPLOYMENT_STATUS_RUNNING : DEPLOYMENT_STATUS_SCHEDULED;
+
+    const insert = await supabase
+      .from("settings_deployments")
+      .insert([
+        {
+          snapshot_id: snapshotId,
+          fallback_snapshot_id: fallbackSnapshotId,
+          start_at: startIso,
+          end_at: endIso,
+          status,
+          created_by: email,
+          updated_by: email,
+          created_at: nowIso,
+          updated_at: nowIso,
+          activated_at: immediate ? nowIso : null,
+        },
+      ])
+      .select("*")
+      .single();
+    if (insert.error) throw insert.error;
+
+    if (immediate) {
+      await applySnapshotToStage(snapshotId, "live", email, "schedule_immediate_start");
+    }
+
+    await processDeploymentSchedule();
+
+    try {
+      await logAdminAction(email, "settings.schedule.create", {
+        deploymentId: insert.data.id,
+        snapshotId,
+        start_at: startIso,
+        end_at: endIso,
+      });
+    } catch (err) {
+      console.warn("Failed to log deployment creation", err?.message || err);
+    }
+
+    res.json({ success: true, deployment: insert.data });
+  } catch (err) {
+    console.error("POST /api/settings/deployments error:", err);
+    res.status(500).json({ error: "Failed to create deployment" });
+  }
+});
+
+router.post("/deployments/:id/cancel", requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    const email = (req.user?.email || "unknown").toLowerCase();
+    const deploymentId = req.params.id;
+    if (!deploymentId) return res.status(400).json({ error: "Missing deployment id" });
+
+    const deployment = await loadDeployment(deploymentId);
+    if (!deployment) return res.status(404).json({ error: "Deployment not found" });
+    if (deployment.status === DEPLOYMENT_STATUS_CANCELLED || deployment.status === DEPLOYMENT_STATUS_COMPLETED) {
+      return res.status(400).json({ error: "Deployment already closed" });
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const applyFallback = Boolean(req.body?.applyFallback);
+
+    if (applyFallback) {
+      let fallback = deployment.fallback_snapshot_id;
+      if (!fallback) {
+        const defaultSnapshot = await getDefaultSnapshot();
+        fallback = defaultSnapshot?.id || null;
+      }
+      if (fallback) {
+        await applySnapshotToStage(fallback, "live", email, "schedule_cancel_fallback");
+      }
+    }
+
+    const update = await supabase
+      .from("settings_deployments")
+      .update({
+        status: DEPLOYMENT_STATUS_CANCELLED,
+        updated_at: nowIso,
+        cancelled_at: nowIso,
+        cancelled_by: email,
+        updated_by: email,
+      })
+      .eq("id", deploymentId)
+      .select("*")
+      .single();
+    if (update.error) throw update.error;
+
+    try {
+      await logAdminAction(email, "settings.schedule.cancel", {
+        deploymentId,
+        applyFallback,
+      });
+    } catch (err) {
+      console.warn("Failed to log deployment cancel", err?.message || err);
+    }
+
+    res.json({ success: true, deployment: update.data });
+  } catch (err) {
+    console.error("POST /api/settings/deployments/:id/cancel error:", err);
+    res.status(500).json({ error: "Failed to cancel deployment" });
+  }
+});
+
+router.post("/deployments/:id/override", requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    const email = (req.user?.email || "unknown").toLowerCase();
+    const deploymentId = req.params.id;
+    if (!deploymentId) return res.status(400).json({ error: "Missing deployment id" });
+
+    const deployment = await loadDeployment(deploymentId);
+    if (!deployment) return res.status(404).json({ error: "Deployment not found" });
+    if (deployment.status === DEPLOYMENT_STATUS_CANCELLED || deployment.status === DEPLOYMENT_STATUS_COMPLETED) {
+      return res.status(400).json({ error: "Deployment already closed" });
+    }
+
+    const nowIso = new Date().toISOString();
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "Manual override";
+
+    const update = await supabase
+      .from("settings_deployments")
+      .update({
+        status: DEPLOYMENT_STATUS_CANCELLED,
+        updated_at: nowIso,
+        cancelled_at: nowIso,
+        cancelled_by: email,
+        updated_by: email,
+        override_reason: reason,
+      })
+      .eq("id", deploymentId)
+      .select("*")
+      .single();
+    if (update.error) throw update.error;
+
+    try {
+      await logAdminAction(email, "settings.schedule.override", {
+        deploymentId,
+        reason,
+      });
+    } catch (err) {
+      console.warn("Failed to log deployment override", err?.message || err);
+    }
+
+    res.json({ success: true, deployment: update.data });
+  } catch (err) {
+    console.error("POST /api/settings/deployments/:id/override error:", err);
+    res.status(500).json({ error: "Failed to override deployment" });
+  }
+});
+
 // GET /api/settings/preview – read draft row for /?stage=draft
 router.get("/preview", async (_req, res) => {
   try {
@@ -698,6 +1689,7 @@ router.get("/preview", async (_req, res) => {
       const localSettings = await loadLocalSettings();
       return res.json(stripMetaFields(localSettings));
     }
+    await processDeploymentSchedule();
     const sel = await supabase
       .from("settings_draft")
       .select("*")

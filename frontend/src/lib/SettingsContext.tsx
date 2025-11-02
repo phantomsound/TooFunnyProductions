@@ -74,6 +74,19 @@ const sanitizeSettings = (value: Settings | null | undefined): Settings => {
 type Stage = "live" | "draft";
 type Settings = Record<string, any>;
 
+type VersionSummary = {
+  id: string;
+  label: string | null;
+  note: string | null;
+  kind: string | null;
+  stage: string | null;
+  author_email: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  published_at?: string | null;
+  is_default?: boolean;
+};
+
 const DEFAULT_THEME = {
   accent: "#FFD700",
   background: "#050505",
@@ -148,15 +161,41 @@ type LockState = {
   holder_email: string | null;
   acquired_at: string | null;
   expires_at: string | null;
+  active_version_id?: string | null;
+  source_version_id?: string | null;
+  auto_saved_version_id?: string | null;
+  active_version?: VersionSummary | null;
+  source_version?: VersionSummary | null;
+  auto_saved_version?: VersionSummary | null;
 } | null;
 
 type AcquireOptions = {
   silent?: boolean;
   ttlSeconds?: number;
+  selection?: AcquireSelection;
 };
 
 type ReleaseOptions = {
   silent?: boolean;
+  autoSave?: boolean;
+  autoSaveLabel?: string | null;
+  autoSaveNote?: string | null;
+};
+
+export type AcquireSelection = {
+  mode: "resume" | "snapshot" | "new";
+  versionId?: string;
+  label?: string | null;
+  note?: string | null;
+  source?: "live" | "blank";
+  sourceVersionId?: string | null;
+};
+
+type PublishOptions = {
+  snapshotId?: string | null;
+  label?: string | null;
+  note?: string | null;
+  setDefault?: boolean;
 };
 
 type Ctx = {
@@ -170,7 +209,7 @@ type Ctx = {
   publishing: boolean;
   save: (payload?: Partial<Settings>) => Promise<void>; // saves draft only (no-op if stage=live)
   pullLive: () => Promise<void>;     // copies live -> draft and loads it
-  publish: () => Promise<void>;      // copies draft -> live and reloads live
+  publish: (options?: PublishOptions) => Promise<void>;      // copies draft -> live and reloads live
   reload: () => Promise<void>;       // reload current stage from server
   lock: LockState;
   hasLock: boolean;
@@ -178,7 +217,7 @@ type Ctx = {
   lockLoading: boolean;
   lockError: string | null;
   acquireLock: (options?: AcquireOptions) => Promise<boolean>;
-  releaseLock: (options?: ReleaseOptions) => Promise<void>;
+  releaseLock: (options?: ReleaseOptions) => Promise<VersionSummary | null | undefined>;
   refreshLock: () => Promise<void>;
 };
 
@@ -401,17 +440,20 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const acquireLock = useCallback(
     async (options: AcquireOptions = {}) => {
       if (!isAdminRoute || stage !== "draft") return false;
-      const { silent = false, ttlSeconds } = options;
+      const { silent = false, ttlSeconds, selection } = options;
       if (!silent) {
         setLockLoading(true);
         setLockError(null);
       }
       try {
+        const payload: Record<string, unknown> = {};
+        if (ttlSeconds) payload.ttlSeconds = ttlSeconds;
+        if (selection) payload.selection = selection;
         const response = await fetch(api("/api/settings/lock/acquire"), {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ttlSeconds }),
+          body: JSON.stringify(payload),
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -426,6 +468,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             return false;
           }
           throw new Error(data?.error || "Failed to acquire lock");
+        }
+        if (data?.draft && typeof data.draft === "object") {
+          const clean = sanitizeSettings(data.draft as Settings);
+          setSettings(clean);
+          setInitial(clean);
         }
         setLock(data.lock || null);
         if (!silent) setLockError(null);
@@ -445,29 +492,39 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const releaseLock = useCallback(
     async (options: ReleaseOptions = {}) => {
-      const { silent = false } = options;
+      const { silent = false, autoSave = false, autoSaveLabel = null, autoSaveNote = null } = options;
       if (!silent) {
         setLockLoading(true);
         setLockError(null);
       }
       try {
+        const payload: Record<string, unknown> = {};
+        if (autoSave) {
+          payload.autoSave = true;
+          if (autoSaveLabel) payload.autoSaveLabel = autoSaveLabel;
+          if (autoSaveNote) payload.autoSaveNote = autoSaveNote;
+        }
         const response = await fetch(api("/api/settings/lock/release"), {
           method: "POST",
           credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           if (!silent) setLockError(data?.error || "Failed to release lock");
           setLock(data.lock || null);
-          return;
+          return data?.autoSavedVersion || null;
         }
         setLock(null);
         if (!silent) setLockError(null);
+        return data?.autoSavedVersion || null;
       } catch (error) {
         if (!silent) {
           const message = error instanceof Error ? error.message : "Failed to release lock";
           setLockError(message);
         }
+        return null;
       } finally {
         if (!silent) setLockLoading(false);
       }
@@ -493,7 +550,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [load, stage]);
 
-  const publish = useCallback(async () => {
+  const publish = useCallback(async (options?: PublishOptions) => {
     if (publishing) return;
     setPublishing(true);
     try {
@@ -505,7 +562,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const r = await fetch(api("/api/settings/publish"), { method: "POST", credentials: "include" });
+      const payload: Record<string, unknown> = {};
+      if (options?.snapshotId) payload.snapshotId = options.snapshotId;
+      if (options?.label) payload.label = options.label;
+      if (options?.note) payload.note = options.note;
+      if (options?.setDefault) payload.setDefault = true;
+
+      const r = await fetch(api("/api/settings/publish"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
       const out = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(out?.error || "Failed to publish");
       // after publish, reload live and switch to live
@@ -525,12 +593,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (stage === "draft") {
-      acquireLock({ silent: true });
+      refreshLock();
     } else {
       setLock(null);
       setLockError(null);
     }
-  }, [stage, acquireLock, isAdminRoute]);
+  }, [stage, refreshLock, isAdminRoute]);
 
   useEffect(() => {
     if (!isAdminRoute || stage !== "draft" || !hasLock) return;

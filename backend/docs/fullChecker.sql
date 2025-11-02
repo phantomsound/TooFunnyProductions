@@ -277,6 +277,9 @@ with expected as (
     ('settings_lock',    'expires_at',                  'timestamp with time zone'),
     ('settings_lock',    'created_at',                  'timestamp with time zone'),
     ('settings_lock',    'updated_at',                  'timestamp with time zone'),
+    ('settings_lock',    'active_version_id',           'uuid'),
+    ('settings_lock',    'source_version_id',           'uuid'),
+    ('settings_lock',    'auto_saved_version_id',       'uuid'),
 
     ('settings_versions','id',                          'uuid'),
     ('settings_versions','stage',                       'text'),
@@ -284,7 +287,28 @@ with expected as (
     ('settings_versions','author_email',                'text'),
     ('settings_versions','data',                        'jsonb'),
     ('settings_versions','status',                      'text'),
-    ('settings_versions','created_at',                  'timestamp with time zone')
+    ('settings_versions','created_at',                  'timestamp with time zone'),
+    ('settings_versions','note',                        'text'),
+    ('settings_versions','kind',                        'text'),
+    ('settings_versions','updated_at',                  'timestamp with time zone'),
+    ('settings_versions','published_at',                'timestamp with time zone'),
+    ('settings_versions','is_default',                  'boolean'),
+
+    ('settings_deployments','id',                       'uuid'),
+    ('settings_deployments','snapshot_id',              'uuid'),
+    ('settings_deployments','fallback_snapshot_id',     'uuid'),
+    ('settings_deployments','start_at',                 'timestamp with time zone'),
+    ('settings_deployments','end_at',                   'timestamp with time zone'),
+    ('settings_deployments','status',                   'text'),
+    ('settings_deployments','created_at',               'timestamp with time zone'),
+    ('settings_deployments','updated_at',               'timestamp with time zone'),
+    ('settings_deployments','created_by',               'text'),
+    ('settings_deployments','updated_by',               'text'),
+    ('settings_deployments','cancelled_at',             'timestamp with time zone'),
+    ('settings_deployments','cancelled_by',             'text'),
+    ('settings_deployments','override_reason',          'text'),
+    ('settings_deployments','activated_at',             'timestamp with time zone'),
+    ('settings_deployments','completed_at',             'timestamp with time zone')
   ) as v(table_name, column_name, expected_type)
 ), actual as (
   select table_schema, table_name, column_name, data_type

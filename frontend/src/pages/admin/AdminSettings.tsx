@@ -12,7 +12,8 @@ import AdminSettingsMerch from "./AdminSettingsMerch";
 import AdminSettingsContact from "./AdminSettingsContact";
 import AdminSettingsSnapshots from "./AdminSettingsSnapshots";
 import AdminPublishConfirm from "./AdminPublishConfirm";
-import { useSettings } from "../../lib/SettingsContext";
+import AdminLockAcquireModal from "./AdminLockAcquireModal";
+import { useSettings, type AcquireSelection } from "../../lib/SettingsContext";
 
 const TABS = ["home", "about", "events", "media", "merch", "contact"] as const;
 type Tab = (typeof TABS)[number];
@@ -21,6 +22,7 @@ export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [showAcquireModal, setShowAcquireModal] = useState(false);
   const {
     stage,
     setStage,
@@ -28,7 +30,6 @@ export default function AdminSettings() {
     saving,
     save,
     pullLive,
-    publish,
     publishing,
     settings,
     lock,
@@ -42,6 +43,16 @@ export default function AdminSettings() {
   } = useSettings();
 
   const previewUrl = useMemo(() => `${window.location.origin}/?stage=draft`, []);
+
+  const handleAcquireSelection = useCallback(
+    async (selection: AcquireSelection) => {
+      const success = await acquireLock({ silent: false, selection });
+      if (!success) {
+        throw new Error(lockError || "Failed to acquire lock");
+      }
+    },
+    [acquireLock, lockError]
+  );
 
   const lockOwner = lock?.holder_email || null;
   const lockStatus = hasLock
@@ -101,7 +112,7 @@ export default function AdminSettings() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => acquireLock({ silent: false })}
+                    onClick={() => setShowAcquireModal(true)}
                     disabled={lockLoading || stage !== "draft"}
                     className="rounded border border-blue-500 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -201,6 +212,11 @@ export default function AdminSettings() {
         <div className="rounded-lg bg-white p-6 shadow-md">{renderTab()}</div>
       </div>
 
+      <AdminLockAcquireModal
+        open={showAcquireModal}
+        onClose={() => setShowAcquireModal(false)}
+        onSelect={handleAcquireSelection}
+      />
       <AdminSettingsSnapshots
         open={showSnapshots}
         onClose={() => setShowSnapshots(false)}
@@ -210,9 +226,6 @@ export default function AdminSettings() {
         open={showPublishConfirm}
         draftUpdatedAt={typeof settings?.updated_at === "string" ? settings?.updated_at : null}
         onClose={() => setShowPublishConfirm(false)}
-        onConfirm={async () => {
-          await publish();
-        }}
       />
     </div>
   );
