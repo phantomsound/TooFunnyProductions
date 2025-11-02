@@ -8,6 +8,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useSettings } from "../../lib/SettingsContext";
 import AdminUserBar from "./AdminUserBar";
+import AdminMessagingCenter from "./messaging/AdminMessagingCenter";
 
 const normalizeQuickLinks = (value: unknown) => {
   if (!Array.isArray(value)) return [];
@@ -170,6 +171,7 @@ export default function AdminShell() {
           </div>
         </main>
       </div>
+      <AdminMessagingCenter />
     </div>
   );
 }

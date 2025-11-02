@@ -14,6 +14,9 @@ import settingsRoutes from "./routes/settings.js";
 import adminRoutes from "./routes/admin.js";
 import contactRoutes from "./routes/contact.js"; // <-- import after core
 import storageRoutes from "./routes/storage.js";
+import messagingRoutes, { registerMessagingHub } from "./routes/messaging.js";
+import { createMessagingHub } from "./lib/messagingHub.js";
+import { bootstrapMessagingStore } from "./lib/messagingStore.js";
 
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
@@ -45,25 +48,25 @@ app.use(
 app.use(express.json());
 
 // Sessions must be mounted before initAuth()
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "change-me",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: isProd,
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-    },
-  })
-);
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET || "change-me",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProd,
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+  },
+});
+app.use(sessionMiddleware);
 
 // Auth (adds /api/auth/*)
 initAuth(app);
 
 // API routes
 app.use("/api/settings", settingsRoutes);
+app.use("/api/admin/messaging", messagingRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/storage", storageRoutes);
@@ -99,4 +102,11 @@ if (!servedFrontend) {
 }
 
 const port = process.env.PORT || 5000;
-app.listen(port, () => console.log(`API listening on :${port}`));
+const server = app.listen(port, () => console.log(`API listening on :${port}`));
+
+bootstrapMessagingStore().catch((err) => {
+  console.warn("Failed to initialize messaging store:", err?.message || err);
+});
+
+const messagingHub = createMessagingHub({ server, sessionMiddleware });
+registerMessagingHub(messagingHub);
