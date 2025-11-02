@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
 import { normalizeHex, pickTextColor } from "../../lib/color";
+import CollapsibleSection from "../../components/CollapsibleSection";
 import SettingsColorPicker from "./SettingsColorPicker";
 import SettingsLinkManager from "./SettingsLinkManager";
 import SettingsUploader from "./SettingsUploader";
@@ -284,17 +285,12 @@ export default function AdminSettingsGeneral(): JSX.Element {
         </div>
       </section>
 
-      {/* Theme Colors */}
-      <section>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="mb-1 text-xl font-semibold text-yellow-200">Theme Colors</h3>
-            <p className="text-sm text-neutral-300">
-              Use these pickers to set the accent and background colors that appear across the public site. Toggle the switch to
-              allow each page to manage its own palette instead.
-            </p>
-          </div>
-          <label className="flex items-center gap-2 text-sm font-semibold text-neutral-200">
+      <CollapsibleSection
+        title="Theme Colors"
+        description="Use these pickers to set the accent and background colors that appear across the public site. Toggle the switch to allow each page to manage its own palette instead."
+        defaultOpen={usingGlobalTheme}
+        headerActions={(
+          <label className="flex items-center gap-2 rounded border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-sm font-semibold text-neutral-200 shadow-sm">
             <input
               type="checkbox"
               className="h-4 w-4 accent-yellow-400"
@@ -302,9 +298,10 @@ export default function AdminSettingsGeneral(): JSX.Element {
               onChange={(event) => update("theme_use_global", event.target.checked)}
               disabled={disabled}
             />
-            <span>Apply theme colors site-wide</span>
+            <span>Apply site-wide</span>
           </label>
-        </div>
+        )}
+      >
         <div className="grid gap-4 md:grid-cols-2">
           <SettingsColorPicker
             label="Accent Color"
@@ -337,12 +334,12 @@ export default function AdminSettingsGeneral(): JSX.Element {
             disabled={disabled || !usingGlobalTheme}
           />
         </div>
-        <p className="mt-2 text-xs text-neutral-400">
+        <p className="text-xs text-neutral-400">
           {usingGlobalTheme
             ? "These colors instantly theme the navigation, footer, and global accents."
             : "With the global theme disabled, colors fall back to each page’s defaults so you can customize them individually."}
         </p>
-      </section>
+      </CollapsibleSection>
 
       {/* Footer */}
       <section>

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "../../lib/SettingsContext";
 import SettingsColorPicker from "./SettingsColorPicker";
+import CollapsibleSection from "../../components/CollapsibleSection";
 
 type Props = {
   prefix: string;
@@ -88,16 +89,39 @@ export default function AdminPageThemeOverride({ prefix, pageName }: Props): JSX
     );
   }, [settings, keys]);
 
+  const statusLabel = usingGlobalTheme
+    ? "Following global"
+    : overridesActive
+    ? "Overrides active"
+    : "Using defaults";
+
+  const statusClasses = usingGlobalTheme
+    ? "border-neutral-700 bg-neutral-900/70 text-neutral-300"
+    : overridesActive
+    ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200"
+    : "border-neutral-700 bg-neutral-900/70 text-neutral-200";
+
   return (
-    <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="space-y-1">
-        <h3 className="text-lg font-semibold">Theme overrides</h3>
-        <p className="text-sm text-gray-600">
-          {usingGlobalTheme
-            ? "General Settings currently applies theme colors site-wide. Turn off \"Apply theme colors site-wide\" to enable page-level overrides."
-            : `Customize the ${pageName.toLowerCase()} colors without affecting the rest of the site.`}
+    <CollapsibleSection
+      title={`${pageName} theme overrides`}
+      description="Keep this page on-brand without impacting other sections."
+      defaultOpen={!usingGlobalTheme && overridesActive}
+      headerActions={
+        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${statusClasses}`}>
+          {statusLabel}
+        </span>
+      }
+    >
+      {usingGlobalTheme ? (
+        <p className="text-sm text-neutral-400">
+          General settings currently apply theme colors site-wide. Turn off the {" "}
+          <span className="font-semibold text-yellow-200">Apply site-wide</span> toggle to enable page-level overrides.
         </p>
-      </div>
+      ) : (
+        <p className="text-sm text-neutral-300">
+          Customize the {pageName.toLowerCase()} colors without affecting the rest of the site.
+        </p>
+      )}
 
       <div className={`grid gap-6 md:grid-cols-2 ${pickerDisabled ? "opacity-60" : ""}`}>
         <SettingsColorPicker
@@ -126,8 +150,8 @@ export default function AdminPageThemeOverride({ prefix, pageName }: Props): JSX
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs uppercase tracking-wide text-gray-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-wide text-neutral-400">
+        <span>
           Overrides {overridesActive ? "active" : "follow global colors"}
         </span>
         <button
@@ -136,13 +160,13 @@ export default function AdminPageThemeOverride({ prefix, pageName }: Props): JSX
           disabled={pickerDisabled || !overridesActive}
           className={`rounded border px-3 py-1 text-sm font-semibold transition ${
             pickerDisabled || !overridesActive
-              ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+              ? "cursor-not-allowed border-neutral-800 bg-neutral-900/60 text-neutral-600"
+              : "border-neutral-700 bg-neutral-900 text-neutral-200 hover:border-yellow-300 hover:text-yellow-200"
           }`}
         >
           Clear overrides
         </button>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
