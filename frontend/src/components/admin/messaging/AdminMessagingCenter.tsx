@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../../../lib/api";
-import { useSettings } from "../../../lib/SettingsContext";
 import useAuth from "../../../hooks/useAuth";
 
 type PresenceMap = Record<string, { status: "online" | "offline"; updated_at: string }>;
@@ -97,10 +96,9 @@ const sanitizeRoster = (input: unknown): RosterProfile[] => {
 const emptyPresence: PresenceMap = {};
 
 export default function AdminMessagingCenter(): JSX.Element {
-  const { settings } = useSettings();
   const { user } = useAuth();
 
-  const roster = useMemo(() => sanitizeRoster(settings?.admin_profiles), [settings?.admin_profiles]);
+  const [roster, setRoster] = useState<RosterProfile[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -153,6 +151,28 @@ export default function AdminMessagingCenter(): JSX.Element {
       }
     };
     load();
+    return () => abortController.abort();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const abortController = new AbortController();
+    const loadRoster = async () => {
+      try {
+        const response = await fetch(api("/api/admin/messaging/roster"), {
+          credentials: "include",
+          signal: abortController.signal,
+        });
+        if (!response.ok) return;
+        const payload: { roster?: unknown } = await response.json();
+        setRoster(sanitizeRoster(payload.roster));
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          console.warn("Failed to load messaging roster", err);
+        }
+      }
+    };
+    loadRoster();
     return () => abortController.abort();
   }, [open]);
 
@@ -396,7 +416,7 @@ export default function AdminMessagingCenter(): JSX.Element {
               <aside className="flex h-[280px] flex-none flex-col border-b border-neutral-900 px-4 py-4 md:h-auto md:w-72 md:border-b-0 md:border-r">
                 <div className="mb-4 flex flex-wrap gap-2">
                   {activeRoster.length === 0 ? (
-                    <span className="text-xs text-neutral-500">Add admin profiles in General Settings to populate the roster.</span>
+                    <span className="text-xs text-neutral-500">Enable messaging access for admins under Admin Access to populate the roster.</span>
                   ) : (
                     activeRoster.map((profile) => (
                       <span

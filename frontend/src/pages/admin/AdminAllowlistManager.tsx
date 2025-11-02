@@ -6,6 +6,7 @@ interface AllowlistResponse {
   combined?: string[];
   editable?: string[];
   env?: string[];
+  messagingOptIn?: string[];
   error?: string;
 }
 
@@ -25,6 +26,7 @@ export default function AdminAllowlistManager(): JSX.Element {
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [editable, setEditable] = useState<string[]>([]);
   const [envEmails, setEnvEmails] = useState<string[]>([]);
+  const [messagingOptIn, setMessagingOptIn] = useState<string[]>([]);
   const [newEmail, setNewEmail] = useState("");
 
   const allowedCount = useMemo(() => {
@@ -33,6 +35,15 @@ export default function AdminAllowlistManager(): JSX.Element {
     envEmails.forEach((email) => set.add(email));
     return set.size;
   }, [editable, envEmails]);
+
+  const allowedAdmins = useMemo(() => {
+    const set = new Set<string>();
+    editable.forEach((email) => set.add(email));
+    envEmails.forEach((email) => set.add(email));
+    return Array.from(set).sort();
+  }, [editable, envEmails]);
+
+  const messagingSet = useMemo(() => new Set(messagingOptIn), [messagingOptIn]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,10 +58,12 @@ export default function AdminAllowlistManager(): JSX.Element {
       const payload: AllowlistResponse = await response.json();
       setEditable(Array.isArray(payload.editable) ? payload.editable : []);
       setEnvEmails(Array.isArray(payload.env) ? payload.env : []);
+      setMessagingOptIn(Array.isArray(payload.messagingOptIn) ? payload.messagingOptIn : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load allowlist");
       setEditable([]);
       setEnvEmails([]);
+      setMessagingOptIn([]);
     } finally {
       setLoading(false);
     }
@@ -80,6 +93,7 @@ export default function AdminAllowlistManager(): JSX.Element {
     setFormError(null);
     setFormSuccess(null);
     setEditable((prev) => prev.filter((value) => value !== email));
+    setMessagingOptIn((prev) => prev.filter((value) => value !== email));
   };
 
   const handleSave = async () => {
@@ -87,11 +101,13 @@ export default function AdminAllowlistManager(): JSX.Element {
     setFormSuccess(null);
     setSaving(true);
     try {
+      const allowedSet = new Set<string>([...editable, ...envEmails]);
+      const normalizedMessaging = messagingOptIn.filter((email) => allowedSet.has(email));
       const response = await fetch(api("/api/admin/allowlist"), {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emails: editable }),
+        body: JSON.stringify({ emails: editable, messagingOptIn: normalizedMessaging }),
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as AllowlistResponse;
@@ -100,6 +116,7 @@ export default function AdminAllowlistManager(): JSX.Element {
       const payload: AllowlistResponse = await response.json();
       setEditable(Array.isArray(payload.editable) ? payload.editable : []);
       setEnvEmails(Array.isArray(payload.env) ? payload.env : []);
+      setMessagingOptIn(Array.isArray(payload.messagingOptIn) ? payload.messagingOptIn : normalizedMessaging);
       setFormSuccess("Allowlist updated successfully.");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to save changes.");
@@ -113,6 +130,17 @@ export default function AdminAllowlistManager(): JSX.Element {
       event.preventDefault();
       handleAdd();
     }
+  };
+
+  const handleToggleMessaging = (email: string) => {
+    setFormError(null);
+    setFormSuccess(null);
+    setMessagingOptIn((prev) => {
+      if (prev.includes(email)) {
+        return prev.filter((value) => value !== email);
+      }
+      return [...prev, email];
+    });
   };
 
   return (
@@ -229,6 +257,49 @@ export default function AdminAllowlistManager(): JSX.Element {
             </ul>
           )}
         </div>
+      </div>
+
+      <div className="mt-8 rounded-xl border border-neutral-800 bg-neutral-900/70 p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-yellow-200">Admin Messaging Access</h3>
+            <p className="text-xs text-neutral-400">
+              Opt in existing admins to appear in the Admin Messages roster and receive chat notifications.
+            </p>
+          </div>
+          <div className="rounded border border-neutral-700 bg-neutral-800 px-3 py-1 text-xs uppercase tracking-[0.2em] text-neutral-400">
+            Opted in <span className="ml-2 text-sm font-semibold text-yellow-200">{messagingOptIn.length}</span>
+          </div>
+        </div>
+
+        {allowedAdmins.length === 0 ? (
+          <p className="mt-4 rounded border border-dashed border-neutral-700 bg-neutral-900/80 px-3 py-2 text-sm text-neutral-400">
+            Add admins above to manage their messaging access.
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {allowedAdmins.map((email) => (
+              <li
+                key={email}
+                className="flex items-center justify-between gap-3 rounded border border-neutral-800 bg-neutral-900/70 px-3 py-2 text-sm text-neutral-100"
+              >
+                <span className="truncate" title={email}>
+                  {email}
+                </span>
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-yellow-400"
+                    checked={messagingSet.has(email)}
+                    onChange={() => handleToggleMessaging(email)}
+                    disabled={loading || saving}
+                  />
+                  Enable messages
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="mt-6 flex flex-wrap justify-end gap-2">

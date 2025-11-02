@@ -6,8 +6,10 @@ import {
   getAllowlist,
   getEditableAllowlist,
   getEnvAllowlist,
+  getMessagingOptIn,
   normalizeAllowlistInput,
   setEditableAllowlist,
+  setMessagingOptIn,
 } from "../lib/allowlist.js";
 import {
   exportContactResponses,
@@ -127,6 +129,7 @@ router.get("/allowlist", requireAdmin, (_req, res) => {
     combined: getAllowlist(),
     editable: getEditableAllowlist(),
     env: getEnvAllowlist(),
+    messagingOptIn: getMessagingOptIn(),
   });
 });
 
@@ -138,15 +141,26 @@ router.put("/allowlist", requireAdmin, async (req, res) => {
     const combined = getAllowlist();
     const env = getEnvAllowlist();
 
+    const allowedSet = new Set(combined);
+    let messagingOptIn = getMessagingOptIn().filter((email) => allowedSet.has(email));
+
+    if (req.body?.messagingOptIn !== undefined) {
+      const requestedOptIn = normalizeAllowlistInput(req.body.messagingOptIn);
+      messagingOptIn = requestedOptIn.filter((email) => allowedSet.has(email));
+    }
+
+    await setMessagingOptIn(messagingOptIn);
+
     try {
       await logAdminAction(req.user?.email || "unknown", "allowlist_update", {
         count: editable.length,
+        messagingOptIn: messagingOptIn.length,
       });
     } catch (err) {
       console.warn("Failed to log allowlist update", err?.message || err);
     }
 
-    res.json({ combined, editable, env });
+    res.json({ combined, editable, env, messagingOptIn });
   } catch (err) {
     console.error("PUT /api/admin/allowlist error:", err);
     res.status(500).json({ error: "Failed to update allowlist" });

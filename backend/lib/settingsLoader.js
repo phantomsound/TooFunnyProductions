@@ -62,18 +62,3 @@ export async function loadSettings(stage = "draft") {
   return fallback || {};
 }
 
-export async function loadAdminProfiles(stage = "draft") {
-  const settings = await loadSettings(stage);
-  const value = settings?.admin_profiles;
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item) => item && typeof item === "object")
-    .map((item) => ({
-      id: typeof item.id === "string" ? item.id : null,
-      name: typeof item.name === "string" ? item.name : "",
-      email: typeof item.email === "string" ? item.email.toLowerCase() : "",
-      avatar_url: typeof item.avatar_url === "string" ? item.avatar_url : "",
-    }))
-    .filter((item) => item.email);
-}
-

@@ -17,7 +17,7 @@ import {
   searchConversations,
   getUnreadCountsFor,
 } from "../lib/messagingStore.js";
-import { loadAdminProfiles } from "../lib/settingsLoader.js";
+import { getAllowlist, getMessagingOptIn } from "../lib/allowlist.js";
 
 const router = Router();
 
@@ -165,9 +165,29 @@ router.get("/unread", requireAdmin, async (req, res) => {
   }
 });
 
-router.get("/roster", requireAdmin, async (_req, res) => {
+function deriveName(email) {
+  const [localPart] = String(email || "").split("@");
+  if (!localPart) return email;
+  return localPart
+    .split(/[-._\s]+/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+router.get("/roster", requireAdmin, (_req, res) => {
   try {
-    const roster = await loadAdminProfiles("draft");
+    const allowed = getAllowlist();
+    const optedIn = new Set(getMessagingOptIn());
+    const roster = allowed
+      .filter((email) => optedIn.has(email))
+      .sort((a, b) => a.localeCompare(b))
+      .map((email) => ({
+        id: email,
+        email,
+        name: deriveName(email),
+        avatar_url: "",
+      }));
     res.json({ roster });
   } catch (err) {
     console.error("GET /api/admin/messaging/roster error:", err);
