@@ -433,7 +433,7 @@ export default function AdminMediaManager() {
 
   const refresh = () => load();
 
-  const onUpload = async (fileList) => {
+  const onUpload = async (fileList: FileList | null | undefined) => {
     if (!fileList || fileList.length === 0) return;
     setUploading(true);
     setError(null);
