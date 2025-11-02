@@ -109,6 +109,12 @@ export default function AdminMessagingCenter(): JSX.Element {
   const [composerValue, setComposerValue] = useState("");
   const [sending, setSending] = useState(false);
   const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newSubject, setNewSubject] = useState("");
+  const [newMessage, setNewMessage] = useState("");
+  const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
+  const [creatingError, setCreatingError] = useState<string | null>(null);
+  const [creatingBusy, setCreatingBusy] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -214,6 +220,7 @@ export default function AdminMessagingCenter(): JSX.Element {
 
   const handleSelectConversation = useCallback(
     async (id: string) => {
+      setCreating(false);
       setActiveId(id);
       await fetchConversation(id);
       await markRead(id);
@@ -320,6 +327,127 @@ export default function AdminMessagingCenter(): JSX.Element {
       scrollToBottom();
     }
   }, [activeConversation, scrollToBottom]);
+
+  const resetComposer = useCallback(() => {
+    setNewSubject("");
+    setNewMessage("");
+    setSelectedRecipients([]);
+    setCreatingError(null);
+  }, []);
+
+  const beginCreateConversation = useCallback(() => {
+    setCreating(true);
+    setActiveId(null);
+    setActiveConversation(null);
+    resetComposer();
+  }, [resetComposer]);
+
+  useEffect(() => {
+    if (!open) {
+      setCreating(false);
+      resetComposer();
+    }
+  }, [open, resetComposer]);
+
+  const toggleRecipient = useCallback(
+    (email: string) => {
+      setSelectedRecipients((prev) => {
+        if (prev.includes(email)) {
+          return prev.filter((item) => item !== email);
+        }
+        return [...prev, email];
+      });
+    },
+    []
+  );
+
+  const handleCreateConversation = useCallback(
+    async (event: React.FormEvent) => {
+      event.preventDefault();
+      if (creatingBusy) return;
+
+      const subject = newSubject.trim();
+      const body = newMessage.trim();
+      if (!subject || !body || selectedRecipients.length === 0) {
+        setCreatingError("Subject, message, and at least one recipient are required.");
+        return;
+      }
+
+      setCreatingBusy(true);
+      setCreatingError(null);
+      try {
+        const participants = selectedRecipients.map((email) => {
+          const profile = roster.find((item) => item.email === email);
+          return profile
+            ? { email: profile.email, name: profile.name, avatar_url: profile.avatar_url }
+            : { email };
+        });
+
+        const createResponse = await fetch(api("/api/admin/messaging/conversations"), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subject, participants }),
+        });
+        if (!createResponse.ok) {
+          throw new Error(`Failed to create conversation (${createResponse.status})`);
+        }
+        const createPayload: { conversation: ConversationDetail } = await createResponse.json();
+
+        const sendResponse = await fetch(api(`/api/admin/messaging/conversations/${createPayload.conversation.id}/messages`), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body }),
+        });
+        if (!sendResponse.ok) {
+          throw new Error(`Failed to send message (${sendResponse.status})`);
+        }
+        const sendPayload: { conversation: ConversationDetail; message: MessageRecord } = await sendResponse.json();
+
+        setCreating(false);
+        resetComposer();
+        setComposerValue("");
+        setActiveId(sendPayload.conversation.id);
+        setActiveConversation({ ...sendPayload.conversation, preview: sendPayload.message });
+        setConversations((prev) => {
+          const existing = prev.find((item) => item.id === sendPayload.conversation.id);
+          if (existing) {
+            return prev
+              .map((item) =>
+                item.id === sendPayload.conversation.id
+                  ? {
+                      ...item,
+                      preview: sendPayload.message,
+                      last_message_at: sendPayload.conversation.last_message_at,
+                      subject: sendPayload.conversation.subject,
+                    }
+                  : item
+              )
+              .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+          }
+          const next: ConversationSummary = {
+            id: sendPayload.conversation.id,
+            subject: sendPayload.conversation.subject,
+            archived_at: sendPayload.conversation.archived_at,
+            last_message_at: sendPayload.conversation.last_message_at,
+            preview: sendPayload.message,
+          };
+          return [next, ...prev].sort(
+            (a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          );
+        });
+        scrollToBottom();
+      } catch (err) {
+        console.error(err);
+        const message = err instanceof Error ? err.message : "Failed to start conversation";
+        setCreatingError(message);
+      } finally {
+        setCreatingBusy(false);
+      }
+    },
+    [creatingBusy, newSubject, newMessage, selectedRecipients, roster, resetComposer, scrollToBottom]
+  );
 
   const handleSend = useCallback(
     async (event: React.FormEvent) => {
@@ -438,7 +566,14 @@ export default function AdminMessagingCenter(): JSX.Element {
                   )}
                 </div>
 
-                <div className="mb-3">
+                <div className="mb-3 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={beginCreateConversation}
+                    className="inline-flex items-center justify-center rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow shadow-blue-500/40 transition hover:bg-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-300"
+                  >
+                    New message
+                  </button>
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
@@ -490,7 +625,106 @@ export default function AdminMessagingCenter(): JSX.Element {
               </aside>
 
               <section className="flex min-h-[280px] flex-1 flex-col bg-neutral-950/70">
-                {activeConversation ? (
+                {creating ? (
+                  <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-yellow-200">Start a new conversation</h3>
+                      <p className="text-xs text-neutral-400">
+                        Choose who should receive the message, set a subject, and share your update. Recipients will be notified the next time they log into the admin portal.
+                      </p>
+                    </div>
+                    <form onSubmit={handleCreateConversation} className="flex flex-1 flex-col gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">
+                          Recipients
+                        </label>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {activeRoster.length === 0 ? (
+                            <span className="text-xs text-neutral-500">No teammates are currently enabled for messaging.</span>
+                          ) : (
+                            activeRoster.map((profile) => {
+                              const checked = selectedRecipients.includes(profile.email);
+                              return (
+                                <button
+                                  type="button"
+                                  key={profile.id}
+                                  onClick={() => toggleRecipient(profile.email)}
+                                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                                    checked
+                                      ? "border-yellow-300 bg-yellow-400/20 text-yellow-100"
+                                      : "border-neutral-800 bg-neutral-900/80 text-neutral-300 hover:border-neutral-700"
+                                  }`}
+                                >
+                                  <span
+                                    className={`h-2 w-2 rounded-full ${
+                                      presence[profile.email]?.status === "online"
+                                        ? "bg-emerald-400"
+                                        : "bg-neutral-500"
+                                    }`}
+                                  />
+                                  {profile.name || profile.email}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">
+                          Subject
+                        </label>
+                        <input
+                          value={newSubject}
+                          onChange={(event) => setNewSubject(event.target.value)}
+                          placeholder="What’s this message about?"
+                          className="w-full rounded-2xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
+                          disabled={creatingBusy}
+                        />
+                      </div>
+
+                      <div className="flex flex-1 flex-col">
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">
+                          Message
+                        </label>
+                        <textarea
+                          value={newMessage}
+                          onChange={(event) => setNewMessage(event.target.value)}
+                          className="min-h-[140px] flex-1 rounded-2xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-yellow-300 focus:outline-none focus:ring-0"
+                          placeholder="Write your message to the team…"
+                          disabled={creatingBusy}
+                        />
+                      </div>
+
+                      {creatingError ? (
+                        <div className="rounded-2xl border border-red-500/60 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+                          {creatingError}
+                        </div>
+                      ) : null}
+
+                      <div className="flex flex-col-reverse gap-3 pt-2 md:flex-row md:items-center md:justify-between">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCreating(false);
+                            resetComposer();
+                          }}
+                          className="inline-flex items-center justify-center rounded-full border border-neutral-700 px-5 py-2 text-sm font-semibold text-neutral-300 transition hover:border-neutral-500 hover:text-white"
+                          disabled={creatingBusy}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={creatingBusy || selectedRecipients.length === 0}
+                          className="inline-flex h-11 items-center justify-center rounded-full bg-yellow-400 px-6 text-sm font-semibold text-black shadow-lg shadow-yellow-400/40 transition hover:bg-yellow-300 focus:outline-none focus:ring-4 focus:ring-yellow-200 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {creatingBusy ? "Sending…" : "Send message"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                ) : activeConversation ? (
                   <>
                     <header className="border-b border-neutral-900 px-6 py-4">
                       <div className="flex items-center justify-between">
