@@ -267,8 +267,8 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
                       />
                     </td>
                     <td className="px-3 py-2 text-neutral-100">
-                      <label htmlFor={radioId} className="block cursor-pointer">
-                        <div className="font-semibold">
+                      <label htmlFor={radioId} className="block cursor-pointer text-neutral-100">
+                        <div className="font-semibold text-neutral-50">
                           {version.label || "Untitled snapshot"}
                         </div>
                         {version.note ? (
