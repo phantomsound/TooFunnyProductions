@@ -267,8 +267,8 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
                       />
                     </td>
                     <td className="px-3 py-2 text-neutral-100">
-                      <label htmlFor={radioId} className="block cursor-pointer">
-                        <div className="font-semibold">
+                      <label htmlFor={radioId} className="block cursor-pointer text-neutral-100">
+                        <div className="font-semibold text-neutral-50">
                           {version.label || "Untitled snapshot"}
                         </div>
                         {version.note ? (
@@ -391,8 +391,6 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
       </div>
     );
   };
-
-  if (!open) return null;
 
   const confirmDisabled = mode === "publish"
     ? confirming || !acknowledged || !publishSelectionValid
@@ -587,6 +585,8 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
     [overrideDeployment]
   );
 
+  if (!open) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
       <div className="relative w-full max-w-4xl rounded-xl bg-neutral-900 text-neutral-100 shadow-2xl">
@@ -651,8 +651,8 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
 
           {mode === "publish" ? (
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-3 text-sm text-neutral-200">
-                <label className="flex items-center gap-2">
+              <div className="flex flex-wrap gap-3 text-sm text-neutral-100">
+                <label className="flex items-center gap-2 text-neutral-100">
                   <input
                     type="radio"
                     value="current"
@@ -662,7 +662,7 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
                   />
                   Publish the current draft as-is
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-neutral-100">
                   <input
                     type="radio"
                     value="draft"
@@ -672,7 +672,7 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
                   />
                   Publish from saved draft snapshot
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-neutral-100">
                   <input
                     type="radio"
                     value="published"
@@ -685,8 +685,13 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
               </div>
 
               {sourceType === "current" ? (
-                <div className="rounded border border-yellow-400/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-100">
-                  The current draft will be published. Consider adding a label and note below so it is easy to find later.
+                <div className="rounded border border-yellow-400/60 bg-yellow-500/10 px-4 py-3 text-yellow-50">
+                  <p className="text-sm font-semibold text-yellow-100">
+                    You are publishing the current draft.
+                  </p>
+                  <p className="mt-1 text-sm text-yellow-50">
+                    Add a label and quick note below so it is easy to find again later.
+                  </p>
                 </div>
               ) : loading ? (
                 <div className="py-8 text-center text-sm text-neutral-400">Loading saved snapshots…</div>
@@ -750,8 +755,8 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
                 Scheduled deployments cannot overlap. Set the start and end window, and choose a fallback snapshot that will auto-restore when the window closes.
               </div>
 
-              <div className="flex flex-wrap gap-3 text-sm text-neutral-200">
-                <label className="flex items-center gap-2">
+              <div className="flex flex-wrap gap-3 text-sm text-neutral-100">
+                <label className="flex items-center gap-2 text-neutral-100">
                   <input
                     type="radio"
                     value="draft"
@@ -761,7 +766,7 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
                   />
                   Schedule a draft snapshot
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-neutral-100">
                   <input
                     type="radio"
                     value="published"
