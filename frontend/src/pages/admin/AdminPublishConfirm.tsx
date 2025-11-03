@@ -392,8 +392,6 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
     );
   };
 
-  if (!open) return null;
-
   const confirmDisabled = mode === "publish"
     ? confirming || !acknowledged || !publishSelectionValid
     : confirming || !scheduleSelectionValid;
@@ -587,6 +585,8 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
     [overrideDeployment]
   );
 
+  if (!open) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
       <div className="relative w-full max-w-4xl rounded-xl bg-neutral-900 text-neutral-100 shadow-2xl">
@@ -685,8 +685,13 @@ const AdminPublishConfirm: React.FC<AdminPublishConfirmProps> = ({ open, draftUp
               </div>
 
               {sourceType === "current" ? (
-                <div className="rounded border border-yellow-400/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-100">
-                  The current draft will be published. Consider adding a label and note below so it is easy to find later.
+                <div className="rounded border border-yellow-400/60 bg-yellow-500/10 px-4 py-3 text-yellow-50">
+                  <p className="text-sm font-semibold text-yellow-100">
+                    You are publishing the current draft.
+                  </p>
+                  <p className="mt-1 text-sm text-yellow-50">
+                    Add a label and quick note below so it is easy to find again later.
+                  </p>
                 </div>
               ) : loading ? (
                 <div className="py-8 text-center text-sm text-neutral-400">Loading saved snapshots…</div>

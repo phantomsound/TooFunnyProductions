@@ -490,66 +490,81 @@ async function loadDeployment(id) {
 
 async function processDeploymentSchedule() {
   if (!supabase) throw new Error("Supabase not configured.");
+
   const now = new Date();
   const nowIso = now.toISOString();
-  const deployments = await listDeployments();
+
+  let deployments;
+  try {
+    deployments = await listDeployments();
+  } catch (err) {
+    console.error("Failed to load deployment schedule:", err?.message || err);
+    return;
+  }
 
   for (const deployment of deployments) {
-    const status = deployment.status;
-    if (status === DEPLOYMENT_STATUS_CANCELLED || status === DEPLOYMENT_STATUS_COMPLETED) continue;
+    try {
+      const status = deployment.status;
+      if (status === DEPLOYMENT_STATUS_CANCELLED || status === DEPLOYMENT_STATUS_COMPLETED) continue;
 
-    const startAt = deployment.start_at ? new Date(deployment.start_at) : null;
-    const endAt = deployment.end_at ? new Date(deployment.end_at) : null;
+      const startAt = deployment.start_at ? new Date(deployment.start_at) : null;
+      const endAt = deployment.end_at ? new Date(deployment.end_at) : null;
 
-    if (status === DEPLOYMENT_STATUS_SCHEDULED && startAt && startAt <= now) {
-      await applySnapshotToStage(deployment.snapshot_id, "live", deployment.created_by, "scheduled_start");
-      const upd = await supabase
-        .from("settings_deployments")
-        .update({
-          status: DEPLOYMENT_STATUS_RUNNING,
-          activated_at: nowIso,
-          updated_at: nowIso,
-        })
-        .eq("id", deployment.id);
-      if (upd.error) throw upd.error;
-      try {
-        await logAdminAction(deployment.created_by || "system", "settings.schedule.started", {
-          deploymentId: deployment.id,
-          snapshotId: deployment.snapshot_id,
-        });
-      } catch (err) {
-        console.warn("Failed to log schedule start", err?.message || err);
-      }
-    } else if (status === DEPLOYMENT_STATUS_RUNNING) {
-      const shouldEnd = endAt && endAt <= now;
-      if (shouldEnd) {
-        let fallback = deployment.fallback_snapshot_id;
-        if (!fallback) {
-          const defaultSnapshot = await getDefaultSnapshot();
-          fallback = defaultSnapshot?.id || null;
-        }
-        if (fallback) {
-          await applySnapshotToStage(fallback, "live", deployment.updated_by || deployment.created_by, "scheduled_end");
-        }
+      if (status === DEPLOYMENT_STATUS_SCHEDULED && startAt && startAt <= now) {
+        await applySnapshotToStage(deployment.snapshot_id, "live", deployment.created_by, "scheduled_start");
         const upd = await supabase
           .from("settings_deployments")
           .update({
-            status: DEPLOYMENT_STATUS_COMPLETED,
+            status: DEPLOYMENT_STATUS_RUNNING,
+            activated_at: nowIso,
             updated_at: nowIso,
-            completed_at: nowIso,
           })
           .eq("id", deployment.id);
         if (upd.error) throw upd.error;
         try {
-          await logAdminAction(deployment.updated_by || deployment.created_by || "system", "settings.schedule.completed", {
+          await logAdminAction(deployment.created_by || "system", "settings.schedule.started", {
             deploymentId: deployment.id,
             snapshotId: deployment.snapshot_id,
-            fallbackSnapshotId: fallback,
           });
         } catch (err) {
-          console.warn("Failed to log schedule completion", err?.message || err);
+          console.warn("Failed to log schedule start", err?.message || err);
+        }
+      } else if (status === DEPLOYMENT_STATUS_RUNNING) {
+        const shouldEnd = endAt && endAt <= now;
+        if (shouldEnd) {
+          let fallback = deployment.fallback_snapshot_id;
+          if (!fallback) {
+            const defaultSnapshot = await getDefaultSnapshot();
+            fallback = defaultSnapshot?.id || null;
+          }
+          if (fallback) {
+            await applySnapshotToStage(fallback, "live", deployment.updated_by || deployment.created_by, "scheduled_end");
+          }
+          const upd = await supabase
+            .from("settings_deployments")
+            .update({
+              status: DEPLOYMENT_STATUS_COMPLETED,
+              updated_at: nowIso,
+              completed_at: nowIso,
+            })
+            .eq("id", deployment.id);
+          if (upd.error) throw upd.error;
+          try {
+            await logAdminAction(deployment.updated_by || deployment.created_by || "system", "settings.schedule.completed", {
+              deploymentId: deployment.id,
+              snapshotId: deployment.snapshot_id,
+              fallbackSnapshotId: fallback,
+            });
+          } catch (err) {
+            console.warn("Failed to log schedule completion", err?.message || err);
+          }
         }
       }
+    } catch (err) {
+      console.error(
+        `Failed to process deployment ${deployment?.id || "unknown"}:`,
+        err?.message || err
+      );
     }
   }
 }
