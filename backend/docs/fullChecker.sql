@@ -128,7 +128,17 @@ order by table_schema, table_name;
 -- 9. Verify presence of critical settings tables
 -- ================================================
 with required_tables as (
-  select unnest(array['settings_draft', 'settings_public', 'settings_lock', 'settings_versions']) as table_name
+  select unnest(
+    array[
+      'settings_draft',
+      'settings_public',
+      'settings_lock',
+      'settings_versions',
+      'settings_deployments',
+      'admin_actions',
+      'contact_responses'
+    ]
+  ) as table_name
 )
 select
   rt.table_name,
@@ -158,6 +168,7 @@ with expected as (
     ('settings_draft',  'footer_text',                  'text'),
     ('settings_draft',  'footer_links',                 'jsonb'),
     ('settings_draft',  'admin_quick_links',            'jsonb'),
+    ('settings_draft',  'admin_profiles',               'jsonb'),
     ('settings_draft',  'contactemail',                 'text'),
     ('settings_draft',  'contactphone',                 'text'),
     ('settings_draft',  'contact_socials',              'jsonb'),
@@ -220,6 +231,7 @@ with expected as (
     ('settings_public', 'footer_text',                  'text'),
     ('settings_public', 'footer_links',                 'jsonb'),
     ('settings_public', 'admin_quick_links',            'jsonb'),
+    ('settings_public', 'admin_profiles',               'jsonb'),
     ('settings_public', 'contactemail',                 'text'),
     ('settings_public', 'contactphone',                 'text'),
     ('settings_public', 'contact_socials',              'jsonb'),
@@ -308,7 +320,29 @@ with expected as (
     ('settings_deployments','cancelled_by',             'text'),
     ('settings_deployments','override_reason',          'text'),
     ('settings_deployments','activated_at',             'timestamp with time zone'),
-    ('settings_deployments','completed_at',             'timestamp with time zone')
+    ('settings_deployments','completed_at',             'timestamp with time zone'),
+
+    ('admin_actions',      'id',                        'uuid'),
+    ('admin_actions',      'occurred_at',               'timestamp with time zone'),
+    ('admin_actions',      'actor_email',               'text'),
+    ('admin_actions',      'action',                    'text'),
+    ('admin_actions',      'meta',                      'jsonb'),
+    ('admin_actions',      'payload',                   'jsonb'),
+    ('admin_actions',      'created_at',                'timestamp with time zone'),
+
+    ('contact_responses',  'id',                        'uuid'),
+    ('contact_responses',  'created_at',                'timestamp with time zone'),
+    ('contact_responses',  'updated_at',                'timestamp with time zone'),
+    ('contact_responses',  'name',                      'text'),
+    ('contact_responses',  'email',                     'text'),
+    ('contact_responses',  'message',                   'text'),
+    ('contact_responses',  'responded',                 'boolean'),
+    ('contact_responses',  'responded_at',              'timestamp with time zone'),
+    ('contact_responses',  'responded_by',              'text'),
+    ('contact_responses',  'notes',                     'text'),
+    ('contact_responses',  'delivery_status',           'text'),
+    ('contact_responses',  'delivery_error',            'text'),
+    ('contact_responses',  'meta',                      'jsonb')
   ) as v(table_name, column_name, expected_type)
 ), actual as (
   select table_schema, table_name, column_name, data_type

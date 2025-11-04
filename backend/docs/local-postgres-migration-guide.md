@@ -42,7 +42,16 @@ This guide outlines how to provision a 250 GB PostgreSQL instance on `H:\apps`
    psql --dbname "postgresql://postgres:<password>@localhost:5432/toofunny_media" \
         --file "C:\Apps\TooFunnyProductions\backend\docs\schema\supabase_schema.sql"
    ```
-5. Confirm that tables, types, indexes, and constraints exist using `\dt`, `\d <table>`, and related commands inside `psql`.
+5. Run the helper DDL scripts to back-fill any columns introduced after the last dump:
+   ```powershell
+   psql --dbname "postgresql://postgres:<password>@localhost:5432/toofunny_media" \
+        --file "C:\Apps\TooFunnyProductions\backend\docs\schema\settings-columns.sql"
+   psql --dbname "postgresql://postgres:<password>@localhost:5432/toofunny_media" \
+        --file "C:\Apps\TooFunnyProductions\backend\docs\schema\contact-responses.sql"
+   psql --dbname "postgresql://postgres:<password>@localhost:5432/toofunny_media" \
+        --file "C:\Apps\TooFunnyProductions\backend\docs\admin-actions.sql"
+   ```
+6. Confirm that tables, types, indexes, and constraints exist using `\dt`, `\d <table>`, and related commands inside `psql`. You can also run `psql -f backend/docs/fullChecker.sql` against both environments to diff structures.
 
 ## 5. Prepare seed and migration scripts
 * The repository now includes dedicated folders under `backend/docs`:
@@ -75,13 +84,46 @@ SELECT 'assets' AS table_name,
 -- Add similar queries per table and compare against Supabase counts.
 ```
 
-## 6. Migrate Supabase data
-1. For relatively small tables (a few GB), use `pg_dump --data-only` or `COPY` commands to extract data.
-2. For larger tables, prefer exporting to CSV with `COPY` to avoid long transactions.
-3. Run the import scripts stored in `backend/docs/data` using `psql -f` in the order defined by their numeric prefixes.
-4. Track executed scripts in a changelog (e.g., `docs/data/README.md`) to avoid re-running the same migration twice.
+## 6. Export Supabase data
+1. Run `pg_dump --data-only` once per table so you can stage the output inside `backend/docs/data`:
+   ```powershell
+   $env:PGPASSWORD="<password>"
+   $pgUrl = "postgresql://<user>@<host>:<port>/<database>?sslmode=require"
 
-## 7. Handle media files (100+ GB)
+   pg_dump --data-only --no-owner --no-privileges --table public.settings_draft \
+       --file "C:\Apps\TooFunnyProductions\backend\docs\data\001_settings_draft.sql" $pgUrl
+   pg_dump --data-only --no-owner --no-privileges --table public.settings_public \
+       --file "C:\Apps\TooFunnyProductions\backend\docs\data\002_settings_public.sql" $pgUrl
+   pg_dump --data-only --no-owner --no-privileges --table public.settings_lock \
+       --file "C:\Apps\TooFunnyProductions\backend\docs\data\003_settings_lock.sql" $pgUrl
+   pg_dump --data-only --no-owner --no-privileges --table public.settings_versions \
+       --file "C:\Apps\TooFunnyProductions\backend\docs\data\004_settings_versions.sql" $pgUrl
+   pg_dump --data-only --no-owner --no-privileges --table public.settings_deployments \
+       --file "C:\Apps\TooFunnyProductions\backend\docs\data\005_settings_deployments.sql" $pgUrl
+   pg_dump --data-only --no-owner --no-privileges --table public.admin_actions \
+       --file "C:\Apps\TooFunnyProductions\backend\docs\data\006_admin_actions.sql" $pgUrl
+   pg_dump --data-only --no-owner --no-privileges --table public.contact_responses \
+       --file "C:\Apps\TooFunnyProductions\backend\docs\data\007_contact_responses.sql" $pgUrl
+   ```
+2. For very large tables (hundreds of MB+), consider exporting to CSV using `COPY ... TO STDOUT WITH CSV HEADER` so you can resume partial transfers.
+3. Add a short `README` entry or changelog alongside the dump files noting the Supabase timestamp for traceability.
+
+## 7. Import data into the local database
+1. Ensure the helper DDL scripts above have been executed locally so every column exists.
+2. Import the dumps in order using `psql`:
+   ```powershell
+   $env:PGPASSWORD="<password>"
+   $localUrl = "postgresql://postgres:<password>@localhost:5432/toofunny_media"
+
+   foreach ($file in Get-ChildItem "C:\Apps\TooFunnyProductions\backend\docs\data\*.sql" | Sort-Object Name) {
+     psql --dbname $localUrl --file $file.FullName
+   }
+   ```
+   (Or run them individually if you prefer.)
+3. If you exported CSVs instead, load them with `COPY ... FROM` statements wrapped in a transaction.
+4. After imports complete, run `psql -f backend/docs/fullChecker.sql` and any scripts in `backend/docs/tests` to confirm table counts and spot-check data.
+
+## 8. Handle media files (100+ GB)
 1. Designate a local media root, e.g., `H:\apps\media`.
 2. If files currently reside in Supabase Storage, use the Supabase CLI or API to download each bucket:
    ```powershell
@@ -92,13 +134,13 @@ SELECT 'assets' AS table_name,
 4. Update database records to point to the new local file paths (e.g., replace `https://<project>.supabase.co/storage/v1/object/public/...` with `file:///H:/apps/media/...`).
 5. Record any path translation logic in `backend/docs/data/002_update_media_paths.sql`.
 
-## 8. Post-migration validation
+## 9. Post-migration validation
 1. Run SQL scripts under `backend/docs/tests` to confirm row counts and data integrity.
 2. Spot check critical workflows in the application (upload, playback, metadata editing).
 3. Ensure media files open correctly from the local path and that thumbnails/previews generate as expected.
 4. Keep Supabase and local databases in sync by re-running exports for any new schema changes.
 
-## 9. Maintenance tips
+## 10. Maintenance tips
 * Schedule periodic `pg_dump` backups of the local database to a second drive or cloud storage.
 * Monitor drive health (SMART status) and free space.
 * Document any manual steps taken so future migrations or teammates can repeat the process.
