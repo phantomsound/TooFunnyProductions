@@ -2,6 +2,25 @@
 
 This guide outlines how to provision a 250 GB PostgreSQL instance on `H:\apps`, mirror your Supabase media manager schema, and prepare supporting scripts in `C:\Apps\TooFunnyProductions\backend\docs`.
 
+## Fast lane: interactive migration helper
+
+Run the orchestrator once `pg_dump`/`psql` are on your `PATH`:
+
+```powershell
+cd C:\Apps\TooFunnyProductions
+node scripts\migrate-supabase.js
+```
+
+The script will:
+
+1. Prompt for your Supabase and local PostgreSQL connection strings (reminding you about the default docs path under `backend\docs`).
+2. Export the Supabase schema to `schema\supabase_schema.sql` and optionally create the local `toofunny_media` database.
+3. Reapply `schema\supabase_schema.sql` plus the helper DDLs (`settings-columns.sql`, `schema\contact-responses.sql`, and `admin-actions.sql`).
+4. Offer to export/import the recommended data tables (`settings_*`, `admin_actions`, `contact_responses`) in order.
+5. Optionally run `fullChecker.sql` against both environments so you can diff structures and row counts.
+
+If you prefer to execute commands manually—or need to customise the workflow beyond the prompts—follow the detailed steps below.
+
 ## 1. Install PostgreSQL with data directory on `H:\apps`
 1. Download the Windows installer for PostgreSQL 15 (or higher) from [postgresql.org/download/windows](https://www.postgresql.org/download/windows/).
 2. Run the installer and choose **Custom** setup when prompted.
