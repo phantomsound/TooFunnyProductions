@@ -54,6 +54,8 @@ alter table settings_draft  add column if not exists footer_links jsonb default 
 alter table settings_public add column if not exists footer_links jsonb default '[]'::jsonb;
 alter table settings_draft  add column if not exists admin_quick_links jsonb default '[]'::jsonb;
 alter table settings_public add column if not exists admin_quick_links jsonb default '[]'::jsonb;
+alter table settings_draft  add column if not exists admin_profiles jsonb default '[]'::jsonb;
+alter table settings_public add column if not exists admin_profiles jsonb default '[]'::jsonb;
 
 alter table settings_draft  add column if not exists contactemail text;
 alter table settings_public add column if not exists contactemail text;
@@ -260,3 +262,82 @@ create table if not exists settings_deployments (
 
 create index if not exists idx_settings_deployments_start on settings_deployments (start_at);
 create index if not exists idx_settings_deployments_status on settings_deployments (status);
+
+alter table settings_deployments
+  add column if not exists snapshot_id uuid references settings_versions(id) on delete cascade,
+  add column if not exists fallback_snapshot_id uuid references settings_versions(id) on delete set null,
+  add column if not exists start_at timestamptz,
+  add column if not exists end_at timestamptz,
+  add column if not exists status text default 'scheduled',
+  add column if not exists created_at timestamptz default now(),
+  add column if not exists updated_at timestamptz default now(),
+  add column if not exists created_by text,
+  add column if not exists updated_by text,
+  add column if not exists cancelled_at timestamptz,
+  add column if not exists cancelled_by text,
+  add column if not exists override_reason text,
+  add column if not exists activated_at timestamptz,
+  add column if not exists completed_at timestamptz;
+
+alter table settings_deployments alter column status set default 'scheduled';
+alter table settings_deployments alter column created_at set default now();
+alter table settings_deployments alter column updated_at set default now();
+
+update settings_deployments set status = 'scheduled' where status is null;
+update settings_deployments set created_at = coalesce(created_at, now());
+update settings_deployments set updated_at = coalesce(updated_at, created_at, now());
+
+do $$
+begin
+  if exists (
+       select 1
+       from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'settings_deployments'
+         and column_name = 'snapshot_id'
+     )
+     and not exists (select 1 from settings_deployments where snapshot_id is null) then
+    alter table settings_deployments alter column snapshot_id set not null;
+  end if;
+  if exists (
+       select 1
+       from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'settings_deployments'
+         and column_name = 'start_at'
+     )
+     and not exists (select 1 from settings_deployments where start_at is null) then
+    alter table settings_deployments alter column start_at set not null;
+  end if;
+  if exists (
+       select 1
+       from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'settings_deployments'
+         and column_name = 'status'
+     )
+     and not exists (select 1 from settings_deployments where status is null) then
+    alter table settings_deployments alter column status set not null;
+  end if;
+  if exists (
+       select 1
+       from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'settings_deployments'
+         and column_name = 'created_at'
+     )
+     and not exists (select 1 from settings_deployments where created_at is null) then
+    alter table settings_deployments alter column created_at set not null;
+  end if;
+  if exists (
+       select 1
+       from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'settings_deployments'
+         and column_name = 'updated_at'
+     )
+     and not exists (select 1 from settings_deployments where updated_at is null) then
+    alter table settings_deployments alter column updated_at set not null;
+  end if;
+end
+$$;
