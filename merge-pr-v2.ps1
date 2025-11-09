@@ -15,7 +15,7 @@
       - Ensures clean tree (ignores changes to this script)
       - Fetches/prunes
       - Resolves branch list (Branch > PrNumber > Pattern/Count/All > newest codex/*)
-      - For each branch (oldest→newest to minimize conflicts):
+      - For each branch (oldest->newest to minimize conflicts):
           * checkout/track, npm ci/build, npm run doctor
           * merge into main with `-X theirs`, push
           * optionally delete local+remote branch
@@ -139,11 +139,11 @@ function Cleanup-Branch {
 }
 
 function Show-PostMergeTips {
-  Write-Host "`n📌 Next steps after merges:" -ForegroundColor Yellow
-  Write-Host "   • Run 'git status' to confirm only the files you intend to keep remain staged or modified." -ForegroundColor Yellow
-  Write-Host "   • Use 'git add <file>' to keep a change or 'git restore --staged/--worktree <file>' to discard it." -ForegroundColor Yellow
-  Write-Host "   • If the Supabase migration removed unsupported extensions, edit docs/schema/supabase_schema.sql to match the sanitized output." -ForegroundColor Yellow
-  Write-Host "   • Commit and push your follow-up fixes before re-running this helper." -ForegroundColor Yellow
+  Write-Host "`n[Next steps]" -ForegroundColor Yellow
+  Write-Host "   - Run 'git status' to confirm only the files you intend to keep remain staged or modified." -ForegroundColor Yellow
+  Write-Host "   - Use 'git add <file>' to keep a change or 'git restore --staged/--worktree <file>' to discard it." -ForegroundColor Yellow
+  Write-Host "   - If the Supabase migration removed unsupported extensions, edit docs/schema/supabase_schema.sql to match the sanitized output." -ForegroundColor Yellow
+  Write-Host "   - Commit and push your follow-up fixes before re-running this helper." -ForegroundColor Yellow
 }
 
 # -------- Main --------
@@ -157,7 +157,7 @@ try {
   # Merge oldest -> newest to reduce conflicts
   $branches = @($branches)[-1..-($branches.Count)]  # reverse array
 
-  Write-Host "`n>>> Will process branches (oldest→newest):" -ForegroundColor Cyan
+  Write-Host "`n>>> Will process branches (oldest->newest):" -ForegroundColor Cyan
   $branches | ForEach-Object { Write-Host " - $_" -ForegroundColor Cyan }
 
   foreach ($b in $branches) {
@@ -173,12 +173,12 @@ try {
   git switch main | Out-Host
   if (-not $DryRun) { Build-And-Doctor }
 
-  Write-Host "`n✅ Done. main is up to date and builds clean." -ForegroundColor Green
+  Write-Host "`n[Done] main is up to date and builds clean." -ForegroundColor Green
   Write-Host "   You can run: npm run dev" -ForegroundColor DarkGray
   if (-not $DryRun) { Show-PostMergeTips }
 }
 catch {
-  Write-Host "`n❌ Error: $($_.Exception.Message)" -ForegroundColor Red
+  Write-Host "`n[Error] $($_.Exception.Message)" -ForegroundColor Red
   Write-Host "   If an editor opened, press Esc then :wq Enter to continue."
   exit 1
 }
