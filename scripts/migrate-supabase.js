@@ -55,6 +55,12 @@ const unsupportedExtensionCleanups = {
       pattern: buildFunctionRemovalRegex('extensions.grant_pg_graphql_access')
     },
     {
+      description: 'extensions.grant_pg_graphql_access() helper body (orphaned)',
+      pattern: buildStatementRemovalRegex(
+        'DECLARE[\\s\\S]+?func_is_graphql_resolve[\\s\\S]+?END;\\s*(\\$[^$\\n]*\\$);\\s*'
+      )
+    },
+    {
       description: 'COMMENT ON FUNCTION extensions.grant_pg_graphql_access()',
       pattern: buildStatementRemovalRegex(
         'COMMENT\\s+ON\\s+FUNCTION\\s+extensions\\.grant_pg_graphql_access\\(\\)[\\s\\S]+?;\\s*'
@@ -63,44 +69,6 @@ const unsupportedExtensionCleanups = {
     {
       description: 'extensions.set_graphql_placeholder() helper',
       pattern: buildFunctionRemovalRegex('extensions.set_graphql_placeholder')
-    },
-    {
-      description: 'COMMENT ON FUNCTION extensions.set_graphql_placeholder()',
-      pattern: buildStatementRemovalRegex(
-        'COMMENT\\s+ON\\s+FUNCTION\\s+extensions\\.set_graphql_placeholder\\(\\)[\\s\\S]+?;\\s*'
-      )
-    },
-    {
-      description: 'issue_pg_graphql_access event trigger',
-      pattern: buildStatementRemovalRegex(
-        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?EVENT\\s+TRIGGER\\s+issue_pg_graphql_access[\\s\\S]+?;\\s*'
-      )
-    },
-    {
-      description: 'issue_graphql_placeholder event trigger',
-      pattern: buildStatementRemovalRegex(
-        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?EVENT\\s+TRIGGER\\s+issue_graphql_placeholder[\\s\\S]+?;\\s*'
-      )
-    }
-  ],
-  pg_graphql: [
-    {
-      description: 'extensions.grant_pg_graphql_access() helper',
-      pattern: buildStatementRemovalRegex(
-        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+extensions\\.grant_pg_graphql_access\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
-      )
-    },
-    {
-      description: 'COMMENT ON FUNCTION extensions.grant_pg_graphql_access()',
-      pattern: buildStatementRemovalRegex(
-        'COMMENT\\s+ON\\s+FUNCTION\\s+extensions\\.grant_pg_graphql_access\\(\\)[\\s\\S]+?;\\s*'
-      )
-    },
-    {
-      description: 'extensions.set_graphql_placeholder() helper',
-      pattern: buildStatementRemovalRegex(
-        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+extensions\\.set_graphql_placeholder\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
-      )
     },
     {
       description: 'COMMENT ON FUNCTION extensions.set_graphql_placeholder()',
@@ -137,12 +105,23 @@ function buildStatementRemovalRegex(statementPattern) {
 }
 
 function buildFunctionRemovalRegex(qualifiedName) {
-  const escapedName = qualifiedName
-    .split('.')
+  const parts = qualifiedName.split('.');
+  const functionName = parts.pop();
+  const schemaName = parts.join('.');
+  const escapedName = [...parts, functionName]
     .map((part) => escapeRegExp(part))
     .join('\\.');
+
+  const commentNamePattern = functionName
+    ? `${escapeRegExp(functionName)}\\s*\\([^;]*\\)`
+    : null;
+  const commentSchemaPattern = schemaName ? `;\\s+Schema:\\s+${escapeRegExp(schemaName)}` : '';
+  const commentBlockPattern = commentNamePattern
+    ? `(?:--\\s*\\n--\\s+Name:\\s+${commentNamePattern};\\s+Type:\\s+FUNCTION${commentSchemaPattern}[^\\n]*\\n--\\s*\\n)?`
+    : '';
+
   return buildStatementRemovalRegex(
-    `CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+${escapedName}\\s*\\([^)]*\\)[\\s\\S]+?AS\\s+(\\$[^$\\n]*\\$)[\\s\\S]+?\\1;\\s*`
+    `${commentBlockPattern}CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+${escapedName}\\s*\\([^)]*\\)[\\s\\S]+?AS\\s+(\\$[^$\\n]*\\$)[\\s\\S]+?\\1;\\s*`
   );
 }
 
