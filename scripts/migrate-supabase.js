@@ -185,6 +185,7 @@ async function applySchema({ localDbUrl, schemaDumpPath }) {
   const schemaToApply = await prepareSchemaFile(schemaDumpPath);
   if (schemaToApply !== schemaDumpPath) {
     console.warn(`Using sanitized schema file without unsupported extensions: ${schemaToApply}`);
+    console.warn('Tip: Update your checked-in schema dump to remove these extension statements so future runs match.');
   }
   const args = [
     '--set',
