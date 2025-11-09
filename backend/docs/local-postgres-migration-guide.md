@@ -17,7 +17,8 @@ The script will:
 2. Export the Supabase schema to `schema\supabase_schema.sql` and optionally create the local `toofunny_media` database.
 3. Reapply `schema\supabase_schema.sql` plus the helper DDLs (`settings-columns.sql`, `schema\contact-responses.sql`, and `admin-actions.sql`).
 4. Offer to export/import the recommended data tables (`settings_*`, `admin_actions`, `contact_responses`) in order.
-5. Optionally run `fullChecker.sql` against both environments so you can diff structures and row counts.
+5. Offer to rewrite Supabase-hosted URLs inside text/JSON columns so they point at your new media host.
+6. Optionally run `fullChecker.sql` against both environments so you can diff structures and row counts.
 
 If you prefer to execute commands manually—or need to customise the workflow beyond the prompts—follow the detailed steps below.
 
@@ -150,7 +151,7 @@ SELECT 'assets' AS table_name,
    supabase storage download <bucket> "H:\apps\media\<bucket>"
    ```
 3. If you already have a local folder with the media, move or copy it into `H:\apps\media` while preserving the relative paths referenced in the database.
-4. Update database records to point to the new local file paths (e.g., replace `https://<project>.supabase.co/storage/v1/object/public/...` with `file:///H:/apps/media/...`).
+4. Update database records to point to the new local file paths (e.g., replace `https://<project>.supabase.co/storage/v1/object/public/...` with `file:///H:/apps/media/...`). The migration orchestrator now includes an interactive prompt to perform this substitution across text/JSON columns for the schemas you specify.
 5. Record any path translation logic in `backend/docs/data/002_update_media_paths.sql`.
 
 ## 9. Post-migration validation

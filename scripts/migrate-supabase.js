@@ -8,6 +8,40 @@ const readline = require('readline');
 
 const defaultDocsPath = path.resolve(__dirname, '../backend/docs');
 const unsupportedExtensions = ['pg_net'];
+const unsupportedExtensionCleanups = {
+  pg_net: [
+    {
+      description: 'extensions.grant_pg_net_access() helper function',
+      pattern: buildStatementRemovalRegex(
+        'CREATE\\s+FUNCTION\\s+extensions\\.grant_pg_net_access\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
+      )
+    },
+    {
+      description: 'COMMENT ON FUNCTION extensions.grant_pg_net_access()',
+      pattern: buildStatementRemovalRegex(
+        'COMMENT\\s+ON\\s+FUNCTION\\s+extensions\\.grant_pg_net_access\\(\\)[\\s\\S]+?;\\s*'
+      )
+    },
+    {
+      description: 'issue_pg_net_access event trigger',
+      pattern: buildStatementRemovalRegex(
+        'CREATE\\s+EVENT\\s+TRIGGER\\s+issue_pg_net_access[\\s\\S]+?;\\s*'
+      )
+    },
+    {
+      description: 'COMMENT ON EVENT TRIGGER issue_pg_net_access',
+      pattern: buildStatementRemovalRegex(
+        'COMMENT\\s+ON\\s+EVENT\\s+TRIGGER\\s+issue_pg_net_access[\\s\\S]+?;\\s*'
+      )
+    },
+    {
+      description: 'supabase_functions.http_request() trigger helper',
+      pattern: buildStatementRemovalRegex(
+        'CREATE\\s+FUNCTION\\s+supabase_functions\\.http_request\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
+      )
+    }
+  ]
+};
 const recommendedExports = [
   { table: 'settings_draft', file: '001_settings_draft.sql' },
   { table: 'settings_public', file: '002_settings_public.sql' },
@@ -17,6 +51,10 @@ const recommendedExports = [
   { table: 'admin_actions', file: '006_admin_actions.sql' },
   { table: 'contact_responses', file: '007_contact_responses.sql' }
 ];
+
+function buildStatementRemovalRegex(statementPattern) {
+  return new RegExp(`^\\s*(?:--[^\n]*\n\s*)*${statementPattern}`, 'gmi');
+}
 
 async function main() {
   console.log('Supabase → Local PostgreSQL migration orchestrator');
@@ -116,6 +154,24 @@ async function main() {
 
     if (dataExports.length > 0 && await confirm(rl, 'Import data into local database now? [Y/n]: ', true)) {
       await importDataTables({ localDbUrl, dataDir, exports: dataExports });
+    }
+
+    if (await confirm(rl, 'Rewrite stored Supabase URLs to a new host? [y/N]: ', false)) {
+      const searchDefault = 'https://<project>.supabase.co';
+      const searchValue = await ask(rl, `Substring to replace [${searchDefault}]: `) || searchDefault;
+      if (searchValue === searchDefault) {
+        console.warn('Using placeholder search substring; update it to your actual Supabase domain if needed.');
+      }
+      const replaceValue = await ask(rl, 'Replacement substring (e.g., https://media.example.com): ');
+      if (!replaceValue) {
+        console.warn('Replacement value is empty; skipping rewrite step.');
+      } else {
+        const schemaAnswer = await ask(rl, 'Target schemas (comma-separated) [public]: ');
+        const schemas = schemaAnswer
+          ? schemaAnswer.split(',').map((value) => value.trim()).filter(Boolean)
+          : ['public'];
+        await rewriteStoredReferences({ localDbUrl, searchValue, replaceValue, schemas });
+      }
     }
 
     if (await confirm(rl, 'Run fullChecker.sql against Supabase and local for verification? [y/N]: ', false)) {
@@ -262,6 +318,20 @@ async function prepareSchemaFile(schemaDumpPath) {
       sanitized = next;
     }
 
+    const cleanupRules = unsupportedExtensionCleanups[ext] || [];
+    for (const rule of cleanupRules) {
+      let localRemoved = 0;
+      sanitized = sanitized.replace(rule.pattern, () => {
+        localRemoved += 1;
+        return '';
+      });
+      if (localRemoved > 0) {
+        removedForExtension = true;
+        modified = true;
+        console.warn(`Skipping ${rule.description} because it depends on unsupported extension "${ext}".`);
+      }
+    }
+
     if (removedForExtension) {
       modified = true;
       console.warn(`Skipping statements for unsupported PostgreSQL extension "${ext}".`);
@@ -347,6 +417,114 @@ async function importDataTables({ localDbUrl, dataDir, exports }) {
     ];
     await runCommand('psql', args, { redactArgs: [args.indexOf(localDbUrl)] });
   }
+}
+
+async function rewriteStoredReferences({ localDbUrl, searchValue, replaceValue, schemas }) {
+  const trimmedSearch = (searchValue || '').trim();
+  const trimmedReplace = (replaceValue || '').trim();
+
+  if (!trimmedSearch) {
+    console.warn('Search string is empty; skipping rewrite step.');
+    return;
+  }
+
+  if (trimmedSearch === trimmedReplace) {
+    console.warn('Search and replacement strings are identical; skipping rewrite step.');
+    return;
+  }
+
+  const uniqueSchemas = Array.from(new Set((schemas || []).map((value) => value.trim()).filter(Boolean)));
+  if (uniqueSchemas.length === 0) {
+    uniqueSchemas.push('public');
+  }
+
+  console.log('\nRewriting stored references:');
+  console.log(`  search → ${trimmedSearch}`);
+  console.log(`  replace → ${trimmedReplace}`);
+  console.log(`  schemas → ${uniqueSchemas.join(', ')}`);
+  console.warn('  ⚠️ This will issue UPDATE statements across the selected schemas. Ensure you have a backup.');
+
+  const schemaListValues = uniqueSchemas.map((schema) => `'${escapeSqlLiteral(schema)}'`);
+  const schemaList = schemaListValues.length > 0 ? schemaListValues.join(', ') : `'public'`;
+
+  const script = `DO $mig$
+DECLARE
+  v_search text := '${escapeSqlLiteral(trimmedSearch)}';
+  v_replace text := '${escapeSqlLiteral(trimmedReplace)}';
+  v_like text := '%' || v_search || '%';
+  v_rowcount bigint;
+  v_schema_list text[] := ARRAY[${schemaList}];
+  rec record;
+BEGIN
+  IF v_search IS NULL OR v_search = '' THEN
+    RAISE NOTICE 'Skipping rewrite: empty search value.';
+    RETURN;
+  END IF;
+
+  IF v_search = v_replace THEN
+    RAISE NOTICE 'Skipping rewrite: replacement matches search.';
+    RETURN;
+  END IF;
+
+  FOR rec IN
+    SELECT table_schema, table_name, column_name, data_type
+    FROM information_schema.columns
+    WHERE table_schema = ANY(v_schema_list)
+      AND data_type IN ('text', 'character varying', 'json', 'jsonb')
+  LOOP
+    IF rec.data_type IN ('json', 'jsonb') THEN
+      EXECUTE format(
+        'UPDATE %I.%I SET %I = replace(%I::text, %L, %L)::%s WHERE %I::text LIKE %L',
+        rec.table_schema,
+        rec.table_name,
+        rec.column_name,
+        rec.column_name,
+        v_search,
+        v_replace,
+        rec.data_type,
+        rec.column_name,
+        v_like
+      );
+    ELSE
+      EXECUTE format(
+        'UPDATE %I.%I SET %I = replace(%I, %L, %L) WHERE %I LIKE %L',
+        rec.table_schema,
+        rec.table_name,
+        rec.column_name,
+        rec.column_name,
+        v_search,
+        v_replace,
+        rec.column_name,
+        v_like
+      );
+    END IF;
+
+    GET DIAGNOSTICS v_rowcount = ROW_COUNT;
+    IF v_rowcount > 0 THEN
+      RAISE NOTICE 'Updated %.% (column %): % rows',
+        rec.table_schema,
+        rec.table_name,
+        rec.column_name,
+        v_rowcount;
+    END IF;
+  END LOOP;
+END
+$mig$;`;
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'toofunny-rewrite-'));
+  const scriptPath = path.join(tempDir, 'rewrite.sql');
+  await fs.writeFile(scriptPath, script, 'utf8');
+
+  const args = [
+    '--set',
+    'ON_ERROR_STOP=on',
+    '--dbname',
+    localDbUrl,
+    '--file',
+    scriptPath
+  ];
+
+  await runCommand('psql', args, { redactArgs: [args.indexOf(localDbUrl)] });
 }
 
 async function runFullChecker({ supabaseUrl, localDbUrl, docsPath }) {
@@ -493,7 +671,7 @@ function escapeRegExp(value) {
 }
 
 function escapeSqlLiteral(value) {
-  return value.replace(/'/g, "''");
+  return String(value ?? '').replace(/'/g, "''");
 }
 
 main().catch((error) => {
