@@ -20,7 +20,10 @@ Replace `<branch-name>` with the remote branch you want, such as `codex/fix-migr
 * If Git reports `Automatic merge failed; fix conflicts and then commit the result.`, run `git status` to see the files in conflict.
 * Open each conflicted file and decide whether to keep the incoming branch’s change, your local change, or a combination. The conflicting sections are delimited by `<<<<<<<`, `=======`, and `>>>>>>>` markers.
 * For this repository, when you are pulling in an updated Codex branch you typically want to keep the new branch’s edits. In most editors you can choose “Accept Incoming Change” to grab the Codex version wholesale.
-* After cleaning up the files and removing the conflict markers, run:
+* If you try to run a PowerShell helper (such as `merge-pr-v2.ps1`) before removing the conflict markers, PowerShell will crash
+  with parse errors like `Missing file specification after redirection operator`. Those errors simply mean Git still left
+  `<<<<<<<`/`=======`/`>>>>>>>` markers in the script, so finish resolving them first.
+* After cleaning up the files and removing every conflict marker, run:
 
   ```powershell
   git add <each-fixed-file>
