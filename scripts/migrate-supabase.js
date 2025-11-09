@@ -310,9 +310,9 @@ async function prepareSchemaFile(schemaDumpPath) {
   for (const ext of unsupportedExtensions) {
     const extRegex = `["']?${escapeRegExp(ext)}["']?`;
     const patterns = [
-      new RegExp(`^\\s*CREATE\\s+EXTENSION[\\s\\S]*?${extRegex}[\\s\\S]*?;\\s*$`, 'gmi'),
-      new RegExp(`^\\s*COMMENT\\s+ON\\s+EXTENSION[\\s\\S]*?${extRegex}[\\s\\S]*?;\\s*$`, 'gmi'),
-      new RegExp(`^\\s*ALTER\\s+EXTENSION[\\s\\S]*?${extRegex}[\\s\\S]*?;\\s*$`, 'gmi')
+      new RegExp(`^\\s*CREATE\\s+EXTENSION\\b[^;\n]*?${extRegex}[^;\n]*;\\s*$`, 'gmi'),
+      new RegExp(`^\\s*COMMENT\\s+ON\\s+EXTENSION\\b[^;\n]*?${extRegex}[^;\n]*;\\s*$`, 'gmi'),
+      new RegExp(`^\\s*ALTER\\s+EXTENSION\\b[^;\n]*?${extRegex}[^;\n]*;\\s*$`, 'gmi')
     ];
 
     let removedForExtension = false;
