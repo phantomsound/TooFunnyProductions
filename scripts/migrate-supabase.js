@@ -76,7 +76,7 @@ async function main() {
     const localAdminUrl = adminUrlObj.toString();
 
     if (await confirm(rl, `Ensure local database "${localDbName}" exists (will create if missing)? [Y/n]: `, true)) {
-      await ensureDatabaseExists(localAdminUrl, localDbName);
+      await ensureDatabasePrepared({ rl, localAdminUrl, localDbName });
     }
 
     if (await confirm(rl, `Apply schema dump to local database ${summariseConnection(localDbUrl)}? [Y/n]: `, true)) {
@@ -150,7 +150,7 @@ async function exportSchema({ supabaseUrl, schemaDumpPath }) {
   await runCommand('pg_dump', args, { redactArgs: [args.length - 1] });
 }
 
-async function ensureDatabaseExists(localAdminUrl, localDbName) {
+async function ensureDatabasePrepared({ rl, localAdminUrl, localDbName }) {
   console.log(`\nChecking for local database "${localDbName}"`);
   const existsArgs = [
     '--tuples-only',
@@ -167,10 +167,46 @@ async function ensureDatabaseExists(localAdminUrl, localDbName) {
   const hasDatabase = result.stdout.trim().startsWith('1');
   if (hasDatabase) {
     console.log(`Database "${localDbName}" already exists.`);
+    const shouldRecreate = await confirm(
+      rl,
+      `Database "${localDbName}" already exists. Drop and recreate it? [y/N]: `,
+      false
+    );
+    if (!shouldRecreate) {
+      console.warn('Keeping existing database. If previous schema objects remain, CREATE statements may fail.');
+      return;
+    }
+
+    await dropDatabase(localAdminUrl, localDbName);
+    await createDatabase(localAdminUrl, localDbName);
     return;
   }
 
   console.log(`Database "${localDbName}" not found. Creating...`);
+  await createDatabase(localAdminUrl, localDbName);
+}
+
+async function dropDatabase(localAdminUrl, localDbName) {
+  console.log(`Dropping database "${localDbName}"...`);
+  const terminateArgs = [
+    '--dbname',
+    localAdminUrl,
+    '--command',
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${escapeSqlLiteral(localDbName)}' AND pid <> pg_backend_pid();`
+  ];
+  await runCommand('psql', terminateArgs, { redactArgs: [terminateArgs.indexOf(localAdminUrl)] });
+
+  const dropArgs = [
+    '--dbname',
+    localAdminUrl,
+    '--command',
+    `DROP DATABASE "${localDbName}";`
+  ];
+  await runCommand('psql', dropArgs, { redactArgs: [dropArgs.indexOf(localAdminUrl)] });
+}
+
+async function createDatabase(localAdminUrl, localDbName) {
+  console.log(`Creating database "${localDbName}"...`);
   const createArgs = [
     '--dbname',
     localAdminUrl,
