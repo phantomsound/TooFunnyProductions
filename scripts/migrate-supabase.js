@@ -7,19 +7,23 @@ const { spawn } = require('child_process');
 const readline = require('readline');
 
 const defaultDocsPath = path.resolve(__dirname, '../backend/docs');
-const unsupportedExtensions = ['pg_net'];
+const defaultUnsupportedExtensions = ['pg_net'];
+const supabaseRoleDefinitions = [
+  { name: 'anon', attributes: 'NOLOGIN' },
+  { name: 'authenticated', attributes: 'NOLOGIN' },
+  { name: 'service_role', attributes: 'NOLOGIN' }
+];
+
 const unsupportedExtensionCleanups = {
   pg_net: [
     {
       description: 'extensions.grant_pg_net_access() helper function',
-      pattern: buildStatementRemovalRegex(
-        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+extensions\\.grant_pg_net_access\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
-      )
+      pattern: buildFunctionRemovalRegex('extensions.grant_pg_net_access')
     },
     {
       description: 'extensions.grant_pg_net_access() helper body (orphaned)',
       pattern: buildStatementRemovalRegex(
-        'IF\\s+EXISTS[\\s\\S]+?extname\\s*=\\s*\'pg_net\'[\\s\\S]+?END;\\s*\\$\\$;\\s*'
+        'IF\\s+EXISTS[\\s\\S]+?extname\\s*=\\s*\'pg_net\'[\\s\\S]+?END;\\s*(\\$[^$\\n]*\\$);\\s*'
       )
     },
     {
@@ -42,8 +46,46 @@ const unsupportedExtensionCleanups = {
     },
     {
       description: 'supabase_functions.http_request() trigger helper',
+      pattern: buildFunctionRemovalRegex('supabase_functions.http_request')
+    }
+  ],
+  pg_graphql: [
+    {
+      description: 'extensions.grant_pg_graphql_access() helper',
+      pattern: buildFunctionRemovalRegex('extensions.grant_pg_graphql_access')
+    },
+    {
+      description: 'extensions.grant_pg_graphql_access() helper body (orphaned)',
       pattern: buildStatementRemovalRegex(
-        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+supabase_functions\\.http_request\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
+        'DECLARE[\\s\\S]+?func_is_graphql_resolve[\\s\\S]+?END;\\s*(\\$[^$\\n]*\\$);\\s*'
+      )
+    },
+    {
+      description: 'COMMENT ON FUNCTION extensions.grant_pg_graphql_access()',
+      pattern: buildStatementRemovalRegex(
+        'COMMENT\\s+ON\\s+FUNCTION\\s+extensions\\.grant_pg_graphql_access\\(\\)[\\s\\S]+?;\\s*'
+      )
+    },
+    {
+      description: 'extensions.set_graphql_placeholder() helper',
+      pattern: buildFunctionRemovalRegex('extensions.set_graphql_placeholder')
+    },
+    {
+      description: 'COMMENT ON FUNCTION extensions.set_graphql_placeholder()',
+      pattern: buildStatementRemovalRegex(
+        'COMMENT\\s+ON\\s+FUNCTION\\s+extensions\\.set_graphql_placeholder\\(\\)[\\s\\S]+?;\\s*'
+      )
+    },
+    {
+      description: 'issue_pg_graphql_access event trigger',
+      pattern: buildStatementRemovalRegex(
+        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?EVENT\\s+TRIGGER\\s+issue_pg_graphql_access[\\s\\S]+?;\\s*'
+      )
+    },
+    {
+      description: 'issue_graphql_placeholder event trigger',
+      pattern: buildStatementRemovalRegex(
+        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?EVENT\\s+TRIGGER\\s+issue_graphql_placeholder[\\s\\S]+?;\\s*'
       )
     }
   ]
@@ -60,6 +102,27 @@ const recommendedExports = [
 
 function buildStatementRemovalRegex(statementPattern) {
   return new RegExp(`^\\s*(?:--[^\n]*\n\s*)*${statementPattern}`, 'gmi');
+}
+
+function buildFunctionRemovalRegex(qualifiedName) {
+  const parts = qualifiedName.split('.');
+  const functionName = parts.pop();
+  const schemaName = parts.join('.');
+  const escapedName = [...parts, functionName]
+    .map((part) => escapeRegExp(part))
+    .join('\\.');
+
+  const commentNamePattern = functionName
+    ? `${escapeRegExp(functionName)}\\s*\\([^;]*\\)`
+    : null;
+  const commentSchemaPattern = schemaName ? `;\\s+Schema:\\s+${escapeRegExp(schemaName)}` : '';
+  const commentBlockPattern = commentNamePattern
+    ? `(?:--\\s*\\n--\\s+Name:\\s+${commentNamePattern};\\s+Type:\\s+FUNCTION${commentSchemaPattern}[^\\n]*\\n--\\s*\\n)?`
+    : '';
+
+  return buildStatementRemovalRegex(
+    `${commentBlockPattern}CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+${escapedName}\\s*\\([^)]*\\)[\\s\\S]+?AS\\s+(\\$[^$\\n]*\\$)[\\s\\S]+?\\1;\\s*`
+  );
 }
 
 async function main() {
@@ -280,7 +343,8 @@ async function createDatabase(localAdminUrl, localDbName) {
 
 async function applySchema({ localDbUrl, schemaDumpPath }) {
   console.log(`\nApplying schema ${schemaDumpPath} to ${summariseConnection(localDbUrl)}`);
-  const schemaToApply = await prepareSchemaFile(schemaDumpPath);
+  await ensureSupabaseRoles({ localDbUrl });
+  const schemaToApply = await prepareSchemaFile(schemaDumpPath, { localDbUrl });
   if (schemaToApply !== schemaDumpPath) {
     console.warn(`Using sanitized schema file without unsupported extensions: ${schemaToApply}`);
     console.warn('Tip: Update your checked-in schema dump to remove these extension statements so future runs match.');
@@ -296,7 +360,7 @@ async function applySchema({ localDbUrl, schemaDumpPath }) {
   await runCommand('psql', args, { redactArgs: [args.indexOf(localDbUrl)] });
 }
 
-async function prepareSchemaFile(schemaDumpPath) {
+async function prepareSchemaFile(schemaDumpPath, { localDbUrl } = {}) {
   let contents;
   try {
     contents = await fs.readFile(schemaDumpPath, 'utf8');
@@ -304,15 +368,20 @@ async function prepareSchemaFile(schemaDumpPath) {
     throw new Error(`Failed to read schema dump at ${schemaDumpPath}: ${error.message}`);
   }
 
+  const { unsupportedExtensions, reasons } = await determineUnsupportedExtensions({
+    schemaContents: contents,
+    localDbUrl
+  });
+
   let sanitized = contents;
   let modified = false;
 
   for (const ext of unsupportedExtensions) {
     const extRegex = `["']?${escapeRegExp(ext)}["']?`;
     const patterns = [
-      new RegExp(`^\\s*CREATE\\s+EXTENSION[\\s\\S]*?${extRegex}[\\s\\S]*?;\\s*$`, 'gmi'),
-      new RegExp(`^\\s*COMMENT\\s+ON\\s+EXTENSION[\\s\\S]*?${extRegex}[\\s\\S]*?;\\s*$`, 'gmi'),
-      new RegExp(`^\\s*ALTER\\s+EXTENSION[\\s\\S]*?${extRegex}[\\s\\S]*?;\\s*$`, 'gmi')
+      new RegExp(`^\\s*CREATE\\s+EXTENSION\\b[^;\n]*?${extRegex}[^;\n]*;\\s*$`, 'gmi'),
+      new RegExp(`^\\s*COMMENT\\s+ON\\s+EXTENSION\\b[^;\n]*?${extRegex}[^;\n]*;\\s*$`, 'gmi'),
+      new RegExp(`^\\s*ALTER\\s+EXTENSION\\b[^;\n]*?${extRegex}[^;\n]*;\\s*$`, 'gmi')
     ];
 
     let removedForExtension = false;
@@ -340,7 +409,12 @@ async function prepareSchemaFile(schemaDumpPath) {
 
     if (removedForExtension) {
       modified = true;
-      console.warn(`Skipping statements for unsupported PostgreSQL extension "${ext}".`);
+      const reason = reasons.get(ext);
+      if (reason) {
+        console.warn(`Skipping statements for unsupported PostgreSQL extension "${ext}" (${reason}).`);
+      } else {
+        console.warn(`Skipping statements for unsupported PostgreSQL extension "${ext}".`);
+      }
     }
   }
 
@@ -352,6 +426,105 @@ async function prepareSchemaFile(schemaDumpPath) {
   const sanitizedPath = path.join(tempDir, path.basename(schemaDumpPath));
   await fs.writeFile(sanitizedPath, sanitized, 'utf8');
   return sanitizedPath;
+}
+
+async function ensureSupabaseRoles({ localDbUrl }) {
+  if (!localDbUrl) {
+    return;
+  }
+
+  const roleStatements = supabaseRoleDefinitions
+    .map(({ name, attributes }) => {
+      const attrClause = attributes ? ` ${attributes}` : '';
+      return `IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${escapeSqlLiteral(name)}') THEN CREATE ROLE "${name}"${attrClause}; END IF;`;
+    })
+    .join('\n  ');
+
+  if (!roleStatements) {
+    return;
+  }
+
+  console.log('Ensuring standard Supabase roles exist locally.');
+  const args = [
+    '--dbname',
+    localDbUrl,
+    '--command',
+    `DO $$\nBEGIN\n  ${roleStatements}\nEND;\n$$;`
+  ];
+  await runCommand('psql', args, { redactArgs: [args.indexOf(localDbUrl)] });
+}
+
+async function determineUnsupportedExtensions({ schemaContents, localDbUrl }) {
+  const declaredExtensions = extractExtensionNamesFromSchema(schemaContents);
+  if (declaredExtensions.size === 0) {
+    return { unsupportedExtensions: [], reasons: new Map() };
+  }
+
+  const reasons = new Map();
+  for (const ext of defaultUnsupportedExtensions) {
+    if (declaredExtensions.has(ext)) {
+      reasons.set(ext, 'not supported by migration tooling');
+    }
+  }
+
+  const candidates = [...declaredExtensions].filter((ext) => !reasons.has(ext));
+  if (candidates.length > 0 && localDbUrl) {
+    const availableExtensions = await listAvailableExtensions(localDbUrl);
+    if (availableExtensions) {
+      for (const ext of candidates) {
+        if (!availableExtensions.has(ext)) {
+          reasons.set(ext, 'not available on local server');
+        }
+      }
+    }
+  }
+
+  return { unsupportedExtensions: [...reasons.keys()], reasons };
+}
+
+async function listAvailableExtensions(localDbUrl) {
+  if (!localDbUrl) {
+    return null;
+  }
+
+  const args = [
+    '--tuples-only',
+    '--no-align',
+    '--dbname',
+    localDbUrl,
+    '--command',
+    'SELECT name FROM pg_available_extensions;'
+  ];
+
+  try {
+    const { stdout } = await runCommand('psql', args, {
+      showCommand: false,
+      captureStdout: true,
+      redactArgs: [args.indexOf(localDbUrl)]
+    });
+    const names = stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim().toLowerCase())
+      .filter(Boolean);
+    return new Set(names);
+  } catch (error) {
+    console.warn('Unable to check available PostgreSQL extensions on the local server.');
+    console.warn(error.message || error);
+    return null;
+  }
+}
+
+function extractExtensionNamesFromSchema(schemaContents) {
+  const names = new Set();
+  const regex = /CREATE\s+EXTENSION(?:\s+IF\s+NOT\s+EXISTS)?\s+(["']?)([\w-]+)\1/gi;
+  let match;
+  while ((match = regex.exec(schemaContents)) !== null) {
+    const name = match[2];
+    if (name) {
+      names.add(name.toLowerCase());
+    }
+  }
+  return names;
 }
 
 async function runHelperDdls({ localDbUrl, docsPath }) {
