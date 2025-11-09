@@ -13,7 +13,7 @@ const unsupportedExtensionCleanups = {
     {
       description: 'extensions.grant_pg_net_access() helper function',
       pattern: buildStatementRemovalRegex(
-        'CREATE\\s+FUNCTION\\s+extensions\\.grant_pg_net_access\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
+        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+extensions\\.grant_pg_net_access\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
       )
     },
     {
@@ -25,7 +25,7 @@ const unsupportedExtensionCleanups = {
     {
       description: 'issue_pg_net_access event trigger',
       pattern: buildStatementRemovalRegex(
-        'CREATE\\s+EVENT\\s+TRIGGER\\s+issue_pg_net_access[\\s\\S]+?;\\s*'
+        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?EVENT\\s+TRIGGER\\s+issue_pg_net_access[\\s\\S]+?;\\s*'
       )
     },
     {
@@ -37,7 +37,7 @@ const unsupportedExtensionCleanups = {
     {
       description: 'supabase_functions.http_request() trigger helper',
       pattern: buildStatementRemovalRegex(
-        'CREATE\\s+FUNCTION\\s+supabase_functions\\.http_request\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
+        'CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+supabase_functions\\.http_request\\(\\)[\\s\\S]+?\\$\\$[\\s\\S]+?\\$\\$;\\s*'
       )
     }
   ]
