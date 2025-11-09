@@ -1,6 +1,12 @@
 # Manual merge reference
 
-When the automated `merge-pr-v2.ps1` helper cannot run (for example because the branch that fixes it has not been merged yet), you can merge a Codex branch into `main` manually with the following sequence:
+When the automated `merge-pr-v2.ps1` helper cannot run (for example because the branch that fixes it has not been merged yet), start by verifying that your working tree is clean:
+
+```powershell
+git status
+```
+
+If only the files you intend to keep are staged or modified, you can merge a Codex branch into `main` manually with the following sequence:
 
 ```powershell
 git fetch origin
