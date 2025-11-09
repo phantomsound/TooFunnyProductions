@@ -550,6 +550,11 @@ async function runHelperDdls({ localDbUrl, docsPath }) {
 
 async function exportDataTables({ supabaseUrl, dataDir, exports }) {
   for (const { table, file } of exports) {
+    const exists = await tableExists({ dbUrl: supabaseUrl, table });
+    if (!exists) {
+      console.warn(`\nSkipping ${table} (table not found in Supabase).`);
+      continue;
+    }
     const outPath = path.join(dataDir, file);
     console.log(`\nExporting ${table} data to ${outPath}`);
     const args = [
@@ -596,6 +601,23 @@ async function importDataTables({ localDbUrl, dataDir, exports }) {
     ];
     await runCommand('psql', args, { redactArgs: [args.indexOf(localDbUrl)] });
   }
+}
+
+async function tableExists({ dbUrl, table, schema = 'public' }) {
+  const args = [
+    '--tuples-only',
+    '--no-align',
+    '--dbname',
+    dbUrl,
+    '--command',
+    `SELECT 1 FROM information_schema.tables WHERE table_schema = '${escapeSqlLiteral(schema)}' AND table_name = '${escapeSqlLiteral(table)}';`
+  ];
+  const result = await runCommand('psql', args, {
+    showCommand: false,
+    captureStdout: true,
+    redactArgs: [args.indexOf(dbUrl)]
+  });
+  return result.stdout.trim().startsWith('1');
 }
 
 async function rewriteStoredReferences({ localDbUrl, searchValue, replaceValue, schemas }) {
