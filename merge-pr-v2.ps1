@@ -138,6 +138,14 @@ function Cleanup-Branch {
   try { git push origin --delete $Branch | Out-Host } catch {}
 }
 
+function Show-PostMergeTips {
+  Write-Host "`n📌 Next steps after merges:" -ForegroundColor Yellow
+  Write-Host "   • Run 'git status' to confirm only the files you intend to keep remain staged or modified." -ForegroundColor Yellow
+  Write-Host "   • Use 'git add <file>' to keep a change or 'git restore --staged/--worktree <file>' to discard it." -ForegroundColor Yellow
+  Write-Host "   • If the Supabase migration removed unsupported extensions, edit docs/schema/supabase_schema.sql to match the sanitized output." -ForegroundColor Yellow
+  Write-Host "   • Commit and push your follow-up fixes before re-running this helper." -ForegroundColor Yellow
+}
+
 # -------- Main --------
 try {
   Ensure-AtRepoRoot
@@ -167,6 +175,7 @@ try {
 
   Write-Host "`n✅ Done. main is up to date and builds clean." -ForegroundColor Green
   Write-Host "   You can run: npm run dev" -ForegroundColor DarkGray
+  if (-not $DryRun) { Show-PostMergeTips }
 }
 catch {
   Write-Host "`n❌ Error: $($_.Exception.Message)" -ForegroundColor Red
