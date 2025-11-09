@@ -20,6 +20,8 @@ The script will:
 5. Offer to rewrite Supabase-hosted URLs inside text/JSON columns so they point at your new media host.
 6. Optionally run `fullChecker.sql` against both environments so you can diff structures and row counts.
 
+> **Important:** the helper asks for two different connection details. Supply the `postgresql://…` strings here because the export/import steps talk directly to PostgreSQL. When you configure the backend or frontend apps later, point them at the PostgREST endpoint that fronts whichever database is currently authoritative. During the transition that remains the Supabase-hosted URL; after validation succeeds, update the apps to use the PostgREST endpoint that fronts your local PostgreSQL instance (e.g. the Supabase CLI stack on `http://127.0.0.1:54321`).
+
 If you prefer to execute commands manually—or need to customise the workflow beyond the prompts—follow the detailed steps below.
 
 ## 1. Install PostgreSQL with data directory on `H:\apps`
@@ -155,10 +157,11 @@ SELECT 'assets' AS table_name,
 5. Record any path translation logic in `backend/docs/data/002_update_media_paths.sql`.
 
 ## 9. Post-migration validation
-1. Run SQL scripts under `backend/docs/tests` to confirm row counts and data integrity.
-2. Spot check critical workflows in the application (upload, playback, metadata editing).
-3. Ensure media files open correctly from the local path and that thumbnails/previews generate as expected.
-4. Keep Supabase and local databases in sync by re-running exports for any new schema changes.
+1. Run `psql --set ON_ERROR_STOP=on --dbname "postgresql://postgres:<password>@localhost:5432/toofunny_media" --file backend/docs/tests/002_compare_supabase_fdw.sql` to link the local database back to Supabase via FDW and diff the authoritative tables. Investigate any non-zero `row_diff`, `DIFFERS` hashes, or rows returned by the optional `EXCEPT` queries before proceeding. When you finish reviewing the output, execute the teardown statements at the bottom of the script to drop the temporary foreign schema/server.
+2. If the comparison script flags lingering `supabase.co` URLs, rerun the migration orchestrator (`node scripts\migrate-supabase.js`) and accept the rewrite step, or manually execute the generated `rewrite.sql` file to replace the old host with your local media path.
+3. Spot check critical workflows in the application (upload, playback, metadata editing).
+4. Ensure media files open correctly from the local path and that thumbnails/previews generate as expected.
+5. Keep Supabase and local databases in sync by re-running exports for any new schema changes until the cutover is complete.
 
 ## 10. Maintenance tips
 * Schedule periodic `pg_dump` backups of the local database to a second drive or cloud storage.
@@ -166,3 +169,11 @@ SELECT 'assets' AS table_name,
 * Document any manual steps taken so future migrations or teammates can repeat the process.
 
 With these steps complete, you’ll have a local PostgreSQL environment ready to mirror your Supabase media manager and manage large media assets from `H:\apps`.
+
+## 11. Final cutover checklist
+
+1. **Freeze Supabase writes.** Temporarily pause any jobs or admins that could change data in the hosted project while you promote the local database.
+2. **Update application secrets.** Swap `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` (backend) and `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (frontend) to the PostgREST endpoint and keys that target your local PostgreSQL instance.
+3. **Rotate credentials.** Revoke the hosted Supabase anon/service keys so stale builds cannot call the legacy project.
+4. **Monitor locally.** Run through the admin UI workflows against the local database for at least one full publishing cycle to confirm settings, deployments, and media references persist correctly.
+5. **Decommission Supabase.** Once you are confident the local instance is authoritative, archive or delete the Supabase project to eliminate the possibility of divergent writes.
