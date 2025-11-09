@@ -17,6 +17,12 @@ const unsupportedExtensionCleanups = {
       )
     },
     {
+      description: 'extensions.grant_pg_net_access() helper body (orphaned)',
+      pattern: buildStatementRemovalRegex(
+        'IF\\s+EXISTS[\\s\\S]+?extname\\s*=\\s*\'pg_net\'[\\s\\S]+?END;\\s*\\$\\$;\\s*'
+      )
+    },
+    {
       description: 'COMMENT ON FUNCTION extensions.grant_pg_net_access()',
       pattern: buildStatementRemovalRegex(
         'COMMENT\\s+ON\\s+FUNCTION\\s+extensions\\.grant_pg_net_access\\(\\)[\\s\\S]+?;\\s*'
