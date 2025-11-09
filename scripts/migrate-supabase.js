@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 const fs = require('fs/promises');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 const readline = require('readline');
 
 const defaultDocsPath = path.resolve(__dirname, '../backend/docs');
+const unsupportedExtensions = ['pg_net'];
 const recommendedExports = [
   { table: 'settings_draft', file: '001_settings_draft.sql' },
   { table: 'settings_public', file: '002_settings_public.sql' },
@@ -180,15 +182,63 @@ async function ensureDatabaseExists(localAdminUrl, localDbName) {
 
 async function applySchema({ localDbUrl, schemaDumpPath }) {
   console.log(`\nApplying schema ${schemaDumpPath} to ${summariseConnection(localDbUrl)}`);
+  const schemaToApply = await prepareSchemaFile(schemaDumpPath);
+  if (schemaToApply !== schemaDumpPath) {
+    console.warn(`Using sanitized schema file without unsupported extensions: ${schemaToApply}`);
+  }
   const args = [
     '--set',
     'ON_ERROR_STOP=on',
     '--dbname',
     localDbUrl,
     '--file',
-    schemaDumpPath
+    schemaToApply
   ];
   await runCommand('psql', args, { redactArgs: [args.indexOf(localDbUrl)] });
+}
+
+async function prepareSchemaFile(schemaDumpPath) {
+  let contents;
+  try {
+    contents = await fs.readFile(schemaDumpPath, 'utf8');
+  } catch (error) {
+    throw new Error(`Failed to read schema dump at ${schemaDumpPath}: ${error.message}`);
+  }
+
+  let sanitized = contents;
+  let modified = false;
+
+  for (const ext of unsupportedExtensions) {
+    const extRegex = `["']?${escapeRegExp(ext)}["']?`;
+    const patterns = [
+      new RegExp(`^\\s*CREATE\\s+EXTENSION[\\s\\S]*?${extRegex}[\\s\\S]*?;\\s*$`, 'gmi'),
+      new RegExp(`^\\s*COMMENT\\s+ON\\s+EXTENSION[\\s\\S]*?${extRegex}[\\s\\S]*?;\\s*$`, 'gmi'),
+      new RegExp(`^\\s*ALTER\\s+EXTENSION[\\s\\S]*?${extRegex}[\\s\\S]*?;\\s*$`, 'gmi')
+    ];
+
+    let removedForExtension = false;
+    for (const pattern of patterns) {
+      const next = sanitized.replace(pattern, () => {
+        removedForExtension = true;
+        return '';
+      });
+      sanitized = next;
+    }
+
+    if (removedForExtension) {
+      modified = true;
+      console.warn(`Skipping statements for unsupported PostgreSQL extension "${ext}".`);
+    }
+  }
+
+  if (!modified) {
+    return schemaDumpPath;
+  }
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'toofunny-schema-'));
+  const sanitizedPath = path.join(tempDir, path.basename(schemaDumpPath));
+  await fs.writeFile(sanitizedPath, sanitized, 'utf8');
+  return sanitizedPath;
 }
 
 async function runHelperDdls({ localDbUrl, docsPath }) {
@@ -399,6 +449,10 @@ function summariseConnection(connectionString) {
   const port = url.port ? `:${url.port}` : '';
   const db = decodeURIComponent(url.pathname.replace(/^\//, '')) || '<database>';
   return `postgresql://${user}@${host}${port}/${db}`;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function escapeSqlLiteral(value) {
