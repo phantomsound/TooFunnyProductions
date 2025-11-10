@@ -32,10 +32,78 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$script:AutoStashRef = $null
+
 function Assert-CleanTree {
   $status = git status --porcelain
-  if ($status) {
-    throw "Working tree not clean. Stash or commit first.`n$($status)"
+  if (-not $status) { return }
+
+  Write-Host "`n⚠️  Working tree has local changes that will block the merge script." -ForegroundColor Yellow
+  Write-Host "   Current status:" -ForegroundColor Yellow
+  git status -sb | Out-Host
+
+  $stashList = git stash list
+  if ($stashList) {
+    Write-Host "`n   Existing stash entries:" -ForegroundColor Yellow
+    git stash list | Out-Host
+  } else {
+    Write-Host "`n   No stashes are currently saved." -ForegroundColor Yellow
+  }
+
+  while ($true) {
+    Write-Host "`nChoose how to proceed:" -ForegroundColor Yellow
+    Write-Host "  [S] Stash changes now (will be re-applied automatically after the merge)." -ForegroundColor Yellow
+    Write-Host "  [K] Keep changes and continue without stashing (may cause checkout/merge conflicts)." -ForegroundColor Yellow
+    Write-Host "  [A] Abort the merge helper so you can handle the changes yourself." -ForegroundColor Yellow
+
+    $choice = (Read-Host "Enter S, K, or A").Trim().ToUpper()
+    switch ($choice) {
+      'S' {
+        $customMessage = (Read-Host "Optional stash message (press Enter to skip)").Trim()
+        if (-not $customMessage) {
+          $customMessage = "merge-pr auto-stash $(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
+        }
+
+        git stash push --include-untracked -m $customMessage | Out-Host
+
+        $stashEntry = git stash list --format="%gd::%gs" | Where-Object { $_ -like "*${customMessage}*" } | Select-Object -First 1
+        if (-not $stashEntry) {
+          throw "Failed to create a stash entry automatically."
+        }
+
+        $script:AutoStashRef = ($stashEntry -split '::')[0]
+        Write-Host "`n✅  Changes stashed as $($script:AutoStashRef). They will be restored after the merge completes." -ForegroundColor Green
+        return
+      }
+      'K' {
+        Write-Host "`nContinuing with local changes in place. If Git cannot switch branches or merge, the script will stop." -ForegroundColor Yellow
+        return
+      }
+      'A' {
+        throw "Merge aborted by user because local changes need attention."
+      }
+      default {
+        Write-Host "`nInput not recognized. Please enter S, K, or A." -ForegroundColor Yellow
+      }
+    }
+  }
+}
+
+function Restore-AutoStash {
+  param([switch]$OnError)
+
+  if (-not $script:AutoStashRef) { return }
+
+  $reason = if ($OnError) { 'after an error' } else { 'after merge completion' }
+  Write-Host "`nRestoring stashed changes ($($script:AutoStashRef)) $reason..." -ForegroundColor Cyan
+
+  try {
+    git stash pop $script:AutoStashRef | Out-Host
+    $script:AutoStashRef = $null
+  }
+  catch {
+    Write-Host "`n⚠️  Failed to auto-apply $($script:AutoStashRef). Please apply it manually when ready:" -ForegroundColor Yellow
+    Write-Host "   git stash pop $($script:AutoStashRef)" -ForegroundColor Yellow
   }
 }
 
@@ -172,10 +240,14 @@ try {
 
   Cleanup-Branch -Branch $resolved -Keep:$KeepBranch
 
+  Restore-AutoStash
+
   Write-Host "`n✅ Merge complete. main is up to date and builds clean." -ForegroundColor Green
   Write-Host "   You can now run:  npm run dev" -ForegroundColor DarkGray
 }
 catch {
+  Restore-AutoStash -OnError
+
   Write-Host "`n❌ Error: $($_.Exception.Message)" -ForegroundColor Red
   Write-Host "   If you were dropped into an editor (Vim), press Esc then :wq Enter to continue."
   exit 1
