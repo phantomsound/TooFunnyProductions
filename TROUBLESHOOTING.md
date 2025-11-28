@@ -44,6 +44,16 @@ git push origin main
 This mirrors the defaults used by `merge-pr-v2.ps1` (clean working tree, `-X theirs` for fewer conflicts) without
 requiring the helper script itself.
 
+### Want a single-file helper you can drop in?
+
+Save or copy-paste `scripts/quick-merge.ps1` into your repo root, then run:
+
+```powershell
+pwsh -File scripts/quick-merge.ps1 -Branch codex/your-branch
+```
+
+It validates a clean working tree, tracks the remote branch if needed, merges with `-X theirs`, and pushes `main`.
+
 ## 2. Check the helper scripts
 
 From the repo root, run:
