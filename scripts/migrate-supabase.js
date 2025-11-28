@@ -61,6 +61,12 @@ const unsupportedExtensionCleanups = {
       )
     },
     {
+      description: 'extensions.grant_pg_graphql_access() helper block (orphaned comment with body)',
+      pattern: buildStatementRemovalRegex(
+        '--\\s*\\n--\\s+Name:\\s+grant_pg_graphql_access\\(\\);\\s+Type:\\s+FUNCTION;\\s+Schema:\\s+extensions;[\\s\\S]+?(\\$[^$\\n]*\\$);\\s*'
+      )
+    },
+    {
       description: 'COMMENT ON FUNCTION extensions.grant_pg_graphql_access()',
       pattern: buildStatementRemovalRegex(
         'COMMENT\\s+ON\\s+FUNCTION\\s+extensions\\.grant_pg_graphql_access\\(\\)[\\s\\S]+?;\\s*'
