@@ -16,6 +16,7 @@ import {
   listContactResponses,
   updateContactResponse,
 } from "../lib/contactResponses.js";
+import { getDatabaseStatus } from "../lib/databaseStatus.js";
 
 const router = Router();
 
@@ -120,6 +121,16 @@ router.patch("/contact-responses/:id", requireAdmin, async (req, res) => {
       return res.status(404).json({ error: "Not found" });
     }
     res.status(500).json({ error: "Failed to update contact response" });
+  }
+});
+
+router.get("/database/status", requireAdmin, async (_req, res) => {
+  try {
+    const status = await getDatabaseStatus();
+    res.json(status);
+  } catch (err) {
+    console.error("GET /api/admin/database/status error:", err);
+    res.status(500).json({ error: "Failed to load database status" });
   }
 });
 

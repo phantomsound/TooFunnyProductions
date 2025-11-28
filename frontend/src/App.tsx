@@ -28,6 +28,7 @@ import AdminMediaManager from "./pages/admin/AdminMediaManager";
 import AdminContactResponses from "./pages/admin/AdminContactResponses";
 import AdminAudit from "./pages/admin/AdminAudit";
 import AdminGeneralSettingsPage from "./pages/admin/AdminGeneralSettingsPage";
+import AdminDatabaseWorkspace from "./pages/admin/AdminDatabaseWorkspace";
 
 export default function App() {
   return (
@@ -61,6 +62,7 @@ export default function App() {
                   >
                     <Route index element={<AdminGeneralSettingsPage />} />
                     <Route path="general" element={<AdminGeneralSettingsPage />} />
+                    <Route path="database" element={<AdminDatabaseWorkspace />} />
                     <Route path="page-configurations" element={<AdminSettings />} />
                     <Route path="settings" element={<Navigate to="/admin/page-configurations" replace />} />
                     <Route path="media" element={<AdminMediaManager />} />
