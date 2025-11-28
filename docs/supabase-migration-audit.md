@@ -27,9 +27,18 @@ Use it as a checklist while verifying the migration.
 If any stored settings/media still reference `*.supabase.co`, you can bulk-rewrite them instead of re-picking every item by hand:
 
 1. **Run the automated rewrite**
-   - Point your SQL client at your **local** database.
-   - Set `replacement_host` to the same PostgREST base URL you used for `SUPABASE_URL` / `VITE_SUPABASE_URL` after the cutover (for a Supabase CLI stack this is typically `http://127.0.0.1:54321`).
-   - Run the script: `SET replacement_host = 'http://127.0.0.1:54321'; \i backend/docs/tests/003_rewrite_supabase_urls.sql` in psql, or run the `SET` followed by the script in pgAdmin's Query Tool. PowerShell can invoke psql with the same pair of commands (`psql -d <db> -c "SET replacement_host = 'http://127.0.0.1:54321';"` then `psql -d <db> -f backend/docs/tests/003_rewrite_supabase_urls.sql`).
+   - Point your SQL client at your **local** database (you confirmed Postgres is listening on 5432, so your connection string should use that port unless your PostgREST proxy runs elsewhere).
+   - Set `replacement_host` to the same PostgREST base URL you used for `SUPABASE_URL` / `VITE_SUPABASE_URL` after the cutover. Examples:
+     - Supabase local stack default PostgREST: `http://127.0.0.1:54321`
+     - Plain PostgREST served directly on Postgres port 5432: `http://127.0.0.1:5432`
+     - If unsure, open your env file and copy `SUPABASE_URL`/`VITE_SUPABASE_URL` exactly.
+   - Run the script in one of the following ways (replace `<host>` with your URL):
+     - **psql one-liner**: `psql -d <db> -c "SET replacement_host = '<host>';" -f backend/docs/tests/003_rewrite_supabase_urls.sql`
+     - **psql interactive**: `SET replacement_host = '<host>';` then `\i backend/docs/tests/003_rewrite_supabase_urls.sql`
+     - **pgAdmin Query Tool**: run `SET replacement_host = '<host>';` then execute the script
+     - **PowerShell two-liner**:
+       - `psql -d <db> -c "SET replacement_host = '<host>';"`
+       - `psql -d <db> -f backend/docs/tests/003_rewrite_supabase_urls.sql`
    The script walks JSONB columns in the settings/admin tables and rewrites any Supabase hostnames to the replacement host, printing how many rows changed per table/column.
 
 2. **Find any remaining offenders**

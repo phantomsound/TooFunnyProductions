@@ -8,14 +8,25 @@
 --
 -- How to run (connected to your **local** database):
 --   1) Identify your replacement host. Use the same PostgREST base URL you set
---      for `SUPABASE_URL`/`VITE_SUPABASE_URL` after the migration (for a
---      Supabase CLI stack this is usually `http://127.0.0.1:54321`).
+--      for `SUPABASE_URL`/`VITE_SUPABASE_URL` after the migration. Examples:
+--        - Supabase local stack default: `http://127.0.0.1:54321`
+--        - Plain PostgREST on Postgres port 5432 (your netstat output):
+--          `http://127.0.0.1:5432`
+--      If unsure, open your env file and copy the full value of
+--      `SUPABASE_URL` or `VITE_SUPABASE_URL`.
 --   2) In your SQL client, set a custom parameter named `replacement_host`
 --      before executing this file. Examples:
---        psql:     SET replacement_host = 'http://127.0.0.1:54321'; \i backend/docs/tests/003_rewrite_supabase_urls.sql
---        pgAdmin:  run `SET replacement_host = 'http://127.0.0.1:54321';` then run this script from the Query Tool
---        PowerShell: psql -d <db> -c "SET replacement_host = 'http://127.0.0.1:54321';" \\
---                    psql -d <db> -f backend/docs/tests/003_rewrite_supabase_urls.sql
+--        psql (one command):
+--          psql -d <db> -c "SET replacement_host = '<host>';" \\
+--                 -f backend/docs/tests/003_rewrite_supabase_urls.sql
+--        psql (interactive):
+--          SET replacement_host = '<host>';
+--          \i backend/docs/tests/003_rewrite_supabase_urls.sql
+--        pgAdmin Query Tool:
+--          run `SET replacement_host = '<host>';` then run this script
+--        PowerShell two-liner (keeps values quoted):
+--          psql -d <db> -c "SET replacement_host = '<host>';"
+--          psql -d <db> -f backend/docs/tests/003_rewrite_supabase_urls.sql
 --   3) Review the NOTICES for how many rows were updated per table/column.
 --   4) If satisfied, keep the COMMIT. Otherwise ROLLBACK.
 -- ===========================================================================
