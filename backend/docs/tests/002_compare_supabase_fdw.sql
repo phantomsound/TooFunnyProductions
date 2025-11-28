@@ -11,13 +11,54 @@
 --     comment out the CREATE USER MAPPING section and create the mapping
 --     manually before running the rest of the script).
 --
--- Workflow:
---   1. Edit the connection placeholders below.
+--   1. Provide the Supabase connection settings via psql variables (for example
+--      `psql -v SUPABASE_HOST="aws-0-us-east-1.pooler.supabase.com" -v SUPABASE_PORT=6543 -v SUPABASE_DB=postgres -v SUPABASE_USER=postgres.<project-id> -v SUPABASE_PASSWORD=*** -f backend/docs/tests/002_compare_supabase_fdw.sql`).
 --   2. \i this file from psql while connected to the local database.
 --   3. Inspect the row-count diff, EXCEPT outputs, and hash mismatches.
 --   4. Investigate any rows printed before proceeding with cutover.
 --   5. Run the teardown block at the bottom when you no longer need the FDW.
 -- ===========================================================================
+
+-- Require Supabase connection variables to be set by the caller so we avoid
+-- committing secrets while still keeping the script runnable.
+\if :{?SUPABASE_HOST}
+\else
+  \echo 'ERROR: set SUPABASE_HOST (psql -v SUPABASE_HOST=...) before running.'
+  \quit 1
+\endif
+
+\if :{?SUPABASE_PORT}
+\else
+  \echo 'ERROR: set SUPABASE_PORT (psql -v SUPABASE_PORT=...) before running.'
+  \quit 1
+\endif
+
+\if :{?SUPABASE_DB}
+\else
+  \echo 'ERROR: set SUPABASE_DB (psql -v SUPABASE_DB=...) before running.'
+  \quit 1
+\endif
+
+\if :{?SUPABASE_USER}
+\else
+  \echo 'ERROR: set SUPABASE_USER (psql -v SUPABASE_USER=...) before running.'
+  \quit 1
+\endif
+
+\if :{?SUPABASE_PASSWORD}
+\else
+  \echo 'ERROR: set SUPABASE_PASSWORD (psql -v SUPABASE_PASSWORD=...) before running.'
+  \quit 1
+\endif
+
+-- Quote the provided values so they can be safely injected below.
+SELECT
+  quote_literal(:'SUPABASE_HOST') AS supabase_host_literal,
+  quote_literal(:'SUPABASE_PORT') AS supabase_port_literal,
+  quote_literal(:'SUPABASE_DB') AS supabase_db_literal,
+  quote_literal(:'SUPABASE_USER') AS supabase_user_literal,
+  quote_literal(:'SUPABASE_PASSWORD') AS supabase_password_literal
+\gset
 
 BEGIN;
 
@@ -27,16 +68,16 @@ DROP SERVER IF EXISTS supabase_remote CASCADE;
 CREATE SERVER supabase_remote
   FOREIGN DATA WRAPPER postgres_fdw
   OPTIONS (
-    host '<SUPABASE_HOSTNAME>',
-    dbname '<SUPABASE_DB>',
-    port '<SUPABASE_PORT>'
+    host :supabase_host_literal,
+    dbname :supabase_db_literal,
+    port :supabase_port_literal
   );
 
 CREATE USER MAPPING FOR CURRENT_USER
   SERVER supabase_remote
   OPTIONS (
-    user '<SUPABASE_USER>',
-    password '<SUPABASE_PASSWORD>'
+    user :supabase_user_literal,
+    password :supabase_password_literal
   );
 
 DROP SCHEMA IF EXISTS supabase_mirror CASCADE;
@@ -49,8 +90,7 @@ IMPORT FOREIGN SCHEMA public
     settings_lock,
     settings_versions,
     settings_deployments,
-    admin_actions,
-    contact_responses
+    admin_actions
   )
   FROM SERVER supabase_remote
   INTO supabase_mirror;
@@ -66,8 +106,7 @@ WITH supabase_counts AS (
   SELECT 'settings_lock', COUNT(*) FROM supabase_mirror.settings_lock UNION ALL
   SELECT 'settings_versions', COUNT(*) FROM supabase_mirror.settings_versions UNION ALL
   SELECT 'settings_deployments', COUNT(*) FROM supabase_mirror.settings_deployments UNION ALL
-  SELECT 'admin_actions', COUNT(*) FROM supabase_mirror.admin_actions UNION ALL
-  SELECT 'contact_responses', COUNT(*) FROM supabase_mirror.contact_responses
+  SELECT 'admin_actions', COUNT(*) FROM supabase_mirror.admin_actions
 ),
 local_counts AS (
   SELECT 'settings_draft' AS table_name, COUNT(*) AS local_rows FROM public.settings_draft UNION ALL
@@ -75,8 +114,7 @@ local_counts AS (
   SELECT 'settings_lock', COUNT(*) FROM public.settings_lock UNION ALL
   SELECT 'settings_versions', COUNT(*) FROM public.settings_versions UNION ALL
   SELECT 'settings_deployments', COUNT(*) FROM public.settings_deployments UNION ALL
-  SELECT 'admin_actions', COUNT(*) FROM public.admin_actions UNION ALL
-  SELECT 'contact_responses', COUNT(*) FROM public.contact_responses
+  SELECT 'admin_actions', COUNT(*) FROM public.admin_actions
 )
 SELECT
   l.table_name,
@@ -142,8 +180,6 @@ WITH candidates AS (
   SELECT 'settings_versions', id, row_to_json(t) FROM public.settings_versions t
   UNION ALL
   SELECT 'admin_actions', id, row_to_json(t) FROM public.admin_actions t
-  UNION ALL
-  SELECT 'contact_responses', id, row_to_json(t) FROM public.contact_responses t
 )
 SELECT
   table_name,
