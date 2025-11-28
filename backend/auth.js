@@ -2,9 +2,26 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { logAdminAction } from "./lib/audit.js";
-import { getAllowlist } from "./lib/allowlist.js";
+import { getAllowlist, getEditableAllowlist, getEnvAllowlist } from "./lib/allowlist.js";
 
 const DEV_FALLBACK_FRONTEND = "http://localhost:5173";
+
+function logAllowlistStatus() {
+  const envAllowlist = getEnvAllowlist();
+  const editableAllowlist = getEditableAllowlist();
+  const combined = getAllowlist();
+
+  if (combined.length === 0) {
+    console.warn(
+      "⚠️ Admin allowlist is empty. Add ALLOWLIST_EMAILS to backend/.env or save addresses in Admin → Admin Access."
+    );
+    return;
+  }
+
+  console.log(
+    `✅ Admin allowlist loaded (${combined.length} total; env=${envAllowlist.length}, editable=${editableAllowlist.length}).`
+  );
+}
 
 function getDevBackendFallback() {
   return `http://localhost:${process.env.PORT || 5000}`;
@@ -186,6 +203,8 @@ export function initAuth(app) {
   const missingGoogleEnv = requiredGoogleEnv.filter((key) => !process.env[key]);
   const hasGoogleStrategy = missingGoogleEnv.length === 0;
 
+  logAllowlistStatus();
+
   if (!hasGoogleStrategy) {
     console.error(
       "❌ Google OAuth disabled: missing environment variables ->",
@@ -256,7 +275,14 @@ export function initAuth(app) {
             try {
               await logAdminAction(email || "unknown", allowed ? "login" : "login_denied");
             } catch {}
-            if (!allowed) return res.redirect(`${frontendUrl}/admin?auth=denied`);
+            if (!allowed) {
+              console.warn("Google login denied: email missing from admin allowlist", {
+                email,
+                envAllowlist: getEnvAllowlist(),
+                editableAllowlist: getEditableAllowlist(),
+              });
+              return res.redirect(`${frontendUrl}/admin?auth=denied`);
+            }
             res.redirect(`${frontendUrl}/admin`);
           });
         }

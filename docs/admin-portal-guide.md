@@ -155,6 +155,7 @@ Review a searchable history of admin actions, publishes, uploads, and snapshot e
 - **Cannot edit fields:** Ensure you are in Draft view and hold the draft lock. If another editor is active, coordinate a handoff.
 - **Draft changes missing:** Confirm you clicked **Save Draft** before navigating away. Restore a recent snapshot if needed.
 - **Allowlist updates failing:** Check the error banner for API details. Retry after a few seconds; persistent issues may indicate server-side configuration problems.
+- **Login denied after adding your email:** Confirm `ALLOWLIST_EMAILS` is set in `backend/.env`, restart the backend to load the new value, and open **Admin → Admin Access** to verify the address appears under Environment emails.
 - **Upload errors:** Large files or unsupported formats may fail. Check console logs or try again after refreshing.
 - **Preview mismatch:** Verify the preview tab is loading with `?stage=draft`. Clear browser cache if the live site appears instead.
 
