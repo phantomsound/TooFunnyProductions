@@ -16,6 +16,34 @@ git reset --hard origin/main
 pull. If you have edits you want to keep, run `git stash --include-untracked` before the reset and later restore them
 with `git stash pop`.
 
+## Quick copy/paste merge for a branch
+
+If you just need to fast-forward `origin/main` with a feature branch (for example while testing a Codex PR), paste the
+block below into PowerShell from the repo root. Replace `codex/your-branch` with the branch you want to merge. The
+commands abort early if your working tree is dirty.
+
+```powershell
+$branch = "codex/your-branch"  # set the branch you want to merge
+
+if (git status --porcelain) { throw "Clean or stash your changes first." }
+
+git fetch origin $branch
+if (-not (git branch --list $branch)) {
+  git switch -c $branch --track origin/$branch
+} else {
+  git switch $branch
+  git pull
+}
+
+git switch main
+git pull origin main
+git merge --no-edit -X theirs origin/$branch
+git push origin main
+```
+
+This mirrors the defaults used by `merge-pr-v2.ps1` (clean working tree, `-X theirs` for fewer conflicts) without
+requiring the helper script itself.
+
 ## 2. Check the helper scripts
 
 From the repo root, run:
