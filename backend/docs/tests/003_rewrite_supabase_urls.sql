@@ -6,10 +6,16 @@
 -- Supabase hostname pattern inside JSONB columns for the primary settings and
 -- admin tables.
 --
--- How to run (from psql connected to your **local** database):
---   1) Set your replacement host (no trailing slash) with \set, e.g.:
---        \set replacement_host 'http://127.0.0.1:54321'
---   2) \i backend/docs/tests/003_rewrite_supabase_urls.sql
+-- How to run (connected to your **local** database):
+--   1) Identify your replacement host. Use the same PostgREST base URL you set
+--      for `SUPABASE_URL`/`VITE_SUPABASE_URL` after the migration (for a
+--      Supabase CLI stack this is usually `http://127.0.0.1:54321`).
+--   2) In your SQL client, set a custom parameter named `replacement_host`
+--      before executing this file. Examples:
+--        psql:     SET replacement_host = 'http://127.0.0.1:54321'; \i backend/docs/tests/003_rewrite_supabase_urls.sql
+--        pgAdmin:  run `SET replacement_host = 'http://127.0.0.1:54321';` then run this script from the Query Tool
+--        PowerShell: psql -d <db> -c "SET replacement_host = 'http://127.0.0.1:54321';" \\
+--                    psql -d <db> -f backend/docs/tests/003_rewrite_supabase_urls.sql
 --   3) Review the NOTICES for how many rows were updated per table/column.
 --   4) If satisfied, keep the COMMIT. Otherwise ROLLBACK.
 -- ===========================================================================
@@ -17,22 +23,16 @@
 BEGIN;
 
 -- Replace this with your local PostgREST base URL before running.
--- psql example: \set replacement_host 'http://127.0.0.1:54321'
-\if :{?replacement_host}
-\else
-  \echo 'ERROR: Set replacement_host via \set replacement_host "http://127.0.0.1:54321" before running.'
-  \quit
-\endif
 
 DO $$
 DECLARE
   target_pattern constant text := 'https?://[^/]*\.supabase\.(co|in|net)';
-  replacement_host text := :'replacement_host';
+  replacement_host text := current_setting('replacement_host', true);
   r record;
   rows_updated bigint;
 BEGIN
   IF replacement_host IS NULL OR length(trim(replacement_host)) = 0 THEN
-    RAISE EXCEPTION 'replacement_host is required. Use \set replacement_host "http://127.0.0.1:54321" first.';
+    RAISE EXCEPTION 'replacement_host is required. Run `SET replacement_host = ''http://127.0.0.1:54321'';` first.';
   END IF;
 
   -- Helper to rewrite strings inside arbitrary JSONB values.

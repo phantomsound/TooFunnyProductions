@@ -27,9 +27,9 @@ Use it as a checklist while verifying the migration.
 If any stored settings/media still reference `*.supabase.co`, you can bulk-rewrite them instead of re-picking every item by hand:
 
 1. **Run the automated rewrite**
-   - Point psql at your **local** database.
-   - Set your local PostgREST host (`\set replacement_host 'http://127.0.0.1:54321'`).
-   - Execute `\i backend/docs/tests/003_rewrite_supabase_urls.sql`.
+   - Point your SQL client at your **local** database.
+   - Set `replacement_host` to the same PostgREST base URL you used for `SUPABASE_URL` / `VITE_SUPABASE_URL` after the cutover (for a Supabase CLI stack this is typically `http://127.0.0.1:54321`).
+   - Run the script: `SET replacement_host = 'http://127.0.0.1:54321'; \i backend/docs/tests/003_rewrite_supabase_urls.sql` in psql, or run the `SET` followed by the script in pgAdmin's Query Tool. PowerShell can invoke psql with the same pair of commands (`psql -d <db> -c "SET replacement_host = 'http://127.0.0.1:54321';"` then `psql -d <db> -f backend/docs/tests/003_rewrite_supabase_urls.sql`).
    The script walks JSONB columns in the settings/admin tables and rewrites any Supabase hostnames to the replacement host, printing how many rows changed per table/column.
 
 2. **Find any remaining offenders**
