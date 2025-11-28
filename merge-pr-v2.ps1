@@ -59,7 +59,18 @@ function AutoUnstash-ThisScript {
 function Assert-CleanTree {
   # ignore this script being modified
   $status = git status --porcelain | Where-Object { $_ -notmatch "\smerge-pr-v2\.ps1$" }
-  if ($status) { throw "Working tree not clean (excluding merge-pr-v2.ps1). Stash/commit first.`n$($status -join "`n")" }
+  if ($status) {
+    $details = $status -join "`n"
+    $tips = @(
+      "Tips:",
+      " - Keep EVERYTHING shown above: git add -A; git commit -m \"save WIP before merge\"",
+      " - Keep changes: git add <path>...; git commit -m \"save WIP\"",
+      " - Discard tracked edits: git restore --staged --worktree <path>...",
+      " - Drop untracked dumps/logs: git clean -fd -- <path-or-folder>",
+      " - Temporary stash everything: git stash push -m \"merge-pr prep\""
+    ) -join "`n"
+    throw "Working tree not clean (excluding merge-pr-v2.ps1). Stash/commit first.`n$details`n`n$tips"
+  }
 }
 
 function Fetch-All { git fetch --all --prune | Out-Host }
