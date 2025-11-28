@@ -47,6 +47,15 @@ function Ensure-AtRepoRoot {
   if (-not (Test-Path ".git")) { throw "Run from repo root ('.git' required). Current: $(Get-Location)" }
 }
 
+function Assert-NoConflictMarkers {
+  # Catch unresolved merge markers early so PowerShell does not choke on '<<<<<<<'
+  $markers = Get-Content $PSCommandPath | Select-String '^(<<<<<<<|=======|>>>>>>>)'
+  if ($markers) {
+    $lines = ($markers | Select-Object -First 3 | ForEach-Object { "  line $($_.LineNumber): $($_.Line.Trim())" }) -join "`n"
+    throw "merge-pr-v2.ps1 still has merge conflict markers. Resolve the conflicts and re-run.`n$lines"
+  }
+}
+
 function AutoStash-ThisScript {
   $selfDirty = git status --porcelain | Where-Object { $_ -match "\smerge-pr-v2\.ps1$" }
   if ($selfDirty) { git stash push -m "auto: merge-pr-v2.ps1" -- merge-pr-v2.ps1 | Out-Host; $script:didSelfStash = $true }
@@ -160,6 +169,7 @@ function Show-PostMergeTips {
 # -------- Main --------
 try {
   Ensure-AtRepoRoot
+  Assert-NoConflictMarkers
   AutoStash-ThisScript
   Assert-CleanTree
   Fetch-All
