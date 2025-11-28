@@ -63,11 +63,11 @@ function Assert-CleanTree {
     $details = $status -join "`n"
     $tips = @(
       'Tips:',
-      ' - Keep EVERYTHING shown above: git add -A; git commit -m "save WIP before merge"',
-      ' - Keep changes: git add <path>...; git commit -m "save WIP"',
+      " - Keep EVERYTHING shown above: git add -A; git commit -m 'save WIP before merge'",
+      " - Keep changes: git add <path>...; git commit -m 'save WIP'",
       ' - Discard tracked edits: git restore --staged --worktree <path>...',
       ' - Drop untracked dumps/logs: git clean -fd -- <path-or-folder>',
-      ' - Temporary stash everything: git stash push -m "merge-pr prep"'
+      " - Temporary stash everything: git stash push -m 'merge-pr prep'"
     ) -join "`n"
     throw "Working tree not clean (excluding merge-pr-v2.ps1). Stash/commit first.`n$details`n`n$tips"
   }
