@@ -59,7 +59,21 @@ function normalizeAbsoluteUrl(value) {
 
 function resolveFrontendUrl(req) {
   const configured = pickFirstConfiguredFrontend();
-  if (configured) return configured;
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (isLoopbackHost(url.hostname) && !isLoopbackRequest(req)) {
+        console.warn(
+          "⚠️ Ignoring FRONTEND_URL/CORS_ORIGIN pointing at localhost for a non-local request. Falling back to detected host.",
+          configured
+        );
+      } else {
+        return configured;
+      }
+    } catch {
+      // fall through to auto-detection
+    }
+  }
 
   const originHeader = normalizeFrontendBase(req?.headers?.origin);
   if (originHeader) return originHeader;
