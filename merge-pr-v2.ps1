@@ -63,6 +63,7 @@ function Assert-CleanTree {
     $details = $status -join "`n"
     $tips = @(
       "Tips:",
+      " - Keep EVERYTHING shown above: git add -A; git commit -m \"save WIP before merge\"",
       " - Keep changes: git add <path>...; git commit -m \"save WIP\"",
       " - Discard tracked edits: git restore --staged --worktree <path>...",
       " - Drop untracked dumps/logs: git clean -fd -- <path-or-folder>",
