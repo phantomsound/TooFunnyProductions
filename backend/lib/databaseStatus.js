@@ -1,16 +1,24 @@
 // backend/lib/databaseStatus.js
-import { createClient } from "@supabase/supabase-js";
+import { PostgrestClient } from "@supabase/postgrest-js";
 import { URL } from "node:url";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
 
-let supabase = null;
-function getSupabase() {
-  if (supabase) return supabase;
+let postgrest = null;
+function getPostgrest() {
+  if (postgrest) return postgrest;
   const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
-  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  return supabase;
+
+  const baseUrl = SUPABASE_URL.replace(/\/+$/, "");
+
+  postgrest = new PostgrestClient(baseUrl, {
+    headers: {
+      apikey: SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+    },
+  });
+  return postgrest;
 }
 
 function parseSupabaseUrl(rawUrl) {
@@ -51,7 +59,7 @@ export async function getDatabaseStatus() {
   let connectivityError = null;
 
   if (configured) {
-    const client = getSupabase();
+    const client = getPostgrest();
     if (!client) {
       connectivity.ok = false;
       connectivity.message = "Supabase client unavailable";
@@ -83,7 +91,9 @@ export async function getDatabaseStatus() {
     friendlyName,
     mode,
     host: hostname,
-    url: supabaseUrl ? `${supabaseUrl.origin}${supabaseUrl.pathname}` : null,
+    url: supabaseUrl
+      ? `${supabaseUrl.origin}${supabaseUrl.pathname === "/" ? "" : supabaseUrl.pathname.replace(/\/$/, "")}`
+      : null,
     supabaseConfigured: configured,
     supabaseUrlPresent: urlPresent,
     serviceKeyPresent,
