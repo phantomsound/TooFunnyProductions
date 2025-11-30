@@ -45,6 +45,7 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
   }, [load]);
 
   const modeBadge = status ? MODE_LABEL[status.mode] : MODE_LABEL.unknown;
+  const needsSupabaseConfig = status && (!status.supabaseUrlPresent || !status.serviceKeyPresent);
 
   return (
     <div className="space-y-6 text-neutral-100">
@@ -118,6 +119,31 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
           </div>
         </div>
       </section>
+
+      {needsSupabaseConfig ? (
+        <section className="rounded-xl border border-amber-800/70 bg-amber-950/40 p-5 text-sm text-amber-50 shadow-sm">
+          <h3 className="text-lg font-semibold text-amber-100">PostgREST/Supabase setup needed</h3>
+          <p className="mt-2 text-amber-100/90">
+            The admin database workspace stays unconfigured until the backend can reach your local PostgREST gateway.
+            Confirm the following in <span className="font-semibold">backend/.env</span> and restart the backend service:
+          </p>
+          <ul className="mt-3 space-y-2 list-disc pl-5">
+            <li>
+              <span className="font-semibold">SUPABASE_URL</span> → <code>http://127.0.0.1:54321</code> (PostgREST port, not the
+              PostgreSQL 5432 port).
+            </li>
+            <li>
+              <span className="font-semibold">SUPABASE_SERVICE_KEY</span> → your local service-role JWT from the PostgREST/Supabase
+              stack.
+            </li>
+            <li>Restart the backend so the new env values load, then hit Refresh above.</li>
+          </ul>
+          <p className="mt-3 text-amber-100/80">
+            Want to skip this for now? Leave both values blank and the backend will use its file-backed fallbacks until you’re
+            ready to validate the migrated database.
+          </p>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-sm backdrop-blur">
