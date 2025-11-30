@@ -48,6 +48,7 @@ export async function getDatabaseStatus() {
     ok: false,
     message: configured ? "Checking connectivity…" : "Supabase/PostgREST not configured",
   };
+  let connectivityError = null;
 
   if (configured) {
     const client = getSupabase();
@@ -57,7 +58,15 @@ export async function getDatabaseStatus() {
     } else {
       const probe = await client.from("settings_public").select("id").limit(1);
       connectivity.ok = !probe.error;
-      connectivity.message = probe.error ? probe.error.message || "Failed to reach database" : "Database reachable";
+      if (probe.error) {
+        connectivityError = probe.error.message || "Failed to reach database";
+        const hint = supabaseUrl
+          ? `Confirm the PostgREST endpoint (${supabaseUrl.origin}${supabaseUrl.pathname}) is running and the service role key matches it.`
+          : "Confirm the PostgREST endpoint is running and the service role key matches it.";
+        connectivity.message = `${connectivityError}. ${hint}`;
+      } else {
+        connectivity.message = "Database reachable";
+      }
     }
   }
 
@@ -66,6 +75,7 @@ export async function getDatabaseStatus() {
   if (!serviceKeyPresent) warnings.push("SUPABASE_SERVICE_KEY is missing");
   if (hostname?.includes("supabase.")) warnings.push("Supabase domain detected — point SUPABASE_URL at the MikoDB/PostgREST endpoint.");
   if (configured && !connectivity.ok) warnings.push("Configured but unreachable — double-check the PostgREST endpoint and service key");
+  if (connectivityError) warnings.push(`Supabase/PostgREST error: ${connectivityError}`);
 
   return {
     friendlyName,
