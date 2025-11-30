@@ -71,8 +71,10 @@ export async function getDatabaseStatus() {
   }
 
   const warnings = [];
-  if (!urlPresent) warnings.push("SUPABASE_URL is missing");
-  if (!serviceKeyPresent) warnings.push("SUPABASE_SERVICE_KEY is missing");
+  if (!urlPresent)
+    warnings.push("SUPABASE_URL is missing — set it to your local PostgREST endpoint (e.g., http://127.0.0.1:54321).");
+  if (!serviceKeyPresent)
+    warnings.push("SUPABASE_SERVICE_KEY is missing — paste the local service-role key from your PostgREST/Supabase stack.");
   if (hostname?.includes("supabase.")) warnings.push("Supabase domain detected — point SUPABASE_URL at the MikoDB/PostgREST endpoint.");
   if (configured && !connectivity.ok) warnings.push("Configured but unreachable — double-check the PostgREST endpoint and service key");
   if (connectivityError) warnings.push(`Supabase/PostgREST error: ${connectivityError}`);

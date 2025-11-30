@@ -66,6 +66,7 @@ This checklist walks every part of the stack so the app runs purely against your
 If the Admin → Database workspace shows **Configured but unreachable**, work through this checklist against your local PostgREST/Supabase stack:
 
 - **Ensure env vars point locally**: In `backend/.env`, set `SUPABASE_URL` to your local PostgREST endpoint (e.g., `http://127.0.0.1:54321` or whatever port your stack exposes) and keep `SUPABASE_SERVICE_KEY` to the local service-role key. Restart the backend after edits.
+- **Mind the port mismatch**: PostgREST listens on `54321` while PostgreSQL speaks on `5432`. Point `SUPABASE_URL` at `54321` and keep your `DATABASE_URL`/`DB_PORT` on `5432` so the backend talks the right protocol to each service.
 - **Probe the endpoint directly**: From the backend host, run `curl -i <SUPABASE_URL>` and confirm you get an HTTP response instead of a connection error. If the port is wrong or the service isn’t running, the admin card will stay red.
 - **Service key matches the endpoint**: A mismatched key returns 401/403 from PostgREST and appears as “Supabase/PostgREST error” in the warning list. Regenerate the local service-role key if needed and update `SUPABASE_SERVICE_KEY`.
 - **Local hostnames auto-label as MikoDB**: If the badge still says **Supabase**, you’re probably still pointing at the hosted domain. Swap the URL to the local host to keep reads/writes inside your local database.
