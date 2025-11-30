@@ -23,10 +23,11 @@ function parseSupabaseUrl(rawUrl) {
 }
 
 function deriveFriendlyName({ hostname, override }) {
-  const preferred = override || "MikoDB";
-  if (preferred) return preferred;
-  if (hostname?.includes("supabase.co")) return "Supabase";
-  return hostname || "Unconfigured database";
+  if (override) return override;
+  if (!hostname) return "Unconfigured database";
+  if (hostname.includes("supabase.")) return "Supabase";
+  if (LOCAL_HOSTS.has(hostname) || hostname.endsWith(".local")) return "MikoDB";
+  return hostname;
 }
 
 export async function getDatabaseStatus() {

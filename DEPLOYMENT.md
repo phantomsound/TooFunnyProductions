@@ -7,8 +7,8 @@ This guide walks through preparing the environment variables, running the app du
 Create `backend/.env` with the required secrets:
 
 ```
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_SERVICE_KEY=service-role-key-from-supabase
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_SERVICE_KEY=<local-service-role-key>
 SESSION_SECRET=generate-a-long-random-string
 ALLOWLIST_EMAILS=admin@example.com,second-admin@example.com
 FRONTEND_URL=https://toofunnyproductions.com
@@ -18,7 +18,7 @@ GOOGLE_CLIENT_SECRET=...
 GOOGLE_CALLBACK_URL=/api/auth/google/callback
 ```
 
-* `SUPABASE_URL` must be the **PostgREST endpoint** exposed by whichever stack currently owns your data. While Supabase remains the source of truth this will be the hosted `.supabase.co` domain. After the local PostgreSQL migration, update it to the PostgREST endpoint that fronts your local instance (for example `http://127.0.0.1:54321` when using the Supabase CLI). Remove the old hosted URL once the cutover is complete so the backend cannot fall back to Supabase.
+* `SUPABASE_URL` must be the **PostgREST endpoint** exposed by whichever stack currently owns your data. With the MikoDB cutover the default should be your local/PostgREST gateway (for example `http://127.0.0.1:54321` when using the Supabase CLI). Remove any hosted `.supabase.co` URL once the cutover is complete so the backend cannot fall back to Supabase.
 * `SUPABASE_SERVICE_KEY` is the service-role key. Hosted projects expose it under **Project Settings → API**; the Supabase CLI generates matching keys inside the stack’s `.env` file. Use the same key for the backend and any automation scripts so row-level security checks succeed.
 
 > **Tip:** Use the SQL statements in `backend/docs/settings-columns.sql` inside Supabase’s SQL editor once so every new column used by the admin UI exists in both `settings_draft` and `settings_public`.
@@ -27,8 +27,8 @@ For the frontend, copy `frontend/.env.example` to `frontend/.env` when you want 
 
 ```
 VITE_API_URL=http://localhost:5000
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=anon-public-key
+VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_ANON_KEY=<local-anon-key>
 ```
 
 The frontend talks to Supabase directly for auth helpers and realtime updates, so its anon key and URL must match the backend project. Keep them aligned with the backend during the migration, then switch both layers to the local PostgREST endpoint once validation proves the local PostgreSQL database is authoritative.

@@ -4,7 +4,7 @@ This note summarizes where Supabase/PostgREST is still wired into the project an
 Use it as a checklist while verifying the migration.
 
 ## Environment + deployment
-- `.env` variables still use `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` as the PostgREST connection pair. Make sure they point at your local PostgREST endpoint (for example `http://127.0.0.1:54321`) instead of the hosted `*.supabase.co` domain. The `DB_FRIENDLY_NAME` override will drive the admin "friendly name" badge if you want something other than the auto-detected hostname.
+- `.env` variables still use `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` as the PostgREST connection pair. Make sure they point at your local PostgREST endpoint (for example `http://127.0.0.1:54321`) instead of the hosted `*.supabase.co` domain. The `DB_FRIENDLY_NAME` override will drive the admin "friendly name" badge if you want something other than the auto-detected hostname (local hosts now auto-label as **MikoDB** while hosted Supabase domains show **Supabase**).
 - `DEPLOYMENT.md` already documents swapping these values after the migration; double-check the secrets in each environment and remove the hosted URL so the backend cannot silently fall back to Supabase.
 
 ## Backend coupling
