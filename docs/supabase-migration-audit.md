@@ -21,6 +21,7 @@ Use it as a checklist while verifying the migration.
 ## Scripts + validation
 - `scripts/migrate-supabase.js` remains the primary export/import pipeline from hosted Supabase into local Postgres. Run `npm run migrate:supabase` to re-export schemas/data, then repoint env vars.
 - Use `backend/docs/tests/002_compare_supabase_fdw.sql` to compare local tables against the hosted project via FDW. It already includes a check that searches JSON payloads for `supabase.(co|in|net)` so you can find lingering URLs before shutting off Supabase.
+- Run `pwsh scripts/check-mikodb-alias.ps1` to scan your env/config files for any `supabase.(co|in|net)` references and optionally ping the admin database status endpoint. This keeps the dashboard friendly name on **MikoDB** instead of falling back to the hosted domain.
 - The broader migration guide lives in `docs/local-postgres-source-of-truth.md`; follow the operational checklist there after updating the env files.
 
 ## Cleaning up lingering Supabase URLs in content

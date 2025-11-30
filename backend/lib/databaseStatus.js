@@ -22,9 +22,9 @@ function parseSupabaseUrl(rawUrl) {
   }
 }
 
-function deriveFriendlyName({ hostname, override, mode }) {
-  if (override) return override;
-  if (mode === "local") return "MikoDB";
+function deriveFriendlyName({ hostname, override }) {
+  const preferred = override || "MikoDB";
+  if (preferred) return preferred;
   if (hostname?.includes("supabase.co")) return "Supabase";
   return hostname || "Unconfigured database";
 }
@@ -38,7 +38,7 @@ export async function getDatabaseStatus() {
       ? "local"
       : "remote"
     : "unknown";
-  const friendlyName = deriveFriendlyName({ hostname, override, mode });
+  const friendlyName = deriveFriendlyName({ hostname, override });
   const serviceKeyPresent = typeof process.env.SUPABASE_SERVICE_KEY === "string" && process.env.SUPABASE_SERVICE_KEY.length > 0;
   const urlPresent = !!supabaseUrl;
   const configured = urlPresent && serviceKeyPresent;
@@ -63,6 +63,7 @@ export async function getDatabaseStatus() {
   const warnings = [];
   if (!urlPresent) warnings.push("SUPABASE_URL is missing");
   if (!serviceKeyPresent) warnings.push("SUPABASE_SERVICE_KEY is missing");
+  if (hostname?.includes("supabase.")) warnings.push("Supabase domain detected — point SUPABASE_URL at the MikoDB/PostgREST endpoint.");
   if (configured && !connectivity.ok) warnings.push("Configured but unreachable — double-check the PostgREST endpoint and service key");
 
   return {

@@ -54,7 +54,9 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
           <h1 className="text-3xl font-semibold text-yellow-300">Database workspace</h1>
           <p className="max-w-3xl text-sm text-neutral-300">
             A focused home for admin-owned database items, separate from the page configuration workflow. Keep an eye on which
-            backend you are connected to before inviting the team to import content.
+            backend you are connected to before inviting the team to import content. The friendly name defaults to
+            <span className="px-1 font-semibold text-yellow-200">MikoDB</span> so you can spot lingering Supabase connections
+            quickly.
           </p>
         </div>
         <div className="flex gap-2">
@@ -138,7 +140,7 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
           </p>
           <div className="mt-3 space-y-2 text-sm text-neutral-200">
             <ChecklistItem
-              label="Confirm you are pointed at the correct backend (MikoDB locally, Supabase in the cloud)."
+              label="Confirm you are pointed at the correct backend (MikoDB locally or in your target environment)."
               done={!!status?.connectivity?.ok}
             />
             <ChecklistItem
