@@ -1,6 +1,7 @@
 // backend/lib/databaseStatus.js
 import { PostgrestClient } from "@supabase/postgrest-js";
 import { URL } from "node:url";
+import { decodeSupabaseRole, hasServiceRoleKey } from "./supabaseKey.js";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
 
@@ -57,6 +58,8 @@ export async function getDatabaseStatus() {
     message: configured ? "Checking connectivity…" : "Supabase/PostgREST not configured",
   };
   let connectivityError = null;
+  const keyRole = decodeSupabaseRole(process.env.SUPABASE_SERVICE_KEY);
+  const hasServiceRole = hasServiceRoleKey(process.env.SUPABASE_SERVICE_KEY);
 
   if (configured) {
     const client = getPostgrest();
@@ -83,6 +86,8 @@ export async function getDatabaseStatus() {
     warnings.push("SUPABASE_URL is missing — set it to your local PostgREST endpoint (e.g., http://127.0.0.1:54321).");
   if (!serviceKeyPresent)
     warnings.push("SUPABASE_SERVICE_KEY is missing — paste the local service-role key from your PostgREST/Supabase stack.");
+  if (serviceKeyPresent && !hasServiceRole)
+    warnings.push("The configured SUPABASE_SERVICE_KEY is not a service_role key; pulls and publishes will fail until it is updated.");
   if (hostname?.includes("supabase.")) warnings.push("Supabase domain detected — point SUPABASE_URL at the MikoDB/PostgREST endpoint.");
   if (configured && !connectivity.ok) warnings.push("Configured but unreachable — double-check the PostgREST endpoint and service key");
   if (connectivityError) warnings.push(`Supabase/PostgREST error: ${connectivityError}`);
@@ -97,6 +102,8 @@ export async function getDatabaseStatus() {
     supabaseConfigured: configured,
     supabaseUrlPresent: urlPresent,
     serviceKeyPresent,
+    serviceKeyRole: keyRole,
+    hasServiceRole,
     connectivity,
     warnings,
   };
