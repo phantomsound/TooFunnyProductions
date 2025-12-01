@@ -27,6 +27,27 @@ function getDevBackendFallback() {
   return `http://localhost:${process.env.PORT || 5000}`;
 }
 
+function readTrimmedEnv(key) {
+  const raw = process.env[key];
+  if (typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (raw && trimmed && raw !== trimmed) {
+    console.warn(`⚠️ ${key} contains leading/trailing whitespace; using trimmed value.`);
+  }
+  return trimmed;
+}
+
+function getGoogleConfig() {
+  const clientID = readTrimmedEnv("GOOGLE_CLIENT_ID");
+  const clientSecret = readTrimmedEnv("GOOGLE_CLIENT_SECRET");
+
+  const missingEnv = [];
+  if (!clientID) missingEnv.push("GOOGLE_CLIENT_ID");
+  if (!clientSecret) missingEnv.push("GOOGLE_CLIENT_SECRET");
+
+  return { clientID, clientSecret, missingEnv };
+}
+
 function pickFirstConfiguredFrontend() {
   const envCandidates = [
     process.env.FRONTEND_URL,
@@ -196,11 +217,7 @@ passport.deserializeUser((obj, done) => done(null, obj));
 export function initAuth(app) {
   if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
 
-  const requiredGoogleEnv = [
-    "GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET",
-  ];
-  const missingGoogleEnv = requiredGoogleEnv.filter((key) => !process.env[key]);
+  const { clientID, clientSecret, missingEnv: missingGoogleEnv } = getGoogleConfig();
   const hasGoogleStrategy = missingGoogleEnv.length === 0;
 
   logAllowlistStatus();
@@ -217,8 +234,8 @@ export function initAuth(app) {
     passport.use(
       new GoogleStrategy(
         {
-          clientID: process.env.GOOGLE_CLIENT_ID,
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          clientID,
+          clientSecret,
         },
         async (_accessToken, _refreshToken, profile, done) => {
           try {
