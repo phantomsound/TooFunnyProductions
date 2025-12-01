@@ -22,7 +22,7 @@
 -- stays read-only; no objects are created or dropped.
 -- ============================================================================
 
-\echo '=== 1) Required tables present ==='
+SELECT '=== 1) Required tables present ===' AS section_header;
 WITH required_tables AS (
   SELECT unnest(ARRAY[
     'settings_draft',
@@ -44,8 +44,8 @@ LEFT JOIN information_schema.tables t
  AND t.table_schema NOT IN ('pg_catalog', 'information_schema')
 ORDER BY rt.table_name;
 
-\echo ''
-\echo '=== 2) Column type validation (compare to Supabase schema) ==='
+SELECT '' AS spacer;
+SELECT '=== 2) Column type validation (compare to Supabase schema) ===' AS section_header;
 WITH expected AS (
   SELECT * FROM (VALUES
     -- settings_draft/public shared columns
@@ -260,8 +260,8 @@ LEFT JOIN actual a
  AND a.column_name = e.column_name
 ORDER BY e.table_name, e.column_name;
 
-\echo ''
-\echo '=== 3) Primary and unique key coverage ==='
+SELECT '' AS spacer;
+SELECT '=== 3) Primary and unique key coverage ===' AS section_header;
 WITH expected_keys AS (
   SELECT * FROM (VALUES
     ('settings_draft',      'PRIMARY KEY', ARRAY['id']),
@@ -306,8 +306,8 @@ LEFT JOIN actual_keys a
  AND a.constraint_type = e.constraint_type
 ORDER BY e.table_name, e.constraint_type;
 
-\echo ''
-\echo '=== 4) Index coverage on UUID and JSONB columns ==='
+SELECT '' AS spacer;
+SELECT '=== 4) Index coverage on UUID and JSONB columns ===' AS section_header;
 WITH important_indexes AS (
   SELECT * FROM (VALUES
     ('settings_versions', 'settings_versions_pkey'),
@@ -329,8 +329,8 @@ LEFT JOIN pg_indexes i
 WHERE COALESCE(i.schemaname, 'public') NOT IN ('pg_catalog', 'information_schema')
 ORDER BY table_name, index_name;
 
-\echo ''
-\echo '=== 5) Supabase extension sanity check (local instance should mirror) ==='
+SELECT '' AS spacer;
+SELECT '=== 5) Supabase extension sanity check (local instance should mirror) ===' AS section_header;
 SELECT
   extname,
   extversion,
@@ -341,8 +341,8 @@ SELECT
 FROM pg_extension
 ORDER BY classification DESC, extname;
 
-\echo ''
-\echo '=== 6) Row-count snapshot for drift detection ==='
+SELECT '' AS spacer;
+SELECT '=== 6) Row-count snapshot for drift detection ===' AS section_header;
 WITH stats AS (
   SELECT
     n.nspname AS table_schema,
