@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
-import { hasServiceRoleKey } from "../lib/supabaseKey.js";
+import { hasServiceRoleKey, isLocalSupabaseUrl } from "../lib/supabaseKey.js";
 
 const router = Router();
 
@@ -43,23 +43,25 @@ async function loadLocalSettings() {
 }
 
 const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
+const supabaseIsLocal = isLocalSupabaseUrl(SUPABASE_URL);
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in backend/.env");
 }
 
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_KEY ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) : null;
-const supabaseHasServiceRole = hasServiceRoleKey(SUPABASE_SERVICE_KEY);
+const supabaseHasRequiredRole = supabaseIsLocal ? !!SUPABASE_SERVICE_KEY : hasServiceRoleKey(SUPABASE_SERVICE_KEY);
 
 function ensureSupabaseWritable(res) {
   if (!supabase) {
     res.status(500).json({ error: "Supabase not configured." });
     return false;
   }
-  if (!supabaseHasServiceRole) {
+  if (!supabaseHasRequiredRole) {
     res.status(500).json({
-      error:
-        "Supabase service role key required. Update SUPABASE_SERVICE_KEY in backend/.env with the service_role key from your PostgREST stack.",
+      error: supabaseIsLocal
+        ? "Local PostgREST requires a JWT in SUPABASE_SERVICE_KEY that matches your PGRST_JWT_SECRET. Update backend/.env and restart the service."
+        : "Supabase service role key required. Update SUPABASE_SERVICE_KEY in backend/.env with the service_role key from your PostgREST stack.",
     });
     return false;
   }

@@ -3,7 +3,10 @@
 // Helpers for inspecting Supabase keys without making network calls.
 // -----------------------------------------------------------------------------
 
+import { URL } from "node:url";
+
 const BASE64_URL_PATTERN = /^[A-Za-z0-9_-]+$/;
+const LOCAL_SUPABASE_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
 
 export function decodeSupabaseRole(rawKey) {
   if (!rawKey || typeof rawKey !== "string") return null;
@@ -28,5 +31,20 @@ export function decodeSupabaseRole(rawKey) {
 
 export function hasServiceRoleKey(rawKey) {
   return decodeSupabaseRole(rawKey) === "service_role";
+}
+
+export function parseSupabaseUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") return null;
+  try {
+    return new URL(rawUrl);
+  } catch (error) {
+    return null;
+  }
+}
+
+export function isLocalSupabaseUrl(rawUrl) {
+  const url = parseSupabaseUrl(rawUrl);
+  if (!url) return false;
+  return LOCAL_SUPABASE_HOSTS.has(url.hostname) || url.hostname.endsWith(".local");
 }
 
