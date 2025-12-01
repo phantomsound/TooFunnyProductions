@@ -9,6 +9,8 @@ type DatabaseStatus = {
   supabaseConfigured: boolean;
   supabaseUrlPresent: boolean;
   serviceKeyPresent: boolean;
+  serviceKeyRole: string | null;
+  hasServiceRole: boolean;
   connectivity: { ok: boolean; message: string };
   warnings: string[];
 };
@@ -110,6 +112,11 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
               label="Credentials"
               value={status?.supabaseConfigured ? "Service key loaded" : "Missing secrets"}
               success={!!status?.supabaseConfigured}
+            />
+            <StatusRow
+              label="Key role"
+              value={status?.serviceKeyRole ? status.serviceKeyRole : status?.serviceKeyPresent ? "Unknown" : "—"}
+              success={!!status?.hasServiceRole}
             />
             <StatusRow
               label="Reachable"

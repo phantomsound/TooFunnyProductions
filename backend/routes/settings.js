@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
+import { hasServiceRoleKey, isLocalSupabaseUrl } from "../lib/supabaseKey.js";
 
 const router = Router();
 
@@ -42,12 +43,30 @@ async function loadLocalSettings() {
 }
 
 const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
+const supabaseIsLocal = isLocalSupabaseUrl(SUPABASE_URL);
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in backend/.env");
 }
 
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_KEY ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) : null;
+const supabaseHasRequiredRole = supabaseIsLocal ? !!SUPABASE_SERVICE_KEY : hasServiceRoleKey(SUPABASE_SERVICE_KEY);
+
+function ensureSupabaseWritable(res) {
+  if (!supabase) {
+    res.status(500).json({ error: "Supabase not configured." });
+    return false;
+  }
+  if (!supabaseHasRequiredRole) {
+    res.status(500).json({
+      error: supabaseIsLocal
+        ? "Local PostgREST requires a JWT in SUPABASE_SERVICE_KEY that matches your PGRST_JWT_SECRET. Update backend/.env and restart the service."
+        : "Supabase service role key required. Update SUPABASE_SERVICE_KEY in backend/.env with the service_role key from your PostgREST stack.",
+    });
+    return false;
+  }
+  return true;
+}
 
 const TBL = (stage) => (stage === "draft" ? "settings_draft" : "settings_public");
 
@@ -811,7 +830,7 @@ router.get("/", async (req, res) => {
 // PUT /api/settings?stage=live|draft (default draft) – admin only
 router.put("/", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     await processDeploymentSchedule();
     const stage = req.query.stage === "live" ? "live" : "draft";
     const table = TBL(stage);
@@ -846,7 +865,7 @@ router.put("/", requireAdmin, async (req, res) => {
 // POST /api/settings/pull-live – copy live → draft
 router.post("/pull-live", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     await processDeploymentSchedule();
 
     const liveSel = await supabase
@@ -885,7 +904,7 @@ router.post("/pull-live", requireAdmin, async (req, res) => {
 // POST /api/settings/publish – copy draft → live
 router.post("/publish", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     await processDeploymentSchedule();
 
     const actor = (req.user?.email || "unknown").toLowerCase();
@@ -971,7 +990,7 @@ router.post("/publish", requireAdmin, async (req, res) => {
 
 router.get("/lock", requireAdmin, async (_req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
 
     const sel = await supabase.from("settings_lock").select("*").eq("id", 1).maybeSingle();
     if (sel.error && sel.error.code !== "PGRST116") throw sel.error;
@@ -1012,7 +1031,7 @@ router.get("/lock", requireAdmin, async (_req, res) => {
 
 router.get("/lock/options", requireAdmin, async (_req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
 
     const [drafts, published, defaultSnapshot] = await Promise.all([
       listVersionsInternal({ kind: VERSION_KIND_DRAFT, stage: "draft", limit: 40 }),
@@ -1036,7 +1055,7 @@ router.get("/lock/options", requireAdmin, async (_req, res) => {
 
 router.post("/lock/acquire", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
 
     const ttlSeconds = Number(req.body?.ttlSeconds) || 300;
     const now = new Date();
@@ -1191,7 +1210,7 @@ router.post("/lock/acquire", requireAdmin, async (req, res) => {
 
 router.post("/lock/release", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
 
     const email = (req.user?.email || "unknown").toLowerCase();
     const sel = await supabase.from("settings_lock").select("*").eq("id", 1).maybeSingle();
@@ -1284,7 +1303,7 @@ router.post("/lock/release", requireAdmin, async (req, res) => {
 
 router.get("/versions", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     const limit = clampLimit(req.query.limit, 20);
     const stageFilter = req.query.stage === "live" ? "live" : req.query.stage === "draft" ? "draft" : undefined;
     const kindFilter = req.query.kind ? String(req.query.kind) : undefined;
@@ -1304,7 +1323,7 @@ router.get("/versions", requireAdmin, async (req, res) => {
 
 router.post("/versions", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     const stage = req.body?.stage === "live" ? "live" : "draft";
     const label = typeof req.body?.label === "string" && req.body.label.trim().length > 0 ? req.body.label.trim() : null;
     const note = typeof req.body?.note === "string" && req.body.note.trim().length > 0 ? req.body.note.trim() : null;
@@ -1358,7 +1377,7 @@ router.post("/versions", requireAdmin, async (req, res) => {
 
 router.patch("/versions/:id", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     const versionId = req.params.id;
     if (!versionId) return res.status(400).json({ error: "Missing version id" });
 
@@ -1403,7 +1422,7 @@ router.patch("/versions/:id", requireAdmin, async (req, res) => {
 
 router.post("/versions/:id/restore", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     const versionId = req.params.id;
     const email = (req.user?.email || "unknown").toLowerCase();
 
@@ -1445,7 +1464,7 @@ router.post("/versions/:id/restore", requireAdmin, async (req, res) => {
 
 router.delete("/versions/:id", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     const versionId = req.params.id;
     const email = (req.user?.email || "unknown").toLowerCase();
 
@@ -1478,7 +1497,7 @@ router.delete("/versions/:id", requireAdmin, async (req, res) => {
 
 router.get("/deployments", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     await processDeploymentSchedule();
     const includePast = String(req.query.includePast).toLowerCase() === "true";
     const deployments = await listDeployments({ includePast });
@@ -1511,7 +1530,7 @@ router.get("/deployments", requireAdmin, async (req, res) => {
 
 router.post("/deployments", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     const email = (req.user?.email || "unknown").toLowerCase();
     const snapshotId = req.body?.snapshotId ? String(req.body.snapshotId) : null;
     if (!snapshotId) return res.status(400).json({ error: "snapshotId is required" });
@@ -1595,7 +1614,7 @@ router.post("/deployments", requireAdmin, async (req, res) => {
 
 router.post("/deployments/:id/cancel", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     const email = (req.user?.email || "unknown").toLowerCase();
     const deploymentId = req.params.id;
     if (!deploymentId) return res.status(400).json({ error: "Missing deployment id" });
@@ -1653,7 +1672,7 @@ router.post("/deployments/:id/cancel", requireAdmin, async (req, res) => {
 
 router.post("/deployments/:id/override", requireAdmin, async (req, res) => {
   try {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured." });
+    if (!ensureSupabaseWritable(res)) return;
     const email = (req.user?.email || "unknown").toLowerCase();
     const deploymentId = req.params.id;
     if (!deploymentId) return res.status(400).json({ error: "Missing deployment id" });
