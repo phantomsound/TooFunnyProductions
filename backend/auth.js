@@ -157,7 +157,7 @@ function resolveBackendBase(req) {
   const forwardedProto = req?.headers?.["x-forwarded-proto"]?.split(",")?.[0];
   const forwardedHost = req?.headers?.["x-forwarded-host"]?.split(",")?.[0];
   const host = forwardedHost || req?.get?.("host");
-  const protocol = forwardedProto || req?.protocol;
+  const protocol = pickProtocol(forwardedProto, req?.protocol, host);
 
   if (protocol && host) {
     const combined = normalizeFrontendBase(`${protocol}://${host}`);
@@ -165,6 +165,19 @@ function resolveBackendBase(req) {
   }
 
   return getDevBackendFallback();
+}
+
+function pickProtocol(forwardedProto, reqProtocol, hostHeader) {
+  const normalizedForwarded = forwardedProto?.toString()?.split(",")?.[0]?.trim()?.toLowerCase();
+  if (normalizedForwarded) return normalizedForwarded;
+
+  const normalizedReq = reqProtocol?.toString()?.trim()?.toLowerCase();
+  if (normalizedReq && normalizedReq !== "http") return normalizedReq;
+
+  const hostname = hostHeader?.toString()?.split(":")?.[0];
+  if (hostname && !isLoopbackHost(hostname)) return "https";
+
+  return normalizedReq || "http";
 }
 
 function isLoopbackHost(hostname) {
