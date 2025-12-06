@@ -9,6 +9,8 @@ const DATA_DIR = join(__dirname, "..", "data");
 const ALLOWLIST_FILE = join(DATA_DIR, "admin-allowlist.json");
 const MESSAGING_OPT_IN_FILE = join(DATA_DIR, "admin-messaging-optin.json");
 
+const DEFAULT_CORE_ADMINS = ["kmiko@gmail.com"];
+
 const normalizeEmail = (value) => {
   if (typeof value !== "string") return null;
   const lower = value.trim().toLowerCase();
@@ -67,7 +69,12 @@ export const getEnvAllowlist = () => {
   return dedupe(parseList(raw));
 };
 
-export const getAllowlist = () => dedupe([...editableAllowlist, ...getEnvAllowlist()]);
+export const getAllowlist = () =>
+  dedupe([
+    ...DEFAULT_CORE_ADMINS.map((value) => normalizeEmail(value)).filter(Boolean),
+    ...editableAllowlist,
+    ...getEnvAllowlist(),
+  ]);
 
 export const setEditableAllowlist = async (input) => {
   const next = normalizeAllowlistInput(input);

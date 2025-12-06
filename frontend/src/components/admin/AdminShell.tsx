@@ -79,8 +79,8 @@ export default function AdminShell() {
       to={link.to}
       onClick={() => setMobileMenuOpen(false)}
       className={({ isActive }) =>
-        "group flex items-center justify-between gap-2 rounded px-3 py-2 text-sm transition hover:bg-neutral-800 " +
-        (isActive ? "bg-neutral-800 text-yellow-300" : "text-neutral-200")
+        "group flex items-center justify-between gap-2 rounded-lg border border-transparent px-3.5 py-2.5 text-sm transition hover:border-neutral-700 hover:bg-neutral-800 " +
+        (isActive ? "border-yellow-300/60 bg-neutral-800 text-yellow-200 shadow-sm" : "text-neutral-200")
       }
     >
       <span className="truncate">{link.label}</span>
@@ -117,41 +117,45 @@ export default function AdminShell() {
     <div className="min-h-screen bg-neutral-950 text-neutral-100">
       <div className="flex flex-col lg:grid lg:grid-cols-[260px_1fr]">
         {/* Sidebar for large screens */}
-        <aside className="hidden min-h-screen border-r border-neutral-800 bg-neutral-900 lg:flex lg:flex-col">
-          <div className="p-5 text-xl font-bold text-yellow-400">Admin</div>
-          <nav className="px-3 py-2 space-y-1">{navLinks.map(renderNavLink)}</nav>
+        <aside className="hidden min-h-screen border-r border-neutral-800 bg-neutral-900/95 lg:flex lg:flex-col">
+          <div className="border-b border-neutral-800 bg-gradient-to-r from-neutral-900 to-neutral-950 p-5 text-xl font-semibold text-yellow-300">
+            Admin
+          </div>
+          <nav className="px-3 py-3 space-y-1.5">{navLinks.map(renderNavLink)}</nav>
           {renderQuickLinks()}
         </aside>
 
         {/* Main */}
         <main className="min-h-screen">
-          <div className="flex flex-wrap items-center gap-3 border-b border-neutral-800 bg-neutral-900 px-4 py-3 lg:justify-end">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded border border-neutral-700 px-3 py-1 text-sm font-semibold text-neutral-200 transition hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900 lg:hidden"
-              onClick={() => setMobileMenuOpen((open) => !open)}
-              aria-expanded={mobileMenuOpen}
-              aria-controls="admin-mobile-nav"
-            >
-              <span>{mobileMenuOpen ? "Close" : "Menu"}</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="h-4 w-4"
+          <div className="border-b border-neutral-800 bg-neutral-900/90">
+            <div className="mx-auto flex w-full max-w-screen-xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8 lg:justify-end">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg border border-neutral-700 px-3 py-1.5 text-sm font-semibold text-neutral-200 transition hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900 lg:hidden"
+                onClick={() => setMobileMenuOpen((open) => !open)}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="admin-mobile-nav"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d={mobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"}
-                />
-              </svg>
-            </button>
+                <span>{mobileMenuOpen ? "Close" : "Menu"}</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="h-4 w-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d={mobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"}
+                  />
+                </svg>
+              </button>
 
-            <div className="ml-auto">
-              <AdminUserBar />
+              <div className="ml-auto">
+                <AdminUserBar />
+              </div>
             </div>
           </div>
 
