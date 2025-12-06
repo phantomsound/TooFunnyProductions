@@ -224,6 +224,14 @@ function resolveGoogleCallback(req) {
   return `${resolveBackendBase(req)}/api/auth/google/callback`;
 }
 
+function redirectLegacyGoogleAuth(req, res) {
+  const base = resolveBackendBase(req);
+  const suffix = req.path.endsWith("/callback") ? "/callback" : "";
+  const search = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+  const target = `${base}/api/auth/google${suffix}${search}`;
+  res.redirect(302, target);
+}
+
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
@@ -279,6 +287,9 @@ export function initAuth(app) {
       })(req, res, next);
     });
 
+    app.get("/admin/auth/google", redirectLegacyGoogleAuth);
+    app.get("/admin/auth/google/callback", redirectLegacyGoogleAuth);
+
     // OAuth callback → redirect to SPA
     app.get("/api/auth/google/callback", (req, res, next) => {
       const frontendUrl = resolveFrontendUrl(req);
@@ -327,6 +338,8 @@ export function initAuth(app) {
     app.get("/api/auth/google/callback", (_req, res) => {
       res.status(503).json(missingPayload);
     });
+    app.get("/admin/auth/google", redirectLegacyGoogleAuth);
+    app.get("/admin/auth/google/callback", redirectLegacyGoogleAuth);
   }
 
   // Who am I?
