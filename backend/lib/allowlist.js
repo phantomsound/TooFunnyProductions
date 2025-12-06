@@ -9,7 +9,7 @@ const DATA_DIR = join(__dirname, "..", "data");
 const ALLOWLIST_FILE = join(DATA_DIR, "admin-allowlist.json");
 const MESSAGING_OPT_IN_FILE = join(DATA_DIR, "admin-messaging-optin.json");
 
-const DEFAULT_CORE_ADMINS = ["kmiko@gmail.com"];
+const DEFAULT_CORE_ADMINS = ["kmiko28@gmail.com"];
 
 const normalizeEmail = (value) => {
   if (typeof value !== "string") return null;
