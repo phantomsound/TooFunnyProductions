@@ -137,6 +137,8 @@ async function main() {
   await ensureBinary('pg_dump');
   await ensureBinary('psql');
 
+  const restoreBackendEnv = await protectBackendEnv();
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -256,7 +258,49 @@ async function main() {
     console.log('\nMigration workflow completed. Review any warnings above and verify application behaviour.');
   } finally {
     rl.close();
+    await restoreBackendEnv();
   }
+}
+
+async function protectBackendEnv() {
+  const backendEnvPath = path.resolve(__dirname, '../backend/.env');
+
+  let originalEnv;
+  let originalMode;
+  try {
+    originalEnv = await fs.readFile(backendEnvPath, 'utf8');
+    const stats = await fs.stat(backendEnvPath);
+    originalMode = stats?.mode;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return async () => {};
+    }
+    throw error;
+  }
+
+  return async () => {
+    try {
+      const currentEnv = await fs.readFile(backendEnvPath, 'utf8');
+      if (currentEnv === originalEnv) {
+        return;
+      }
+      await fs.writeFile(backendEnvPath, originalEnv, {
+        encoding: 'utf8',
+        mode: originalMode ?? 0o600
+      });
+      console.warn('Restored backend/.env to preserve local credentials.');
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        await fs.writeFile(backendEnvPath, originalEnv, {
+          encoding: 'utf8',
+          mode: originalMode ?? 0o600
+        });
+        console.warn('Recreated missing backend/.env to preserve local credentials.');
+      } else {
+        console.warn(`Unable to verify backend/.env: ${error.message}`);
+      }
+    }
+  };
 }
 
 async function ensureBinary(binary) {
