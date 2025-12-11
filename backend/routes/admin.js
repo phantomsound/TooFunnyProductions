@@ -16,7 +16,9 @@ import {
   listContactResponses,
   updateContactResponse,
 } from "../lib/contactResponses.js";
-import { getDatabaseStatus } from "../lib/databaseStatus.js";
+import { getDatabaseStatus, resetDatabaseStatusCache } from "../lib/databaseStatus.js";
+import { getEditableDatabaseConfig, saveDatabaseConfig } from "../lib/databaseConfig.js";
+import { getSqlScriptById, listSqlScripts } from "../lib/sqlScripts.js";
 
 const router = Router();
 
@@ -131,6 +133,68 @@ router.get("/database/status", requireAdmin, async (_req, res) => {
   } catch (err) {
     console.error("GET /api/admin/database/status error:", err);
     res.status(500).json({ error: "Failed to load database status" });
+  }
+});
+
+router.get("/database/config", requireAdmin, async (_req, res) => {
+  try {
+    const config = await getEditableDatabaseConfig();
+    res.json({ config });
+  } catch (err) {
+    console.error("GET /api/admin/database/config error:", err);
+    res.status(500).json({ error: "Failed to load database config" });
+  }
+});
+
+router.put("/database/config", requireAdmin, async (req, res) => {
+  try {
+    const saved = await saveDatabaseConfig({
+      friendlyName: req.body?.friendlyName ?? "",
+      supabaseUrl: req.body?.supabaseUrl ?? "",
+      serviceKey: req.body?.serviceKey ?? "",
+      pgadminUrl: req.body?.pgadminUrl ?? "",
+    });
+
+    resetDatabaseStatusCache();
+
+    try {
+      await logAdminAction(req.user?.email || "unknown", "database_config_update", {
+        hasUrl: !!saved.supabaseUrl,
+        hasServiceKey: !!saved.serviceKey,
+        hasFriendlyName: !!saved.friendlyName,
+      });
+    } catch (err) {
+      console.warn("Failed to log database config update", err?.message || err);
+    }
+
+    res.json({ config: saved });
+  } catch (err) {
+    console.error("PUT /api/admin/database/config error:", err);
+    res.status(500).json({ error: "Failed to save database config" });
+  }
+});
+
+router.get("/database/sql-scripts", requireAdmin, async (_req, res) => {
+  try {
+    const scripts = await listSqlScripts();
+    res.json({ scripts });
+  } catch (err) {
+    console.error("GET /api/admin/database/sql-scripts error:", err);
+    res.status(500).json({ error: "Failed to load SQL scripts" });
+  }
+});
+
+router.get("/database/sql-scripts/:id", requireAdmin, async (req, res) => {
+  try {
+    const script = await getSqlScriptById(req.params?.id);
+    if (!script) return res.status(404).json({ error: "Not found" });
+
+    res.setHeader("Content-Type", "application/sql; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${script.filename}"`);
+    res.send(script.content);
+  } catch (err) {
+    console.error("GET /api/admin/database/sql-scripts/:id error:", err);
+    res.status(500).json({ error: "Failed to download SQL script" });
   }
 });
 
