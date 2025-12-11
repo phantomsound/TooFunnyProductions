@@ -27,6 +27,8 @@ type SqlScript = {
   filename: string;
   folder: string;
   label: string;
+  helper: string;
+  dateWritten?: string;
 };
 
 const MODE_LABEL = {
@@ -47,6 +49,13 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
   const [scripts, setScripts] = React.useState<SqlScript[]>([]);
   const [scriptsError, setScriptsError] = React.useState<string | null>(null);
   const [scriptsLoading, setScriptsLoading] = React.useState(false);
+
+  const formatDate = React.useCallback((value?: string) => {
+    if (!value) return "Date unknown";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "Date unknown";
+    return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" }).format(parsed);
+  }, []);
 
   const loadConfig = React.useCallback(async () => {
     setConfigError(null);
@@ -398,7 +407,8 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
             <div className="space-y-1">
               <h3 className="text-xl font-semibold text-yellow-200">SQL scripts</h3>
               <p className="text-sm text-neutral-300">
-                Pull vetted SQL helpers directly from the repo. Download them or open pgAdmin 4 to run the scripts.
+                Pull vetted SQL helpers directly from the repo. Download them or open pgAdmin 4 to run the scripts. Each entry
+                includes a short note and the date it was last updated.
               </p>
             </div>
             <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
@@ -424,7 +434,7 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
             <div className="mt-3 rounded border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-100">{scriptsError}</div>
           ) : null}
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             {scriptsLoading && !scripts.length ? (
               <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-4 text-sm text-neutral-300">Loading scripts…</div>
             ) : null}
@@ -438,20 +448,25 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
             {scripts.map((script) => (
               <div
                 key={script.id}
-                className="flex flex-col justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/70 p-4 text-sm text-neutral-100"
+                className="flex flex-col gap-3 rounded-lg border border-neutral-800 bg-neutral-950/70 p-4 text-sm text-neutral-100 shadow-inner shadow-black/20"
               >
-                <div className="space-y-1">
-                  <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">{script.label}</div>
-                  <div className="font-semibold text-yellow-200">{script.filename}</div>
-                  <div className="text-xs text-neutral-400">Import into pgAdmin 4 or run with psql.</div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">{script.label}</div>
+                    <div className="text-base font-semibold text-yellow-200 break-words">{script.filename}</div>
+                  </div>
+                  <span className="whitespace-nowrap rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
+                    {formatDate(script.dateWritten)}
+                  </span>
                 </div>
+                <p className="text-xs leading-relaxed text-neutral-300">{script.helper}</p>
                 <div className="flex flex-wrap gap-2">
                   <a
                     href={api(`/api/admin/database/sql-scripts/${encodeURIComponent(script.id)}`)}
                     className="inline-flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 shadow-sm transition hover:-translate-y-[1px] hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900"
                     download
                   >
-                    Download
+                    Download SQL
                   </a>
                   <button
                     type="button"
