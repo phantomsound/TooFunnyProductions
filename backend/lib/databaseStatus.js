@@ -6,22 +6,34 @@ import {
   isLocalSupabaseUrl,
   parseSupabaseUrl,
 } from "./supabaseKey.js";
+import { getResolvedDatabaseConfig } from "./databaseConfig.js";
 
-let postgrest = null;
-function getPostgrest() {
-  if (postgrest) return postgrest;
-  const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
+let postgrest = { client: null, cacheKey: "" };
+function getPostgrest(config) {
+  const cacheKey = `${config.supabaseUrl || ""}::${config.serviceKey || ""}`;
+  if (postgrest.client && postgrest.cacheKey === cacheKey) return postgrest.client;
 
-  const baseUrl = SUPABASE_URL.replace(/\/+$/, "");
+  if (!config.supabaseUrl || !config.serviceKey) {
+    postgrest = { client: null, cacheKey: "" };
+    return null;
+  }
 
-  postgrest = new PostgrestClient(baseUrl, {
-    headers: {
-      apikey: SUPABASE_SERVICE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-    },
-  });
-  return postgrest;
+  const baseUrl = config.supabaseUrl.replace(/\/+$/, "");
+
+  postgrest = {
+    cacheKey,
+    client: new PostgrestClient(baseUrl, {
+      headers: {
+        apikey: config.serviceKey,
+        Authorization: `Bearer ${config.serviceKey}`,
+      },
+    }),
+  };
+  return postgrest.client;
+}
+
+export function resetDatabaseStatusCache() {
+  postgrest = { client: null, cacheKey: "" };
 }
 
 function deriveFriendlyName({ hostname, override, isLocal }) {
@@ -33,13 +45,15 @@ function deriveFriendlyName({ hostname, override, isLocal }) {
 }
 
 export async function getDatabaseStatus() {
-  const supabaseUrl = parseSupabaseUrl(process.env.SUPABASE_URL);
-  const supabaseIsLocal = isLocalSupabaseUrl(process.env.SUPABASE_URL);
-  const override = (process.env.DB_FRIENDLY_NAME || process.env.DATABASE_FRIENDLY_NAME || "").trim() || null;
+  const config = await getResolvedDatabaseConfig();
+
+  const supabaseUrl = parseSupabaseUrl(config.supabaseUrl);
+  const supabaseIsLocal = isLocalSupabaseUrl(config.supabaseUrl);
+  const override = (config.friendlyName || "").trim() || null;
   const hostname = supabaseUrl?.hostname || null;
   const mode = hostname ? (supabaseIsLocal ? "local" : "remote") : "unknown";
   const friendlyName = deriveFriendlyName({ hostname, override, isLocal: supabaseIsLocal });
-  const serviceKeyPresent = typeof process.env.SUPABASE_SERVICE_KEY === "string" && process.env.SUPABASE_SERVICE_KEY.length > 0;
+  const serviceKeyPresent = typeof config.serviceKey === "string" && config.serviceKey.length > 0;
   const urlPresent = !!supabaseUrl;
   const configured = urlPresent && serviceKeyPresent;
 
@@ -48,13 +62,11 @@ export async function getDatabaseStatus() {
     message: configured ? "Checking connectivity…" : "Supabase/PostgREST not configured",
   };
   let connectivityError = null;
-  const keyRole = decodeSupabaseRole(process.env.SUPABASE_SERVICE_KEY);
-  const hasServiceRole = supabaseIsLocal
-    ? serviceKeyPresent
-    : hasServiceRoleKey(process.env.SUPABASE_SERVICE_KEY);
+  const keyRole = decodeSupabaseRole(config.serviceKey);
+  const hasServiceRole = supabaseIsLocal ? serviceKeyPresent : hasServiceRoleKey(config.serviceKey);
 
   if (configured) {
-    const client = getPostgrest();
+    const client = getPostgrest({ supabaseUrl: config.supabaseUrl, serviceKey: config.serviceKey });
     if (!client) {
       connectivity.ok = false;
       connectivity.message = "Supabase client unavailable";
