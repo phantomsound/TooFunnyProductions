@@ -1,12 +1,9 @@
--- fullChecker.sql
---
--- This script inspects your Supabase (PostgreSQL) database schema to ensure
--- that every table, column, constraint, and index is defined as expected.
---
--- How to use:
---   * Run the entire file in the Supabase SQL editor or psql.
---   * Compare the results to your expected schema definition.
---   * Adjust the filters (e.g., schema name) if you need to scope the output.
+-- 999_full_checker.sql
+-- Purpose: Inspect the Too Funny Productions Postgres schema after applying
+--          migration scripts (001, 002, etc.). Run after all setup scripts to
+--          enumerate every table, column, constraint, index, and key table
+--          contents required by the app.
+-- Usage: psql -U <user> -h <host> -d <db> -f 999_full_checker.sql
 
 -- ================================================
 -- 1. List all tables (excluding system schemas)
@@ -125,7 +122,7 @@ order by table_schema, table_name;
 --  order by version;
 
 -- ================================================
--- 9. Verify presence of critical settings tables
+-- 9. Verify presence of critical tables
 -- ================================================
 with required_tables as (
   select unnest(
@@ -366,4 +363,17 @@ left join actual a
  and a.column_name = e.column_name
 order by e.table_name, e.column_name;
 
--- End of fullChecker.sql
+-- ================================================
+-- 11. Index coverage by table
+-- ================================================
+select
+  schemaname  as table_schema,
+  tablename   as table_name,
+  indexname   as index_name,
+  indexdef
+from pg_indexes
+where schemaname not in ('pg_catalog', 'information_schema')
+  and tablename in ('settings_draft','settings_public','settings_lock','settings_versions','settings_deployments','admin_actions','contact_responses')
+order by schemaname, tablename, indexname;
+
+-- End of 999_full_checker.sql
