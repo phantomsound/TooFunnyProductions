@@ -44,6 +44,8 @@ $logsRoot                = 'C:\Apps\Logs'
 $toolsRoot               = 'C:\Apps\Tools'
 $nssmExe                 = Join-Path $toolsRoot 'nssm\nssm.exe'
 $cloudflaredExe          = Join-Path $toolsRoot 'cloudflared\cloudflared.exe'
+$nssmDownloadUrl         = 'https://nssm.cc/release/nssm-2.24.zip'
+$cloudflaredDownloadUrl  = 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe'
 $nodeServiceName         = 'MikoWebAppServ'
 $nodeDisplayName         = 'Too Funny Productions Admin (MikoWebAppServ)'
 $legacyNodeServiceNames  = @('TFPService')
@@ -110,6 +112,70 @@ function Ensure-NodeDependencies {
     }
 
     Invoke-NpmCommand -Arguments @('install', '--omit=dev') -Description 'npm install --omit=dev (workspace root)'
+}
+
+function Download-File {
+    param(
+        [string]$SourceUrl,
+        [string]$DestinationPath
+    )
+
+    $destinationDir = Split-Path $DestinationPath -Parent
+    if (-not (Test-Path $destinationDir)) {
+        New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+    }
+
+    Write-Host "Downloading $SourceUrl ..."
+    try {
+        Invoke-WebRequest -Uri $SourceUrl -OutFile $DestinationPath -UseBasicParsing
+    } catch {
+        throw "Failed to download $SourceUrl: $($_.Exception.Message)"
+    }
+}
+
+function Ensure-Nssm {
+    if (Test-Path $nssmExe) {
+        return
+    }
+
+    $nssmTargetDir = Split-Path $nssmExe -Parent
+    $nssmZip = Join-Path $env:TEMP 'nssm.zip'
+
+    Download-File -SourceUrl $nssmDownloadUrl -DestinationPath $nssmZip
+
+    try {
+        Expand-Archive -LiteralPath $nssmZip -DestinationPath $env:TEMP -Force
+    } catch {
+        throw "Failed to extract NSSM archive: $($_.Exception.Message)"
+    }
+
+    $extractedExe = Join-Path $env:TEMP 'nssm-2.24\win64\nssm.exe'
+    if (-not (Test-Path $extractedExe)) {
+        throw "NSSM executable not found after extraction at $extractedExe"
+    }
+
+    if (-not (Test-Path $nssmTargetDir)) {
+        New-Item -ItemType Directory -Path $nssmTargetDir -Force | Out-Null
+    }
+
+    Copy-Item -LiteralPath $extractedExe -Destination $nssmExe -Force
+}
+
+function Ensure-Cloudflared {
+    if (Test-Path $cloudflaredExe) {
+        return
+    }
+
+    $cloudflaredTargetDir = Split-Path $cloudflaredExe -Parent
+    $cloudflaredDownloadPath = Join-Path $env:TEMP 'cloudflared.exe'
+
+    Download-File -SourceUrl $cloudflaredDownloadUrl -DestinationPath $cloudflaredDownloadPath
+
+    if (-not (Test-Path $cloudflaredTargetDir)) {
+        New-Item -ItemType Directory -Path $cloudflaredTargetDir -Force | Out-Null
+    }
+
+    Copy-Item -LiteralPath $cloudflaredDownloadPath -Destination $cloudflaredExe -Force
 }
 
 function Ensure-FrontendBuild {
@@ -266,6 +332,7 @@ function Ensure-Path {
 }
 
 Ensure-Path $logsRoot
+Ensure-Path $toolsRoot
 
 $tunnelNameFromConfig = Get-TunnelNameFromConfig
 if ($tunnelNameFromConfig) {
@@ -289,6 +356,8 @@ switch ($Action) {
     'install' {
         Write-Host "Installing NSSM services..."
 
+        Ensure-Nssm
+        Ensure-Cloudflared
         Ensure-NodeDependencies
         Ensure-FrontendBuild
 
