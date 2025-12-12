@@ -44,8 +44,9 @@ $logsRoot                = 'C:\Apps\Logs'
 $toolsRoot               = 'C:\Apps\Tools'
 $nssmExe                 = Join-Path $toolsRoot 'nssm\nssm.exe'
 $cloudflaredExe          = Join-Path $toolsRoot 'cloudflared\cloudflared.exe'
-$nodeServiceName         = 'TFPService'
-$nodeDisplayName         = 'Too Funny Productions Admin (TFPService)'
+$nodeServiceName         = 'MikoWebAppServ'
+$nodeDisplayName         = 'Too Funny Productions Admin (MikoWebAppServ)'
+$legacyNodeServiceNames  = @('TFPService')
 $cloudflareServiceName   = 'MikoCFTunnel'
 $cloudflareDisplayName   = 'MikoCFTunnel'
 $defaultTunnelName       = 'MikoHomeTunnel'
@@ -317,6 +318,12 @@ switch ($Action) {
         & $nssmExe set $nodeServiceName AppExit Default Restart
         & $nssmExe set $nodeServiceName AppNoConsole 1
 
+        foreach ($legacyName in $legacyNodeServiceNames) {
+            if ($legacyName -and $legacyName -ne $nodeServiceName) {
+                Remove-ServiceIfExists -ServiceName $legacyName
+            }
+        }
+
         foreach ($legacyName in $legacyTunnelServiceNames) {
             if ($legacyName -and $legacyName -ne $cloudflareServiceName) {
                 Remove-ServiceIfExists -ServiceName $legacyName
@@ -355,6 +362,12 @@ switch ($Action) {
 
         Remove-ServiceIfExists -ServiceName $nodeServiceName
         Remove-ServiceIfExists -ServiceName $cloudflareServiceName
+
+        foreach ($legacyName in $legacyNodeServiceNames) {
+            if ($legacyName -and $legacyName -ne $nodeServiceName) {
+                Remove-ServiceIfExists -ServiceName $legacyName
+            }
+        }
 
         foreach ($legacyName in $legacyTunnelServiceNames) {
             if ($legacyName -and $legacyName -ne $cloudflareServiceName) {
