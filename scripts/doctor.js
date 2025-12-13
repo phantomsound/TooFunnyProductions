@@ -55,6 +55,30 @@ function checkEnvFiles() {
   }
 }
 
+function checkFrontendBuild() {
+  heading("Frontend build");
+  const candidates = [
+    process.env.FRONTEND_DIST && path.resolve(process.cwd(), process.env.FRONTEND_DIST),
+    path.resolve(process.cwd(), "frontend/dist"),
+    path.resolve(process.cwd(), "frontend-dist"),
+  ].filter(Boolean);
+
+  const found = candidates.find((candidate) => {
+    try {
+      return fs.existsSync(candidate) && fs.statSync(candidate).isDirectory();
+    } catch {
+      return false;
+    }
+  });
+
+  if (found) {
+    console.log(`✓ Production assets found at ${found}`);
+  } else {
+    console.log("⚠ frontend build missing (frontend/dist)");
+    console.log("  Run `npm run build` so the backend can serve the SPA in production.");
+  }
+}
+
 function checkGeneralSettingsFile() {
   heading("Admin settings file");
   const filePath = path.resolve(
@@ -97,6 +121,7 @@ function main() {
   checkPackageScripts();
   checkGitStatus();
   checkEnvFiles();
+  checkFrontendBuild();
   checkGeneralSettingsFile();
   console.log("\nNext steps:\n 1. If scripts are missing, update your git checkout.\n 2. Run `npm run setup` once per machine.\n 3. Start the stack with `npm run dev`.\n");
 }
