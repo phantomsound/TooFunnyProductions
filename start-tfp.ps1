@@ -11,7 +11,7 @@ if (-not $env:NODE_ENV -or $env:NODE_ENV -eq '') {
 }
 
 if (-not $env:PORT -or $env:PORT -eq '') {
-    $env:PORT = '8082'
+    $env:PORT = '5000'
 }
 
 $npmCommand = if ($IsWindows) { 'npm.cmd' } else { 'npm' }
