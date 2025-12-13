@@ -263,8 +263,7 @@ switch ($Action) {
         if ($nodeStarted) {
             Write-Host 'Application service installed and started.'
         } else {
-            Write-Warning "Application service was installed, but it failed to start. Check the NSSM logs in $logsRoot for detai"
-            Write-Warning 'ls.'
+            Write-Warning "Application service was installed, but it failed to start. Check the NSSM logs in $logsRoot for details."
         }
     }
     'remove' {

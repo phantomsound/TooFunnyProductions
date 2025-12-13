@@ -51,6 +51,12 @@ $cloudflareTunnelConfig   = Join-Path $repoRoot 'cloudflared.yml'
 $tfpHostnameRegex         = [regex]'(^|\.)toofunnyproductions\.com$'
 $legacyTunnelServiceNames = @('TFPService-Tunnel')
 
+$defaultOriginCertPaths = @(
+    (Join-Path $env:USERPROFILE '.cloudflared\cert.pem'),
+    (Join-Path $env:USERPROFILE '.cloudflare-warp\cert.pem'),
+    (Join-Path $env:USERPROFILE 'cloudflare-warp\cert.pem')
+)
+
 function Ensure-Path {
     param([string]$Path)
     if (-not (Test-Path $Path)) {
@@ -220,6 +226,35 @@ function Get-ExistingDnsRoutes {
     return $hostnames
 }
 
+function Get-OriginCertPath {
+    $candidates = [System.Collections.Generic.List[string]]::new()
+
+    if ($env:TUNNEL_ORIGIN_CERT) {
+        $candidates.Add($env:TUNNEL_ORIGIN_CERT) | Out-Null
+    }
+
+    if (Test-Path $cloudflareTunnelConfig) {
+        $origincertMatch = Select-String -Path $cloudflareTunnelConfig -Pattern '^\s*origincert:\s*(.+)$' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($origincertMatch) {
+            $candidates.Add($origincertMatch.Matches[0].Groups[1].Value.Trim()) | Out-Null
+        }
+    }
+
+    foreach ($path in $defaultOriginCertPaths) {
+        $candidates.Add($path) | Out-Null
+    }
+
+    foreach ($candidate in $candidates) {
+        if (-not $candidate) { continue }
+        $expanded = [Environment]::ExpandEnvironmentVariables($candidate)
+        if (Test-Path $expanded) {
+            return (Resolve-Path $expanded).ProviderPath
+        }
+    }
+
+    return $null
+}
+
 function Sync-DnsRoutes {
     param(
         [string[]]$DesiredHostnames
@@ -265,6 +300,9 @@ if ($tunnelNameFromConfig) {
     $cloudflareTunnelName = $tunnelNameFromConfig
 }
 
+$originCertPath = Get-OriginCertPath
+$hasOriginCert = [string]::IsNullOrWhiteSpace($originCertPath) -eq $false
+
 $ingressHostnames = Get-IngressHostnames
 $tfpHostnames = $ingressHostnames | Where-Object { $tfpHostnameRegex.IsMatch($_) }
 
@@ -297,18 +335,26 @@ switch ($Action) {
         & $nssmExe set $cloudflareServiceName AppRotateBytes 10485760
         & $nssmExe set $cloudflareServiceName Start SERVICE_AUTO_START
 
-        if ($tfpHostnames.Count -gt 0) {
+        if (-not $hasOriginCert) {
+            Write-Warning 'Origin certificate not found. Run `cloudflared tunnel login` (or supply TUNNEL_ORIGIN_CERT / origincert in cloudflared.yml) before starting the service or syncing DNS.'
+            Write-Warning 'Cloudflare Tunnel service was installed with manual start to avoid repeated failures.'
+            & $nssmExe set $cloudflareServiceName Start SERVICE_DEMAND_START
+        } elseif ($tfpHostnames.Count -gt 0) {
             Sync-DnsRoutes -DesiredHostnames $tfpHostnames
         } elseif ($ingressHostnames.Count -gt 0) {
             Write-Warning 'Skipping Cloudflare DNS automation for ingress hostnames that are not part of toofunnyproductions.com.'
         }
 
-        $cloudflareStarted = Start-ServiceAndConfirm -ServiceName $cloudflareServiceName -DisplayName $cloudflareDisplayName
+        if ($hasOriginCert) {
+            $cloudflareStarted = Start-ServiceAndConfirm -ServiceName $cloudflareServiceName -DisplayName $cloudflareDisplayName
 
-        if ($cloudflareStarted) {
-            Write-Host 'Cloudflare Tunnel service installed and started.'
+            if ($cloudflareStarted) {
+                Write-Host 'Cloudflare Tunnel service installed and started.'
+            } else {
+                Write-Warning "Cloudflare Tunnel service was installed, but it failed to start. Check the NSSM logs in $logsRoot for details."
+            }
         } else {
-            Write-Warning "Cloudflare Tunnel service was installed, but it failed to start. Check the NSSM logs in $logsRoot for details."
+            Write-Warning 'Cloudflare Tunnel service was not started. After authenticating, run `nssm start MikoCFTunnel` to launch the tunnel.'
         }
     }
     'remove' {
