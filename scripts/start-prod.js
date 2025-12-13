@@ -4,9 +4,7 @@ const { spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const isWindows = process.platform === "win32";
-
-const npmCommand = isWindows ? "npm.cmd" : "npm";
+const npmCli = path.resolve(process.execPath, "..", "node_modules", "npm", "bin", "npm-cli.js");
 
 function frontendBuildExists() {
   const candidates = [
@@ -28,7 +26,7 @@ function ensureFrontendBuild() {
   if (frontendBuildExists()) return;
 
   console.log("⚠️ frontend build missing; running `npm run build`...");
-  const result = spawnSync(npmCommand, ["run", "build"], {
+  const result = spawnSync(process.execPath, [npmCli, "run", "build"], {
     stdio: "inherit",
     env: process.env,
   });
@@ -42,9 +40,10 @@ function ensureFrontendBuild() {
 ensureFrontendBuild();
 
 const child = spawn(
-  npmCommand,
-  ["--prefix", "backend", "run", "start"],
+  process.execPath,
+  ["server.js"],
   {
+    cwd: path.resolve(process.cwd(), "backend"),
     stdio: "inherit",
     env: {
       ...process.env,
