@@ -17,6 +17,7 @@ import storageRoutes from "./routes/storage.js";
 import messagingRoutes, { registerMessagingHub } from "./routes/messaging.js";
 import { createMessagingHub } from "./lib/messagingHub.js";
 import { bootstrapMessagingStore } from "./lib/messagingStore.js";
+import { FileSessionStore } from "./lib/fileSessionStore.js";
 
 const app = express();
 const isProd = process.env.NODE_ENV === "production";
@@ -24,7 +25,14 @@ const isProd = process.env.NODE_ENV === "production";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const rawOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || "http://localhost:5173")
+const fallbackOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:5173",
+  "http://localhost:8082",
+  "https://toofunnyproductions.com",
+].filter(Boolean);
+
+const rawOrigins = (process.env.CORS_ORIGIN || fallbackOrigins.join(","))
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
@@ -52,6 +60,9 @@ const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || "change-me",
   resave: false,
   saveUninitialized: false,
+  store: new FileSessionStore({
+    dir: process.env.SESSION_STORE_DIR || path.resolve(__dirname, "../.sessions"),
+  }),
   cookie: {
     httpOnly: true,
     sameSite: "lax",

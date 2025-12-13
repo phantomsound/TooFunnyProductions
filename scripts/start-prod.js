@@ -31,7 +31,6 @@ function ensureFrontendBuild() {
   const result = spawnSync(npmCommand, ["run", "build"], {
     stdio: "inherit",
     env: process.env,
-    shell: isWindows,
   });
 
   if (result.status !== 0) {
@@ -52,7 +51,6 @@ const child = spawn(
       NODE_ENV: process.env.NODE_ENV || "production",
       PORT: process.env.PORT || "8082",
     },
-    shell: isWindows,
   }
 );
 
