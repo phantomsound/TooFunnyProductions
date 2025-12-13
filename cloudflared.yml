@@ -5,11 +5,11 @@ tunnel: MikoHomeTunnel
 credentials-file: C:\Apps\Config\cloudflared\20b316d7-3fc4-4481-a7e6-1f6dc40d4d51.json
 
 ingress:
-  # KBBG site
-  - hostname: www.kbbgbroadcasting.com
-    service: http://localhost:8080
-  - hostname: kbbg.kbbgbroadcasting.com
-    service: http://localhost:8080
+  # KBBG site (disabled; KBBG not served from this tunnel)
+  #- hostname: www.kbbgbroadcasting.com
+  #  service: http://localhost:8080
+  #- hostname: kbbg.kbbgbroadcasting.com
+  #  service: http://localhost:8080
 
   # Too Funny Productions site
   - hostname: toofunnyproductions.com
