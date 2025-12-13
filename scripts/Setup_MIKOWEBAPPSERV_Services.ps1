@@ -125,7 +125,7 @@ if (Test-Path $melbotRoot) {
 # 4) MonitorSite – Python venv & deps
 $monitorRoot = "C:\Apps\MonitorSite"
 $monitorScript = Join-Path $monitorRoot "monitor_site.py"
-if (Test-Path $monitorRoot -and (Test-Path $monitorScript)) {
+if ((Test-Path $monitorRoot) -and (Test-Path $monitorScript)) {
     Write-Host "--- Setting up MonitorSite ---" -ForegroundColor Yellow
     if (-not (Test-Path (Join-Path $monitorRoot ".venv"))) {
         Write-Host "Creating MonitorSite virtual environment..." -ForegroundColor Yellow
@@ -160,7 +160,7 @@ if (Test-Path $tfpRoot) {
 # 5.2 KBBGService
 $KbbgAppExe    = "C:\Program Files\nodejs\node.exe"   # EDIT IF DIFFERENT
 $KbbgAppParams = "C:\Apps\KBBG\index.js"              # EDIT IF DIFFERENT
-if (Test-Path $kbbgRoot -and (Test-Path $KbbgAppExe)) {
+if ((Test-Path $kbbgRoot) -and (Test-Path $KbbgAppExe)) {
     Write-Host "--- Creating KBBGService ---" -ForegroundColor Yellow
     & $NSSM install KBBGService $KbbgAppExe $KbbgAppParams
     & $NSSM set KBBGService AppDirectory $kbbgRoot
@@ -187,7 +187,7 @@ if (Test-Path $melbotVenv) {
 
 # 5.4 MonitorSite service
 $monitorPython = Join-Path $monitorRoot ".venv\Scripts\python.exe"
-if (Test-Path $monitorPython -and (Test-Path $monitorScript)) {
+if ((Test-Path $monitorPython) -and (Test-Path $monitorScript)) {
     Write-Host "--- Creating MonitorSite service ---" -ForegroundColor Yellow
     & $NSSM install MonitorSite $monitorPython $monitorScript
     & $NSSM set MonitorSite AppDirectory $monitorRoot
@@ -205,7 +205,7 @@ $kbbgCfg     = "C:\Apps\Config\cloudflared\kbbg\config.yml"
 $toofunnyTunnelId = "fd4fa654-9459-4c4c-8fc3-e9ecf892b04c"
 $kbbgTunnelId     = "20b316d7-3fc4-4481-a7e6-1f6dc40d4d51"
 
-if (Test-Path $CloudflaredExe -and (Test-Path $toofunnyCfg)) {
+if ((Test-Path $CloudflaredExe) -and (Test-Path $toofunnyCfg)) {
     Write-Host "--- Creating MikoCFTunnel ---" -ForegroundColor Yellow
     & $NSSM install MikoCFTunnel $CloudflaredExe "tunnel --config $toofunnyCfg run $toofunnyTunnelId"
     & $NSSM set MikoCFTunnel AppDirectory "C:\Apps\Config\cloudflared\toofunny"
@@ -217,7 +217,7 @@ if (Test-Path $CloudflaredExe -and (Test-Path $toofunnyCfg)) {
     Write-Host "Skipping MikoCFTunnel; check cloudflared exe or toofunny config path." -ForegroundColor DarkYellow
 }
 
-if (Test-Path $CloudflaredExe -and (Test-Path $kbbgCfg)) {
+if ((Test-Path $CloudflaredExe) -and (Test-Path $kbbgCfg)) {
     Write-Host "--- Creating KBBGTunnel ---" -ForegroundColor Yellow
     & $NSSM install KBBGTunnel $CloudflaredExe "tunnel --config $kbbgCfg run $kbbgTunnelId"
     & $NSSM set KBBGTunnel AppDirectory "C:\Apps\Config\cloudflared\kbbg"
