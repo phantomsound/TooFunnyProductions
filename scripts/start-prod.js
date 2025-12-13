@@ -48,7 +48,7 @@ const child = spawn(
     env: {
       ...process.env,
       NODE_ENV: process.env.NODE_ENV || "production",
-      PORT: process.env.PORT || "8082",
+      PORT: process.env.PORT || "5000",
     },
   }
 );

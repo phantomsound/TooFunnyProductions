@@ -26,4 +26,6 @@ npm run build
 npm start
 ```
 
+If port 5000 is occupied, set `PORT=your_port_here` before `npm start` to override it.
+
 If you hit issues, run `npm run doctor` for a quick audit and review `TROUBLESHOOTING.md` for reset steps.
