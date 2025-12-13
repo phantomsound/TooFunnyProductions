@@ -41,9 +41,10 @@ Ensure-Elevation
 
 $repoRoot                = 'C:\Apps\TooFunnyProductions'
 $logsRoot                = 'C:\Apps\Logs'
-$toolsRoot               = 'C:\Apps\Tools'
-$nssmExe                 = Join-Path $toolsRoot 'nssm\nssm.exe'
-$cloudflaredExe          = Join-Path $toolsRoot 'cloudflared\cloudflared.exe'
+$nssmDir                 = 'C:\Apps\nssm\nssm-2.24\win64'
+$cloudflaredDir          = 'C:\Apps\cloudflared'
+$nssmExe                 = Join-Path $nssmDir 'nssm.exe'
+$cloudflaredExe          = Join-Path $cloudflaredDir 'cloudflared.exe'
 $nssmDownloadUrl         = 'https://nssm.cc/release/nssm-2.24.zip'
 $cloudflaredDownloadUrl  = 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe'
 $nodeServiceName         = 'MikoWebAppServ'
@@ -129,7 +130,7 @@ function Download-File {
     try {
         Invoke-WebRequest -Uri $SourceUrl -OutFile $DestinationPath -UseBasicParsing
     } catch {
-        throw "Failed to download $SourceUrl: $($_.Exception.Message)"
+        throw "Failed to download $($SourceUrl): $($_.Exception.Message)"
     }
 }
 
@@ -332,7 +333,8 @@ function Ensure-Path {
 }
 
 Ensure-Path $logsRoot
-Ensure-Path $toolsRoot
+Ensure-Path $nssmDir
+Ensure-Path $cloudflaredDir
 
 $tunnelNameFromConfig = Get-TunnelNameFromConfig
 if ($tunnelNameFromConfig) {
