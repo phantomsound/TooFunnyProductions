@@ -48,6 +48,22 @@ function getGoogleConfig() {
   return { clientID, clientSecret, missingEnv };
 }
 
+function getConfiguredBackendBase() {
+  const envCandidates = [
+    readTrimmedEnv("BACKEND_URL"),
+    readTrimmedEnv("PUBLIC_BACKEND_URL"),
+    readTrimmedEnv("API_PUBLIC_URL"),
+    readTrimmedEnv("API_URL"),
+  ];
+
+  for (const candidate of envCandidates) {
+    const normalized = normalizeAbsoluteUrl(candidate);
+    if (normalized) return normalized.replace(/\/$/, "");
+  }
+
+  return null;
+}
+
 function pickFirstConfiguredFrontend() {
   const envCandidates = [
     process.env.FRONTEND_URL,
@@ -142,17 +158,8 @@ function resolveFrontendUrl(req) {
 }
 
 function resolveBackendBase(req) {
-  const envCandidates = [
-    process.env.BACKEND_URL,
-    process.env.PUBLIC_BACKEND_URL,
-    process.env.API_PUBLIC_URL,
-    process.env.API_URL,
-  ];
-
-  for (const candidate of envCandidates) {
-    const normalized = normalizeFrontendBase(candidate);
-    if (normalized) return normalized;
-  }
+  const envBase = getConfiguredBackendBase();
+  if (envBase) return envBase;
 
   const forwardedProto = req?.headers?.["x-forwarded-proto"]?.split(",")?.[0];
   const forwardedHost = req?.headers?.["x-forwarded-host"]?.split(",")?.[0];
@@ -193,35 +200,57 @@ function isLoopbackRequest(req) {
   return isLoopbackHost(hostname);
 }
 
-function resolveGoogleCallback(req) {
-  const raw = process.env.GOOGLE_CALLBACK_URL?.trim();
+function getConfiguredGoogleCallback() {
+  const raw = readTrimmedEnv("GOOGLE_CALLBACK_URL");
   if (raw) {
     if (raw.startsWith("/")) {
-      return `${resolveBackendBase(req)}${raw}`;
+      const base = getConfiguredBackendBase();
+      if (base) return { url: `${base}${raw}` };
+      return {
+        url: null,
+        error:
+          "GOOGLE_CALLBACK_URL is a path, but no BACKEND_URL/PUBLIC_BACKEND_URL/API_PUBLIC_URL/API_URL value is configured to build an absolute redirect URI.",
+      };
     }
+
     const normalized = normalizeAbsoluteUrl(raw);
-    if (normalized) {
-      try {
-        const url = new URL(normalized);
-        if (isLoopbackHost(url.hostname) && !isLoopbackRequest(req)) {
-          console.warn(
-            "⚠️ Ignoring GOOGLE_CALLBACK_URL pointing at localhost/loopback while serving a non-local request. Falling back to auto-detected host.",
-            normalized
-          );
-        } else {
-          return normalized;
-        }
-      } catch {
-        return normalized;
-      }
-    }
-    console.warn(
-      "⚠️ Ignoring invalid GOOGLE_CALLBACK_URL value. Falling back to auto-detected host.",
-      raw
-    );
+    if (normalized) return { url: normalized };
+
+    return {
+      url: null,
+      error: "GOOGLE_CALLBACK_URL is set but is not a valid absolute URL.",
+    };
   }
 
-  return `${resolveBackendBase(req)}/api/auth/google/callback`;
+  const backendBase = getConfiguredBackendBase();
+  if (backendBase) return { url: `${backendBase}/api/auth/google/callback` };
+
+  return { url: null, error: "No backend URL configured for Google OAuth callbacks." };
+}
+
+function resolveGoogleCallback(req) {
+  const configured = getConfiguredGoogleCallback();
+  if (configured.url) return configured.url;
+
+  const auto = `${resolveBackendBase(req)}/api/auth/google/callback`;
+  const autoHostname = (() => {
+    try {
+      return new URL(auto).hostname;
+    } catch {
+      return "";
+    }
+  })();
+  const shouldWarn = process.env.NODE_ENV === "production" && !isLoopbackRequest(req) && isLoopbackHost(autoHostname);
+
+  console[shouldWarn ? "error" : "warn"](
+    `${shouldWarn ? "❌" : "⚠️"} Google OAuth callback falling back to auto-detected host`,
+    {
+      reason: configured.error,
+      callbackUrl: auto,
+    }
+  );
+
+  return auto;
 }
 
 function redirectLegacyGoogleAuth(req, res) {
