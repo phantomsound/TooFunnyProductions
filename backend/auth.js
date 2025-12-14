@@ -230,7 +230,7 @@ function getConfiguredGoogleCallback() {
 
 function resolveGoogleCallback(req) {
   const configured = getConfiguredGoogleCallback();
-  if (configured.url) return configured.url;
+  if (configured.url) return { url: configured.url, warning: null };
 
   const auto = `${resolveBackendBase(req)}/api/auth/google/callback`;
   const autoHostname = (() => {
@@ -240,17 +240,21 @@ function resolveGoogleCallback(req) {
       return "";
     }
   })();
-  const shouldWarn = process.env.NODE_ENV === "production" && !isLoopbackRequest(req) && isLoopbackHost(autoHostname);
 
-  console[shouldWarn ? "error" : "warn"](
-    `${shouldWarn ? "❌" : "⚠️"} Google OAuth callback falling back to auto-detected host`,
-    {
-      reason: configured.error,
-      callbackUrl: auto,
-    }
-  );
+  const disallowLoopback =
+    process.env.NODE_ENV === "production" && !isLoopbackRequest(req) && isLoopbackHost(autoHostname);
+  if (disallowLoopback) {
+    const error =
+      configured.error ||
+      "Google OAuth callback cannot use a localhost URL in production. Configure BACKEND_URL or GOOGLE_CALLBACK_URL to match your Google Cloud Console settings.";
+    console.error("❌ Google OAuth callback rejected", { error, callbackUrl: auto });
+    return { url: null, warning: error };
+  }
 
-  return auto;
+  const reason = configured.error || "No explicit callback configured; using detected host.";
+  console.warn("⚠️ Google OAuth callback falling back to auto-detected host", { reason, callbackUrl: auto });
+
+  return { url: auto, warning: reason };
 }
 
 function redirectLegacyGoogleAuth(req, res) {
@@ -310,9 +314,17 @@ export function initAuth(app) {
   if (hasGoogleStrategy) {
     // Begin OAuth
     app.get("/api/auth/google", (req, res, next) => {
+      const callback = resolveGoogleCallback(req);
+      if (!callback.url) {
+        return res.status(503).json({
+          error: callback.warning || "Google OAuth callback is not configured.",
+          hint: "Set BACKEND_URL or GOOGLE_CALLBACK_URL to the publicly reachable backend URL registered in Google Cloud Console.",
+        });
+      }
+
       passport.authenticate("google", {
         scope: ["profile", "email"],
-        callbackURL: resolveGoogleCallback(req),
+        callbackURL: callback.url,
       })(req, res, next);
     });
 
@@ -322,10 +334,14 @@ export function initAuth(app) {
     // OAuth callback → redirect to SPA
     app.get("/api/auth/google/callback", (req, res, next) => {
       const frontendUrl = resolveFrontendUrl(req);
+      const callback = resolveGoogleCallback(req);
+      if (!callback.url) {
+        return res.redirect(`${frontendUrl}/admin?auth=failed`);
+      }
 
       passport.authenticate(
         "google",
-        { callbackURL: resolveGoogleCallback(req) },
+        { callbackURL: callback.url },
         (err, user) => {
           if (err || !user) {
             if (err) {
