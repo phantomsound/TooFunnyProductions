@@ -32,6 +32,9 @@ async function main() {
   const localDbUrl = await requireLocalUrl(args, rl);
   const adminDb = args.adminDb || 'postgres';
   const skipExport = !!args.skipExport;
+  const includeData = !!args.includeData;
+  const validationBaseUrl = args.validationBaseUrl || process.env.VALIDATION_BASE_URL;
+  const retryNotes = [];
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const defaultReport = path.join(defaultDocsPath, 'reports', `fdw-compare-${timestamp}.log`);
@@ -43,11 +46,26 @@ async function main() {
     await ensureDirectories();
 
     const schemaDumpPath = path.join(defaultDocsPath, 'schema', 'supabase_schema.sql');
+    const fullDumpPath = path.join(defaultDocsPath, 'schema', 'supabase_full.sql');
 
     if (skipExport) {
       console.log(`Skipping Supabase export and reusing ${schemaDumpPath}`);
     } else {
-      await exportSchema({ supabaseUrl, schemaDumpPath });
+      const { errors: schemaExportRetries } = await runWithRetries('Supabase schema export', (attempt) =>
+        exportSchema({ supabaseUrl, schemaDumpPath, attempt })
+      );
+      recordRetryNotes(schemaExportRetries, 'Supabase schema export', retryNotes);
+    }
+
+    if (includeData) {
+      if (skipExport) {
+        console.log(`Skipping Supabase full dump export and reusing ${fullDumpPath}`);
+      } else {
+        const { errors: fullExportRetries } = await runWithRetries('Supabase full export', (attempt) =>
+          exportFullDump({ supabaseUrl, fullDumpPath, attempt })
+        );
+        recordRetryNotes(fullExportRetries, 'Supabase full export', retryNotes);
+      }
     }
 
     const { localDbName, localAdminUrl } = buildLocalDatabaseUrls(localDbUrl, adminDb);
@@ -58,15 +76,29 @@ async function main() {
       await recreateDatabase(localAdminUrl, localDbName);
     }
 
-    await applySchema({ localDbUrl, schemaDumpPath });
+    const dumpToApply = includeData ? fullDumpPath : schemaDumpPath;
+    const { errors: applyRetries } = await runWithRetries('Local restore', (attempt) =>
+      applySchema({ localDbUrl, schemaDumpPath: dumpToApply, attempt })
+    );
+    recordRetryNotes(applyRetries, 'Local restore', retryNotes);
 
-    const compareResult = await runFdwComparison({ supabaseUrl, localDbUrl });
+    const validationResults = await runValidations({ localDbUrl, validationBaseUrl });
+
+    const { result: compareResult, errors: compareRetries } = await runWithRetries(
+      'FDW comparison',
+      (attempt) => runFdwComparison({ supabaseUrl, localDbUrl, attempt })
+    );
+    recordRetryNotes(compareRetries, 'FDW comparison', retryNotes);
     const report = buildReport({
       supabaseUrl,
       localDbUrl,
       schemaDumpPath,
+      fullDumpPath,
       reportPath,
       skipExport,
+      includeData,
+      validationResults,
+      retryNotes,
       ...compareResult
     });
 
@@ -99,6 +131,12 @@ function parseArgs(argv) {
         break;
       case '--skip-export':
         flags.skipExport = true;
+        break;
+      case '--include-data':
+        flags.includeData = true;
+        break;
+      case '--validation-base-url':
+        flags.validationBaseUrl = value || null;
         break;
       default:
         break;
@@ -262,14 +300,19 @@ function buildReport({
   supabaseUrl,
   localDbUrl,
   schemaDumpPath,
+  fullDumpPath,
   reportPath,
   skipExport,
+  includeData,
+  validationResults = [],
+  retryNotes = [],
   rawOutput,
   rowDiffs,
   hashDiffs,
   supabaseReferences
 }) {
   const rowIssues = rowDiffs.filter((row) => row.rowDiff !== 0);
+  const validationIssues = validationResults.filter((check) => check.status !== 'pass');
   const sections = [];
 
   sections.push('Supabase → Local validation report');
@@ -277,8 +320,23 @@ function buildReport({
   sections.push(`Supabase: ${summariseConnection(supabaseUrl)}`);
   sections.push(`Local: ${summariseConnection(localDbUrl)}`);
   sections.push(`Schema dump: ${schemaDumpPath}`);
+  if (includeData) {
+    sections.push(`Full dump: ${fullDumpPath}`);
+  }
   sections.push(`Report path: ${reportPath}`);
   sections.push(`Exported this run: ${skipExport ? 'no (skip requested)' : 'yes'}`);
+  sections.push(`Data imported: ${includeData ? 'yes (schema + data)' : 'no (schema only)'}`);
+  sections.push('');
+
+  sections.push('Post-restore validation');
+  if (validationResults.length === 0) {
+    sections.push('  No validation checks were executed.');
+  } else {
+    validationResults.forEach((check) => {
+      const indicator = check.status === 'pass' ? '✓' : '✗';
+      sections.push(`  [${indicator}] ${check.name}: ${check.message}`);
+    });
+  }
   sections.push('');
 
   sections.push('Row-count differences');
@@ -317,11 +375,30 @@ function buildReport({
   sections.push('--------------');
   sections.push(rawOutput.trim() || '  <no output>');
 
+  if (retryNotes.length > 0) {
+    sections.push('');
+    sections.push('Retry diagnostics');
+    sections.push('-----------------');
+    retryNotes.forEach((note) => sections.push(`- ${note}`));
+  }
+
   const mismatches = rowIssues.length + hashDiffs.length + supabaseReferences.length;
-  const summary =
-    mismatches === 0
-      ? 'Comparison clean: no row-count, hash, or Supabase URL differences detected.'
-      : `Comparison found ${mismatches} mismatched item(s). See ${reportPath} for details.`;
+  const parts = [];
+  if (validationResults.length === 0) {
+    parts.push('No validation checks executed.');
+  } else if (validationIssues.length === 0) {
+    parts.push('Post-restore validation passed.');
+  } else {
+    parts.push(`Validation failed for ${validationIssues.length} check(s).`);
+  }
+
+  if (mismatches === 0) {
+    parts.push('Comparison clean: no row-count, hash, or Supabase URL differences detected.');
+  } else {
+    parts.push(`Comparison found ${mismatches} mismatched item(s).`);
+  }
+
+  const summary = `${parts.join(' ')} See ${reportPath} for details.`;
 
   return { summary, content: sections.join('\n') };
 }
@@ -329,6 +406,148 @@ function buildReport({
 async function writeReport(reportPath, report) {
   await fs.mkdir(path.dirname(reportPath), { recursive: true });
   await fs.writeFile(reportPath, report.content, 'utf8');
+}
+
+async function runValidations({ localDbUrl, validationBaseUrl }) {
+  const checks = [];
+
+  const sqlChecks = [
+    {
+      name: 'settings_versions has rows',
+      query: 'SELECT COUNT(*) FROM settings_versions;'
+    },
+    {
+      name: 'settings_public available',
+      query: 'SELECT COUNT(*) FROM settings_public;'
+    },
+    {
+      name: 'admin_actions table exists',
+      query: "SELECT to_regclass('public.admin_actions') IS NOT NULL AS present;",
+      interpret: (value) => value === 't'
+    }
+  ];
+
+  for (const check of sqlChecks) {
+    try {
+      const args = [
+        '--tuples-only',
+        '--no-align',
+        '--quiet',
+        '--dbname',
+        localDbUrl,
+        '--command',
+        check.query
+      ];
+      const result = await runCommand('psql', args, {
+        redactArgs: [args.indexOf(localDbUrl)],
+        captureStdout: true
+      });
+      const value = result.stdout.trim();
+      const interpreted = check.interpret ? check.interpret(value) : Number(value) > 0;
+      if (interpreted) {
+        checks.push({ name: check.name, status: 'pass', message: `Result ${value}` });
+      } else {
+        checks.push({
+          name: check.name,
+          status: 'fail',
+          message: `Unexpected result (${value}). Verify data import.`
+        });
+      }
+    } catch (error) {
+      checks.push({ name: check.name, status: 'fail', message: error.message || String(error) });
+    }
+  }
+
+  if (validationBaseUrl) {
+    const baseUrl = validationBaseUrl.replace(/\/$/, '');
+    const endpoint = `${baseUrl}/api/health`;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      const response = await fetch(endpoint, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (response.ok) {
+        checks.push({ name: 'HTTP health check', status: 'pass', message: `${endpoint} responded ${response.status}` });
+      } else {
+        checks.push({
+          name: 'HTTP health check',
+          status: 'fail',
+          message: `${endpoint} responded ${response.status}. Ensure backend is running.`
+        });
+      }
+    } catch (error) {
+      checks.push({
+        name: 'HTTP health check',
+        status: 'fail',
+        message: `${endpoint} failed: ${error.message || error}`
+      });
+    }
+  }
+
+  return checks;
+}
+
+function buildDiagnosticHint(error) {
+  const message = (error?.message || String(error || '')).toLowerCase();
+  if (message.includes('authentication failed')) {
+    return 'Authentication failed. Confirm username/password and URL-encode special characters (e.g., %40 for @).';
+  }
+  if (message.includes('certificate') || message.includes('ssl') || message.includes('tls')) {
+    return 'SSL negotiation issue. Ensure sslmode=require is set and certificates are trusted.';
+  }
+  if (message.includes('getaddrinfo') || message.includes('enotfound') || message.includes('name or service not known')) {
+    return 'DNS/host resolution failed. Verify the hostname and network connectivity.';
+  }
+  return null;
+}
+
+async function runWithRetries(label, fn, { attempts = 3 } = {}) {
+  const errors = [];
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const result = await fn(attempt);
+      return { result, errors };
+    } catch (error) {
+      lastError = error;
+      const hint = buildDiagnosticHint(error);
+      errors.push({
+        attempt,
+        message: error.message || String(error),
+        hint
+      });
+      if (attempt < attempts) {
+        console.warn(`${label} failed (attempt ${attempt}/${attempts}). Retrying...`);
+        if (hint) {
+          console.warn(`Hint: ${hint}`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+      }
+    }
+  }
+  const hintSuffix = errors[errors.length - 1]?.hint ? ` Hint: ${errors[errors.length - 1].hint}` : '';
+  const failure = new Error(`${label} failed after ${attempts} attempt(s): ${lastError?.message || lastError}.${hintSuffix}`);
+  failure.retryErrors = errors;
+  throw failure;
+}
+
+function recordRetryNotes(errors, label, collector) {
+  if (!collector || !errors || errors.length === 0) return;
+  const hints = errors
+    .map((entry) => entry.hint)
+    .filter(Boolean)
+    .filter((value, index, array) => array.indexOf(value) === index);
+  const noteParts = [`${label} required ${errors.length + 1} attempt(s)`];
+  if (hints.length > 0) {
+    noteParts.push(`Troubleshooting hints: ${hints.join(' ')}`);
+  }
+  collector.push(noteParts.join('. '));
+}
+
+async function exportFullDump({ supabaseUrl, fullDumpPath }) {
+  console.log(`\nExporting Supabase schema and data to ${fullDumpPath}`);
+  const args = ['--no-owner', '--no-privileges', '--file', fullDumpPath, '--dbname', supabaseUrl];
+  await runCommand('pg_dump', args, { redactArgs: [args.indexOf(supabaseUrl)] });
 }
 
 main().catch((error) => {
