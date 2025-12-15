@@ -925,8 +925,31 @@ function escapeSqlLiteral(value) {
   return String(value ?? '').replace(/'/g, "''");
 }
 
-main().catch((error) => {
-  console.error('\nMigration script failed.');
-  console.error(error.message || error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error('\nMigration script failed.');
+    console.error(error.message || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  defaultDocsPath,
+  defaultUnsupportedExtensions,
+  recommendedExports,
+  protectBackendEnv,
+  ensureBinary,
+  exportSchema,
+  ensureDatabasePrepared,
+  dropDatabase,
+  createDatabase,
+  applySchema,
+  prepareSchemaFile,
+  ensureSupabaseRoles,
+  rewriteStoredReferences,
+  runFullChecker,
+  confirm,
+  ask,
+  runCommand,
+  summariseConnection
+};
