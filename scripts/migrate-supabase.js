@@ -7,7 +7,7 @@ const { spawn } = require('child_process');
 const readline = require('readline');
 
 const defaultDocsPath = path.resolve(__dirname, '../backend/docs');
-const defaultUnsupportedExtensions = ['pg_net'];
+const defaultUnsupportedExtensions = ['pg_net', 'supabase_vault'];
 const supabaseRoleDefinitions = [
   { name: 'anon', attributes: 'NOLOGIN' },
   { name: 'authenticated', attributes: 'NOLOGIN' },
@@ -47,6 +47,16 @@ const unsupportedExtensionCleanups = {
     {
       description: 'supabase_functions.http_request() trigger helper',
       pattern: buildFunctionRemovalRegex('supabase_functions.http_request')
+    }
+  ],
+  supabase_vault: [
+    {
+      description: 'vault schema objects created by supabase_vault',
+      pattern: buildSchemaScopedRemovalRegex('vault')
+    },
+    {
+      description: 'vault COPY data blocks',
+      pattern: buildCopyDataRemovalRegex('vault')
     }
   ],
   pg_graphql: [
@@ -129,6 +139,19 @@ function buildFunctionRemovalRegex(qualifiedName) {
   return buildStatementRemovalRegex(
     `${commentBlockPattern}CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+${escapedName}\\s*\\([^)]*\\)[\\s\\S]+?AS\\s+(\\$[^$\\n]*\\$)[\\s\\S]+?\\1;\\s*`
   );
+}
+
+function buildSchemaScopedRemovalRegex(schemaName) {
+  const escapedSchema = escapeRegExp(schemaName);
+  const schemaStatements =
+    `(?:CREATE|ALTER|COMMENT)\\s+SCHEMA\\s+${escapedSchema}\\b[\\s\\S]*?;\\s*|` +
+    `(?:CREATE|ALTER|COMMENT|GRANT)\\s+[\\s\\S]*?\\b${escapedSchema}\\.[^;]+?;\\s*`;
+  return buildStatementRemovalRegex(`(?:${schemaStatements})`);
+}
+
+function buildCopyDataRemovalRegex(schemaName) {
+  const escapedSchema = escapeRegExp(schemaName);
+  return buildStatementRemovalRegex(`COPY\\s+${escapedSchema}\\.\\w+\\s*\\([^;]*?\\)\\s+FROM\\s+stdin;[\\s\\S]+?\\\\\\.\\s*`);
 }
 
 async function main() {

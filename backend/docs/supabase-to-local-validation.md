@@ -11,6 +11,7 @@ npm run db:sync-validate -- \
   --admin-db=postgres \
   --report-path=backend/docs/reports/fdw-report.log \
   --include-data \
+  --drop-and-restore \
   --validation-base-url=http://localhost:3000
 ```
 
@@ -22,6 +23,7 @@ Flags:
 - `--report-path`: Optional path for the generated FDW comparison report (defaults to `backend/docs/reports/fdw-compare-<timestamp>.log`).
 - `--skip-export`: Reuse an existing schema dump at `backend/docs/schema/supabase_schema.sql` instead of exporting from Supabase.
 - `--include-data`: Export a full Supabase dump (schema + data) to `backend/docs/schema/supabase_full.sql` and restore it locally before validation/comparison.
+- `--drop-and-restore`: Drop and recreate the target database before **each** local restore attempt (including retries). Without this flag, non-interactive runs recreate the database once before applying the dump.
 - `--validation-base-url`: Base URL used for HTTP validation checks (default: `http://localhost:3000`; omit to skip HTTP validation).
 
 If any required flags are omitted the agent will prompt for values interactively.
@@ -30,7 +32,7 @@ If any required flags are omitted the agent will prompt for values interactively
 
 1. Ensures `pg_dump` and `psql` are available.
 2. Exports the Supabase schema (unless `--skip-export` is provided) to `backend/docs/schema/supabase_schema.sql`. When `--include-data` is set, it also exports a full dump to `backend/docs/schema/supabase_full.sql`.
-3. Drops and recreates the local database before applying the selected dump (schema-only by default, or schema+data when `--include-data` is provided).
+3. Drops and recreates the local database before applying the selected dump (schema-only by default, or schema+data when `--include-data` is provided). Use `--drop-and-restore` to ensure each retry starts from a clean database.
 4. Runs post-restore validation checks (SQL sanity checks plus an optional HTTP health check using `--validation-base-url`) and appends the pass/fail details to the final report.
 5. Runs `backend/docs/tests/002_compare_supabase_fdw.sql` against the local database, passing the Supabase connection variables.
 6. Writes a report to stdout and `backend/docs/reports/` summarizing validation results, row-count differences, hash mismatches, Supabase URL references, and any retry diagnostics.

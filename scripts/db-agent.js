@@ -33,6 +33,7 @@ async function main() {
   const adminDb = args.adminDb || 'postgres';
   const skipExport = !!args.skipExport;
   const includeData = !!args.includeData;
+  const dropAndRestore = !!args.dropAndRestore;
   const validationBaseUrl = args.validationBaseUrl || process.env.VALIDATION_BASE_URL;
   const retryNotes = [];
 
@@ -72,14 +73,17 @@ async function main() {
 
     if (interactive) {
       await ensureDatabasePrepared({ rl, localAdminUrl, localDbName });
-    } else {
+    } else if (!dropAndRestore) {
       await recreateDatabase(localAdminUrl, localDbName);
     }
 
     const dumpToApply = includeData ? fullDumpPath : schemaDumpPath;
-    const { errors: applyRetries } = await runWithRetries('Local restore', (attempt) =>
-      applySchema({ localDbUrl, schemaDumpPath: dumpToApply, attempt })
-    );
+    const { errors: applyRetries } = await runWithRetries('Local restore', async (attempt) => {
+      if (dropAndRestore) {
+        await recreateDatabase(localAdminUrl, localDbName);
+      }
+      return applySchema({ localDbUrl, schemaDumpPath: dumpToApply, attempt });
+    });
     recordRetryNotes(applyRetries, 'Local restore', retryNotes);
 
     const validationResults = await runValidations({ localDbUrl, validationBaseUrl });
@@ -137,6 +141,9 @@ function parseArgs(argv) {
         break;
       case '--validation-base-url':
         flags.validationBaseUrl = value || null;
+        break;
+      case '--drop-and-restore':
+        flags.dropAndRestore = true;
         break;
       default:
         break;
