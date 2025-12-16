@@ -7,7 +7,7 @@ const { spawn } = require('child_process');
 const readline = require('readline');
 
 const defaultDocsPath = path.resolve(__dirname, '../backend/docs');
-const defaultUnsupportedExtensions = ['pg_net', 'supabase_vault'];
+const defaultUnsupportedExtensions = ['pg_net', 'supabase_vault', 'pg_graphql'];
 const supabaseRoleDefinitions = [
   { name: 'anon', attributes: 'NOLOGIN' },
   { name: 'authenticated', attributes: 'NOLOGIN' },
@@ -60,6 +60,14 @@ const unsupportedExtensionCleanups = {
     }
   ],
   pg_graphql: [
+    {
+      description: 'graphql schema objects created by pg_graphql',
+      pattern: buildSchemaScopedRemovalRegex('graphql')
+    },
+    {
+      description: 'graphql COPY data blocks',
+      pattern: buildCopyDataRemovalRegex('graphql')
+    },
     {
       description: 'extensions.grant_pg_graphql_access() helper',
       pattern: buildFunctionRemovalRegex('extensions.grant_pg_graphql_access')
@@ -424,6 +432,10 @@ async function applySchema({ localDbUrl, schemaDumpPath }) {
   }
   const args = [
     '--set',
+    'psql_safe=off',
+    '--command',
+    '\\unrestrict',
+    '--set',
     'ON_ERROR_STOP=on',
     '--dbname',
     localDbUrl,
@@ -441,13 +453,15 @@ async function prepareSchemaFile(schemaDumpPath, { localDbUrl } = {}) {
     throw new Error(`Failed to read schema dump at ${schemaDumpPath}: ${error.message}`);
   }
 
+  const { sanitizedContents: withoutMeta, removedMetaCommands } = stripLeadingPsqlMetaCommands(contents);
+
   const { unsupportedExtensions, reasons } = await determineUnsupportedExtensions({
-    schemaContents: contents,
+    schemaContents: withoutMeta,
     localDbUrl
   });
 
-  let sanitized = contents;
-  let modified = false;
+  let sanitized = withoutMeta;
+  let modified = removedMetaCommands;
 
   for (const ext of unsupportedExtensions) {
     const extRegex = `["']?${escapeRegExp(ext)}["']?`;
@@ -499,6 +513,36 @@ async function prepareSchemaFile(schemaDumpPath, { localDbUrl } = {}) {
   const sanitizedPath = path.join(tempDir, path.basename(schemaDumpPath));
   await fs.writeFile(sanitizedPath, sanitized, 'utf8');
   return sanitizedPath;
+}
+
+function stripLeadingPsqlMetaCommands(contents) {
+  const lines = contents.split(/\r?\n/);
+  const stripped = [];
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (/^\s*$/.test(line) || /^\s*--/.test(line)) {
+      index += 1;
+      continue;
+    }
+
+    if (/^\s*\\[A-Za-z].*/.test(line)) {
+      stripped.push(line.trim());
+      lines.splice(index, 1);
+      continue;
+    }
+
+    break;
+  }
+
+  if (stripped.length > 0) {
+    console.warn(
+      `Stripped leading psql meta-commands (${stripped.join(', ')}) to avoid restricted backslash command failures.`
+    );
+    return { sanitizedContents: lines.join('\n'), removedMetaCommands: true };
+  }
+
+  return { sanitizedContents: contents, removedMetaCommands: false };
 }
 
 async function ensureSupabaseRoles({ localDbUrl }) {
