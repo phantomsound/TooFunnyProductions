@@ -7,7 +7,8 @@ const { spawn } = require('child_process');
 const readline = require('readline');
 
 const defaultDocsPath = path.resolve(__dirname, '../backend/docs');
-const defaultUnsupportedExtensions = ['pg_net', 'supabase_vault', 'pg_graphql'];
+const supabaseOnlyExtensions = ['supabase_vault', 'supabase_functions', 'supabase_dbdev'];
+const defaultUnsupportedExtensions = ['pg_net', ...supabaseOnlyExtensions, 'pg_graphql'];
 const supabaseRoleDefinitions = [
   { name: 'anon', attributes: 'NOLOGIN' },
   { name: 'authenticated', attributes: 'NOLOGIN' },
@@ -49,6 +50,26 @@ const unsupportedExtensionCleanups = {
       pattern: buildFunctionRemovalRegex('supabase_functions.http_request')
     }
   ],
+  supabase_functions: [
+    {
+      description: 'supabase_functions schema objects created by supabase_functions',
+      pattern: buildSchemaScopedRemovalRegex('supabase_functions')
+    },
+    {
+      description: 'supabase_functions COPY data blocks',
+      pattern: buildCopyDataRemovalRegex('supabase_functions')
+    }
+  ],
+  supabase_dbdev: [
+    {
+      description: 'dbdev schema objects created by supabase_dbdev',
+      pattern: buildSchemaScopedRemovalRegex('dbdev')
+    },
+    {
+      description: 'dbdev COPY data blocks',
+      pattern: buildCopyDataRemovalRegex('dbdev')
+    }
+  ],
   supabase_vault: [
     {
       description: 'vault schema objects created by supabase_vault',
@@ -57,6 +78,12 @@ const unsupportedExtensionCleanups = {
     {
       description: 'vault COPY data blocks',
       pattern: buildCopyDataRemovalRegex('vault')
+    },
+    {
+      description: 'COMMENT/ALTER blocks for Supabase Vault extension',
+      pattern: buildStatementRemovalRegex(
+        'COMMENT\\s+ON\\s+EXTENSION\\s+supabase_vault[\\s\\S]+?;\\s*|ALTER\\s+EXTENSION\\s+supabase_vault[\\s\\S]+?;\\s*'
+      )
     }
   ],
   pg_graphql: [
@@ -433,10 +460,9 @@ async function applySchema({ localDbUrl, schemaDumpPath }) {
   const args = [
     '--set',
     'psql_safe=off',
-    '--command',
-    '\\unrestrict',
     '--set',
     'ON_ERROR_STOP=on',
+    '--no-psqlrc',
     '--dbname',
     localDbUrl,
     '--file',
@@ -579,9 +605,14 @@ async function determineUnsupportedExtensions({ schemaContents, localDbUrl }) {
 
   const reasons = new Map();
   for (const ext of defaultUnsupportedExtensions) {
-    if (declaredExtensions.has(ext)) {
-      reasons.set(ext, 'not supported by migration tooling');
+    if (!declaredExtensions.has(ext)) {
+      continue;
     }
+
+    const reason = supabaseOnlyExtensions.includes(ext)
+      ? 'Supabase-managed extension not supported in local restores'
+      : 'not supported by migration tooling';
+    reasons.set(ext, reason);
   }
 
   const candidates = [...declaredExtensions].filter((ext) => !reasons.has(ext));

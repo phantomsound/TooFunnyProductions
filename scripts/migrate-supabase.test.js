@@ -10,7 +10,11 @@ test('prepareSchemaFile strips meta-commands and unsupported Supabase extensions
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'migrate-supabase-test-'));
   const schemaPath = path.join(tempDir, 'schema.sql');
 
-  const schemaContents = `-- Sample dump with psql directives and Supabase extras\n\\connect source_db\n\\ir seed.sql\nCREATE EXTENSION supabase_vault;\nCREATE EXTENSION PG_GRAPHQL;\nCREATE SCHEMA vault;\nCREATE TABLE vault.secrets(id int);\nCOPY vault.secrets (id) FROM stdin;\n1\n\\.\nCREATE SCHEMA graphql;\nCREATE TABLE graphql.types(id int);\nCOMMENT ON SCHEMA graphql IS 'GraphQL schema';\nCOPY graphql.types (id) FROM stdin;\n1\n\\.\nCREATE TABLE public.keep_me(id int);\n`;
+  const fixturePath = path.join(
+    __dirname,
+    '../backend/docs/schema/fixtures/supabase_meta_cleanup.sql'
+  );
+  const schemaContents = await fs.readFile(fixturePath, 'utf8');
 
   await fs.writeFile(schemaPath, schemaContents, 'utf8');
 
@@ -37,7 +41,10 @@ test('prepareSchemaFile strips meta-commands and unsupported Supabase extensions
     'meta-command stripping should emit a warning'
   );
   assert(
-    !/^[\s]*\\connect/m.test(sanitized) && !/^[\s]*\\ir/m.test(sanitized),
+    !/^[\s]*\\connect/m.test(sanitized) &&
+      !/^[\s]*\\copy/m.test(sanitized) &&
+      !/^[\s]*\\ir/m.test(sanitized) &&
+      !/^[\s]*\\restrict/m.test(sanitized),
     'psql meta-commands should be removed from the sanitized output'
   );
   assert(

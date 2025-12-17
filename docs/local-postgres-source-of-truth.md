@@ -106,3 +106,8 @@ pg_restore --clean --no-owner --no-privileges -h 127.0.0.1 -U postgres -d toofun
 ## Where this fits in the migration
 
 After exporting from Supabase with `npm run migrate:supabase` (see `scripts/migrate-supabase.js` and `backend/docs/local-postgres-migration-guide.md`), point the backend/ frontend env files at the PostgREST endpoint that fronts this local database. Use the validation SQL in `backend/docs/tests/002_compare_supabase_fdw.sql` to confirm row counts, hashes, and lingering Supabase URLs before decommissioning the hosted project.
+
+## Script tips
+
+- `npm run db:sync-validate -- --drop-and-restore` forces the helper to drop and recreate the local database before **every** retry when applying the Supabase dump. This is helpful if a failed attempt leaves partially migrated objects behind; the retries will always start from a clean slate.
+- The migration helper sanitizes Supabase exports before applying them locally, stripping leading `\` psql meta-commands (\connect/\copy/\ir/\restrict) and removing Supabase-only extensions such as `supabase_vault` (plus their vault schema objects/COPY data) so `psql` safe mode stays quiet.
