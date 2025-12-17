@@ -78,12 +78,15 @@ async function main() {
     }
 
     const dumpToApply = includeData ? fullDumpPath : schemaDumpPath;
-    const { errors: applyRetries } = await runWithRetries('Local restore', async (attempt) => {
+    const restoreAttempt = async (attempt) => {
       if (dropAndRestore) {
+        console.log(`\nAttempt ${attempt}: dropping and recreating ${localDbName} before restore.`);
         await recreateDatabase(localAdminUrl, localDbName);
       }
       return applySchema({ localDbUrl, schemaDumpPath: dumpToApply, attempt });
-    });
+    };
+
+    const { errors: applyRetries } = await runWithRetries('Local restore', restoreAttempt);
     recordRetryNotes(applyRetries, 'Local restore', retryNotes);
 
     const validationResults = await runValidations({ localDbUrl, validationBaseUrl });
