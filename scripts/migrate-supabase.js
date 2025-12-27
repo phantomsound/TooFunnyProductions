@@ -152,7 +152,7 @@ const recommendedExports = [
 ];
 
 function buildStatementRemovalRegex(statementPattern) {
-  return new RegExp(`^\\s*(?:--[^\n]*\n\s*)*${statementPattern}`, 'gmi');
+  return new RegExp(`^\\s*(?:--[^\\n]*\\n\\s*)*${statementPattern}`, 'gmi');
 }
 
 function buildFunctionRemovalRegex(qualifiedName) {
@@ -599,10 +599,6 @@ async function ensureSupabaseRoles({ localDbUrl }) {
 
 async function determineUnsupportedExtensions({ schemaContents, localDbUrl }) {
   const declaredExtensions = extractExtensionNamesFromSchema(schemaContents);
-  if (declaredExtensions.size === 0) {
-    return { unsupportedExtensions: [], reasons: new Map() };
-  }
-
   const reasons = new Map();
   for (const ext of defaultUnsupportedExtensions) {
     if (!declaredExtensions.has(ext)) {
@@ -613,6 +609,15 @@ async function determineUnsupportedExtensions({ schemaContents, localDbUrl }) {
       ? 'Supabase-managed extension not supported in local restores'
       : 'not supported by migration tooling';
     reasons.set(ext, reason);
+  }
+
+  if (
+    !declaredExtensions.has('pg_graphql') &&
+    /\bpg_graphql\b|\bgrant_pg_graphql_access\b|\bissue_pg_graphql_access\b|\bgraphql\.resolve\b|\bgraphql_public\.graphql\b/i.test(
+      schemaContents
+    )
+  ) {
+    reasons.set('pg_graphql', 'pg_graphql artifacts detected without extension declaration');
   }
 
   const candidates = [...declaredExtensions].filter((ext) => !reasons.has(ext));
