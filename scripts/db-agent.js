@@ -6,6 +6,7 @@ const readline = require('readline');
 
 const {
   ask,
+  confirm,
   defaultDocsPath,
   ensureBinary,
   protectBackendEnv,
@@ -17,6 +18,8 @@ const {
   runCommand,
   summariseConnection
 } = require('./migrate-supabase');
+
+const ADMIN_CONFIG_PATH = path.resolve(__dirname, '../backend/data/database-config.json');
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -36,6 +39,15 @@ async function main() {
   const dropAndRestore = !!args.dropAndRestore;
   const validationBaseUrl = args.validationBaseUrl || process.env.VALIDATION_BASE_URL;
   const retryNotes = [];
+  const existingAdminConfig = await readAdminConfig();
+  const shouldUpdateAdminConfig = await resolveAdminConfigPrompt(args, rl, interactive);
+  const resolvedAdminConfig = shouldUpdateAdminConfig
+    ? await resolveAdminConfigValues(args, rl, existingAdminConfig)
+    : null;
+  const adminConfig =
+    resolvedAdminConfig && !configsMatch(resolvedAdminConfig, existingAdminConfig)
+      ? resolvedAdminConfig
+      : null;
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const defaultReport = path.join(defaultDocsPath, 'reports', `fdw-compare-${timestamp}.log`);
@@ -45,6 +57,12 @@ async function main() {
 
   try {
     await ensureDirectories();
+    if (adminConfig) {
+      await writeAdminConfig(adminConfig);
+      console.log('\nUpdated backend/data/database-config.json for the admin workspace.');
+    } else if (resolvedAdminConfig) {
+      console.log('\nAdmin database workspace config unchanged. Skipping write.');
+    }
 
     const schemaDumpPath = path.join(defaultDocsPath, 'schema', 'supabase_schema.sql');
     const fullDumpPath = path.join(defaultDocsPath, 'schema', 'supabase_full.sql');
@@ -124,6 +142,21 @@ function parseArgs(argv) {
     const [key, ...rest] = raw.split('=');
     const value = rest.join('=');
     switch (key) {
+      case '--friendly-name':
+        flags.friendlyName = value || '';
+        break;
+      case '--postgrest-url':
+        flags.postgrestUrl = value || '';
+        break;
+      case '--service-key':
+        flags.serviceKey = value || '';
+        break;
+      case '--pgadmin-url':
+        flags.pgadminUrl = value || '';
+        break;
+      case '--update-admin-config':
+        flags.updateAdminConfig = true;
+        break;
       case '--supabase-url':
         flags.supabaseUrl = value || null;
         break;
@@ -194,6 +227,104 @@ async function ensureDirectories() {
   await fs.mkdir(schemaDir, { recursive: true });
   const reportsDir = path.join(defaultDocsPath, 'reports');
   await fs.mkdir(reportsDir, { recursive: true });
+}
+
+function sanitizeInput(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+}
+
+function configsMatch(left, right) {
+  if (!left || !right) return false;
+  return (
+    sanitizeInput(left.friendlyName) === sanitizeInput(right.friendlyName) &&
+    sanitizeInput(left.supabaseUrl) === sanitizeInput(right.supabaseUrl) &&
+    sanitizeInput(left.serviceKey) === sanitizeInput(right.serviceKey) &&
+    sanitizeInput(left.pgadminUrl) === sanitizeInput(right.pgadminUrl)
+  );
+}
+
+async function readAdminConfig() {
+  try {
+    const raw = await fs.readFile(ADMIN_CONFIG_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      return {
+        friendlyName: sanitizeInput(parsed.friendlyName),
+        supabaseUrl: sanitizeInput(parsed.supabaseUrl),
+        serviceKey: sanitizeInput(parsed.serviceKey),
+        pgadminUrl: sanitizeInput(parsed.pgadminUrl)
+      };
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      console.warn('Failed to read existing admin database config.', error?.message || error);
+    }
+  }
+  return { friendlyName: '', supabaseUrl: '', serviceKey: '', pgadminUrl: '' };
+}
+
+async function writeAdminConfig(config) {
+  await fs.mkdir(path.dirname(ADMIN_CONFIG_PATH), { recursive: true });
+  await fs.writeFile(ADMIN_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+}
+
+async function resolveAdminConfigPrompt(args, rl, interactive) {
+  if (args.updateAdminConfig) return true;
+  const hasOverrides = Boolean(
+    args.friendlyName || args.postgrestUrl || args.serviceKey || args.pgadminUrl
+  );
+  if (hasOverrides) return true;
+  if (!interactive || !rl) return false;
+  return confirm(rl, 'Update the admin database workspace config (recommended)? ', true);
+}
+
+async function resolveAdminConfigValues(args, rl, existing) {
+  const fallbackFriendly =
+    sanitizeInput(process.env.DB_FRIENDLY_NAME || process.env.DATABASE_FRIENDLY_NAME) || 'MikoDB';
+  const fallbackPostgrest = sanitizeInput(process.env.SUPABASE_URL);
+  const fallbackServiceKey = sanitizeInput(process.env.SUPABASE_SERVICE_KEY);
+  const fallbackPgAdmin = sanitizeInput(process.env.PGADMIN_URL) || 'http://127.0.0.1:5050/browser/';
+
+  const defaults = {
+    friendlyName: existing.friendlyName || fallbackFriendly,
+    supabaseUrl: existing.supabaseUrl || fallbackPostgrest,
+    serviceKey: existing.serviceKey || fallbackServiceKey,
+    pgadminUrl: existing.pgadminUrl || fallbackPgAdmin
+  };
+
+  const config = {
+    friendlyName: sanitizeInput(args.friendlyName || defaults.friendlyName),
+    supabaseUrl: sanitizeInput(args.postgrestUrl || defaults.supabaseUrl),
+    serviceKey: sanitizeInput(args.serviceKey || defaults.serviceKey),
+    pgadminUrl: sanitizeInput(args.pgadminUrl || defaults.pgadminUrl)
+  };
+
+  if (!rl) {
+    return config;
+  }
+
+  const friendlyPrompt = `Friendly name [${config.friendlyName || 'MikoDB'}]: `;
+  const friendlyAnswer = await ask(rl, friendlyPrompt);
+  if (friendlyAnswer) config.friendlyName = sanitizeInput(friendlyAnswer);
+
+  const urlPrompt = `PostgREST URL (SUPABASE_URL) [${config.supabaseUrl || 'http://127.0.0.1:54321'}]: `;
+  const urlAnswer = await ask(rl, urlPrompt);
+  if (urlAnswer) config.supabaseUrl = sanitizeInput(urlAnswer);
+
+  if (!args.serviceKey) {
+    const servicePrompt = config.serviceKey
+      ? 'Service role key (leave blank to keep existing): '
+      : 'Service role key (SUPABASE_SERVICE_KEY): ';
+    const serviceAnswer = await ask(rl, servicePrompt);
+    if (serviceAnswer) config.serviceKey = sanitizeInput(serviceAnswer);
+  }
+
+  const pgadminPrompt = `pgAdmin URL [${config.pgadminUrl || fallbackPgAdmin}]: `;
+  const pgadminAnswer = await ask(rl, pgadminPrompt);
+  if (pgadminAnswer) config.pgadminUrl = sanitizeInput(pgadminAnswer);
+
+  return config;
 }
 
 function buildLocalDatabaseUrls(localDbUrl, adminDb) {
@@ -565,4 +696,3 @@ main().catch((error) => {
   console.error(error.message || error);
   process.exitCode = 1;
 });
-
