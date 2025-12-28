@@ -100,9 +100,21 @@ const unsupportedExtensionCleanups = {
       pattern: buildFunctionRemovalRegex('extensions.grant_pg_graphql_access')
     },
     {
+      description: 'extensions.grant_pg_graphql_access() block (commented header + body)',
+      pattern: buildStatementRemovalRegex(
+        '--\\s*\\n--\\s+Name:\\s+grant_pg_graphql_access\\(\\);\\s+Type:\\s+FUNCTION;\\s+Schema:\\s+extensions;[\\s\\S]+?(?=--\\s*\\n--\\s+Name:|\\Z)'
+      )
+    },
+    {
       description: 'extensions.grant_pg_graphql_access() helper body (orphaned)',
       pattern: buildStatementRemovalRegex(
         'DECLARE[\\s\\S]+?func_is_graphql_resolve[\\s\\S]+?END;\\s*(\\$[^$\\n]*\\$);\\s*'
+      )
+    },
+    {
+      description: 'orphaned grant_pg_graphql_access() body fragment (no CREATE FUNCTION)',
+      pattern: buildStatementRemovalRegex(
+        '\\$\\$;[\\s\\S]+?grant\\s+usage\\s+on\\s+schema\\s+graphql[\\s\\S]+?END;\\s*(\\$_\\$);\\s*'
       )
     },
     {
@@ -120,6 +132,12 @@ const unsupportedExtensionCleanups = {
     {
       description: 'extensions.set_graphql_placeholder() helper',
       pattern: buildFunctionRemovalRegex('extensions.set_graphql_placeholder')
+    },
+    {
+      description: 'extensions.set_graphql_placeholder() block (commented header + body)',
+      pattern: buildStatementRemovalRegex(
+        '--\\s*\\n--\\s+Name:\\s+set_graphql_placeholder\\(\\);\\s+Type:\\s+FUNCTION;\\s+Schema:\\s+extensions;[\\s\\S]+?(?=--\\s*\\n--\\s+Name:|\\Z)'
+      )
     },
     {
       description: 'COMMENT ON FUNCTION extensions.set_graphql_placeholder()',
@@ -152,7 +170,7 @@ const recommendedExports = [
 ];
 
 function buildStatementRemovalRegex(statementPattern) {
-  return new RegExp(`^\\s*(?:--[^\n]*\n\s*)*${statementPattern}`, 'gmi');
+  return new RegExp(`^\\s*(?:--[^\\n]*\\n\\s*)*${statementPattern}`, 'gmi');
 }
 
 function buildFunctionRemovalRegex(qualifiedName) {
@@ -520,6 +538,18 @@ async function prepareSchemaFile(schemaDumpPath, { localDbUrl } = {}) {
       }
     }
 
+    if (ext === 'pg_graphql') {
+      const orphanedGrantBlock =
+        /\$\$;[\s\S]*?grant\s+usage\s+on\s+schema\s+graphql[\s\S]*?END;\s*\$_\$;\s*/gi;
+      const before = sanitized;
+      sanitized = sanitized.replace(orphanedGrantBlock, '');
+      if (sanitized !== before) {
+        removedForExtension = true;
+        modified = true;
+        console.warn('Skipping orphaned pg_graphql grant block fragment.');
+      }
+    }
+
     if (removedForExtension) {
       modified = true;
       const reason = reasons.get(ext);
@@ -529,6 +559,20 @@ async function prepareSchemaFile(schemaDumpPath, { localDbUrl } = {}) {
         console.warn(`Skipping statements for unsupported PostgreSQL extension "${ext}".`);
       }
     }
+  }
+
+  const orphanedDollarBlockRegex = /\$\$;[\s\S]+?\$_\$;\s*/g;
+  let removedOrphanedBlocks = 0;
+  sanitized = sanitized.replace(orphanedDollarBlockRegex, (block) => {
+    if (/\bgraphql\b|grant\s+usage\s+on\s+schema\s+graphql/i.test(block)) {
+      removedOrphanedBlocks += 1;
+      return '';
+    }
+    return block;
+  });
+  if (removedOrphanedBlocks > 0) {
+    modified = true;
+    console.warn(`Skipping ${removedOrphanedBlocks} orphaned dollar-quoted block(s) referencing graphql.`);
   }
 
   if (!modified) {
@@ -599,10 +643,6 @@ async function ensureSupabaseRoles({ localDbUrl }) {
 
 async function determineUnsupportedExtensions({ schemaContents, localDbUrl }) {
   const declaredExtensions = extractExtensionNamesFromSchema(schemaContents);
-  if (declaredExtensions.size === 0) {
-    return { unsupportedExtensions: [], reasons: new Map() };
-  }
-
   const reasons = new Map();
   for (const ext of defaultUnsupportedExtensions) {
     if (!declaredExtensions.has(ext)) {
@@ -613,6 +653,15 @@ async function determineUnsupportedExtensions({ schemaContents, localDbUrl }) {
       ? 'Supabase-managed extension not supported in local restores'
       : 'not supported by migration tooling';
     reasons.set(ext, reason);
+  }
+
+  if (
+    !declaredExtensions.has('pg_graphql') &&
+    /\bpg_graphql\b|\bgrant_pg_graphql_access\b|\bissue_pg_graphql_access\b|\bgraphql\.resolve\b|\bgraphql_public\.graphql\b/i.test(
+      schemaContents
+    )
+  ) {
+    reasons.set('pg_graphql', 'pg_graphql artifacts detected without extension declaration');
   }
 
   const candidates = [...declaredExtensions].filter((ext) => !reasons.has(ext));
