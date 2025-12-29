@@ -752,6 +752,15 @@ function safeJson(value) {
   }
 }
 
+function formatSupabaseError(err, fallback) {
+  if (!err) return fallback;
+  const message = err?.message || fallback;
+  const details = err?.details ? ` Details: ${err.details}` : "";
+  const hint = err?.hint ? ` Hint: ${err.hint}` : "";
+  const code = err?.code ? ` (code: ${err.code})` : "";
+  return `${message}${code}${details}${hint}`.trim() || fallback;
+}
+
 function diffSettings(before = {}, after = {}) {
   const diff = {};
   const keys = new Set([...Object.keys(before || {}), ...Object.keys(after || {})]);
@@ -910,7 +919,7 @@ router.post("/pull-live", requireAdmin, async (req, res) => {
     res.json({ success: true, data: upd.data });
   } catch (err) {
     console.error("POST /api/settings/pull-live error:", err);
-    res.status(500).json({ error: "Failed to pull live into draft" });
+    res.status(500).json({ error: formatSupabaseError(err, "Failed to pull live into draft") });
   }
 });
 
