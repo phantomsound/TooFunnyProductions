@@ -758,7 +758,12 @@ function formatSupabaseError(err, fallback) {
   const details = err?.details ? ` Details: ${err.details}` : "";
   const hint = err?.hint ? ` Hint: ${err.hint}` : "";
   const code = err?.code ? ` (code: ${err.code})` : "";
-  return `${message}${code}${details}${hint}`.trim() || fallback;
+  let extra = "";
+  if (typeof message === "string" && message.toLowerCase().includes("fetch failed")) {
+    extra =
+      " Check SUPABASE_URL/SUPABASE_SERVICE_KEY in backend/.env, confirm the API is reachable from the server, and verify any firewall/SSL settings.";
+  }
+  return `${message}${code}${details}${hint}${extra}`.trim() || fallback;
 }
 
 function diffSettings(before = {}, after = {}) {
