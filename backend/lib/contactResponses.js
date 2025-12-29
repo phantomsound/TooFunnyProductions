@@ -1,10 +1,10 @@
 // backend/lib/contactResponses.js
 import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { getSupabaseServiceClient } from "./supabaseClient.js";
 
 dotenv.config();
 
@@ -12,16 +12,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "data");
 const LOCAL_STORE_PATH = join(DATA_DIR, "contact-responses.json");
 
-let _sb = null;
-function getServiceClient() {
-  if (_sb) return _sb;
-
-  const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return null;
-  }
-  _sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  return _sb;
+async function getServiceClient() {
+  return getSupabaseServiceClient();
 }
 
 async function ensureDataDir() {
@@ -123,7 +115,7 @@ function normalizeBoolean(value) {
 export async function recordContactResponse({ name, email, message, meta = {} }) {
   const record = buildRecord({ name, email, message, meta });
 
-  const sb = getServiceClient();
+  const sb = await getServiceClient();
   if (sb) {
     try {
       const insertPayload = normalizeForStorage(record);
@@ -159,7 +151,7 @@ export async function updateContactResponse(id, patch = {}) {
   }
   safePatch.updated_at = new Date().toISOString();
 
-  const sb = getServiceClient();
+  const sb = await getServiceClient();
   if (sb) {
     try {
       const { data, error } = await sb
@@ -194,7 +186,7 @@ export async function listContactResponses({ search, responded, limit = 50, offs
   const respondedFilter = normalizeBoolean(responded);
   const ascending = String(sort).toLowerCase() === "oldest";
 
-  const sb = getServiceClient();
+  const sb = await getServiceClient();
   if (sb) {
     try {
       let query = sb

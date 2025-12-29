@@ -18,6 +18,7 @@ import {
 } from "../lib/contactResponses.js";
 import { getDatabaseStatus, resetDatabaseStatusCache } from "../lib/databaseStatus.js";
 import { getEditableDatabaseConfig, saveDatabaseConfig } from "../lib/databaseConfig.js";
+import { resetSupabaseServiceClient } from "../lib/supabaseClient.js";
 import { getSqlScriptById, listSqlScripts } from "../lib/sqlScripts.js";
 
 const router = Router();
@@ -33,7 +34,7 @@ router.post("/publish", requireAdmin, (_req, res) => {
 // GET /api/admin/audit
 router.get("/audit", requireAdmin, async (req, res) => {
   try {
-    if (!getAuditClient()) {
+    if (!(await getAuditClient())) {
       return res.status(500).json({ error: "Supabase not configured." });
     }
 
@@ -156,6 +157,7 @@ router.put("/database/config", requireAdmin, async (req, res) => {
     });
 
     resetDatabaseStatusCache();
+    resetSupabaseServiceClient();
 
     try {
       await logAdminAction(req.user?.email || "unknown", "database_config_update", {

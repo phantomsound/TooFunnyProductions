@@ -1,11 +1,11 @@
 import { Router } from "express";
 import nodemailer from "nodemailer";
-import { createClient } from "@supabase/supabase-js";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { noteDeliveryStatus, recordContactResponse } from "../lib/contactResponses.js";
+import { getSupabaseServiceClient } from "../lib/supabaseClient.js";
 
 const router = Router();
 
@@ -14,16 +14,7 @@ const DATA_DIR = join(__dirname, "..", "data");
 const DEFAULT_SETTINGS_PATH = join(DATA_DIR, "settings.json");
 const LOCAL_SETTINGS_PATH = join(DATA_DIR, "settings.local.json");
 
-const {
-  SUPABASE_URL,
-  SUPABASE_SERVICE_KEY,
-  CONTACT_TO: CONTACT_TO_FALLBACK,
-} = process.env;
-
-const supabase =
-  SUPABASE_URL && SUPABASE_SERVICE_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    : null;
+const { CONTACT_TO: CONTACT_TO_FALLBACK } = process.env;
 
 async function readJsonFile(path) {
   try {
@@ -49,6 +40,7 @@ async function loadLocalSettings() {
 }
 
 async function fetchContactEmailFromSupabase() {
+  const supabase = await getSupabaseServiceClient();
   if (!supabase) return null;
   try {
     const sel = await supabase
