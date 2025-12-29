@@ -3,14 +3,13 @@
 // Robust settings routes: singleton healing + column whitelist.
 // ------------------------------------------------------------------
 import { Router } from "express";
-import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
-import { hasServiceRoleKey, isLocalSupabaseUrl } from "../lib/supabaseKey.js";
+import { getSupabaseServiceContext } from "../lib/supabaseClient.js";
 
 const router = Router();
 
@@ -42,20 +41,29 @@ async function loadLocalSettings() {
   return (fallback && typeof fallback === "object" ? fallback : {}) ?? {};
 }
 
-const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
-const supabaseIsLocal = isLocalSupabaseUrl(SUPABASE_URL);
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in backend/.env");
+async function getSupabaseContext() {
+  const context = await getSupabaseServiceContext();
+  if (!context.supabaseUrl || !context.serviceKey) {
+    console.error("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in backend/.env");
+  }
+  return {
+    supabase: context.client,
+    supabaseIsLocal: context.supabaseIsLocal,
+    supabaseHasRequiredRole: context.hasServiceRole,
+  };
 }
 
-const supabase =
-  SUPABASE_URL && SUPABASE_SERVICE_KEY ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) : null;
-const supabaseHasRequiredRole = supabaseIsLocal ? !!SUPABASE_SERVICE_KEY : hasServiceRoleKey(SUPABASE_SERVICE_KEY);
+async function getSupabaseOrThrow() {
+  const { supabase } = await getSupabaseContext();
+  if (!supabase) throw new Error("Supabase not configured.");
+  return supabase;
+}
 
-function ensureSupabaseWritable(res) {
+async function ensureSupabaseWritable(res) {
+  const { supabase, supabaseIsLocal, supabaseHasRequiredRole } = await getSupabaseContext();
   if (!supabase) {
     res.status(500).json({ error: "Supabase not configured." });
-    return false;
+    return null;
   }
   if (!supabaseHasRequiredRole) {
     res.status(500).json({
@@ -63,9 +71,9 @@ function ensureSupabaseWritable(res) {
         ? "Local PostgREST requires a JWT in SUPABASE_SERVICE_KEY that matches your PGRST_JWT_SECRET. Update backend/.env and restart the service."
         : "Supabase service role key required. Update SUPABASE_SERVICE_KEY in backend/.env with the service_role key from your PostgREST stack.",
     });
-    return false;
+    return null;
   }
-  return true;
+  return supabase;
 }
 
 const TBL = (stage) => (stage === "draft" ? "settings_draft" : "settings_public");
@@ -141,6 +149,7 @@ const getLimitForKind = (kind) => SNAPSHOT_LIMITS[normalizeKind(kind)] ?? 20;
 
 async function fetchVersionById(id, { includeData = false } = {}) {
   if (!id) return null;
+  const supabase = await getSupabaseOrThrow();
   const columns = [
     "id",
     "stage",
@@ -179,7 +188,7 @@ async function listVersionsInternal({
   limit = 50,
   includeData = false,
 } = {}) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
 
   let query = supabase
     .from("settings_versions")
@@ -233,7 +242,7 @@ async function listVersionsInternal({
 }
 
 async function enforceVersionLimits(kind) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
   const normalized = normalizeKind(kind);
   if (!VERSION_KINDS_FOR_LIMIT.has(normalized)) return;
 
@@ -266,7 +275,7 @@ async function enforceVersionLimits(kind) {
 }
 
 async function markDefaultSnapshot(snapshotId, actorEmail) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
   if (!snapshotId) throw new Error("Missing snapshot id");
 
   const now = new Date().toISOString();
@@ -308,7 +317,7 @@ async function insertVersion({
   status = VERSION_STATUS_ACTIVE,
   publishedAt = null,
 }) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
 
   const normalizedKind = normalizeKind(kind);
   const payload = {
@@ -338,7 +347,7 @@ async function insertVersion({
 }
 
 async function updateVersionMetadata(id, { label, note, status, kind, isDefault, actorEmail }) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
   if (!id) throw new Error("Missing version id");
 
   const patch = { updated_at: new Date().toISOString() };
@@ -370,7 +379,7 @@ async function updateVersionMetadata(id, { label, note, status, kind, isDefault,
 }
 
 async function updateVersionData(id, data) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
   if (!id) throw new Error("Missing version id");
   const clean = filterAllowed(data || {});
   const upd = await supabase
@@ -391,7 +400,7 @@ const DEPLOYMENT_STATUS_COMPLETED = "completed";
 const DEPLOYMENT_STATUS_CANCELLED = "cancelled";
 
 async function getDefaultSnapshot() {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
   const sel = await supabase
     .from("settings_versions")
     .select(
@@ -409,7 +418,7 @@ async function getDefaultSnapshot() {
 }
 
 async function applySnapshotToStage(versionId, stage, actorEmail, reason) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
   if (!versionId) throw new Error("Missing snapshot id");
   const version = await fetchVersionById(versionId, { includeData: true });
   if (!version) throw new Error("Snapshot not found");
@@ -442,7 +451,7 @@ async function applySnapshotToStage(versionId, stage, actorEmail, reason) {
 }
 
 async function listDeployments({ status, includePast = false } = {}) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
   let query = supabase
     .from("settings_deployments")
     .select(
@@ -478,7 +487,7 @@ async function listDeployments({ status, includePast = false } = {}) {
 }
 
 async function loadDeployment(id) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
   if (!id) throw new Error("Missing deployment id");
   const sel = await supabase
     .from("settings_deployments")
@@ -508,7 +517,7 @@ async function loadDeployment(id) {
 }
 
 async function processDeploymentSchedule() {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
 
   const now = new Date();
   const nowIso = now.toISOString();
@@ -589,7 +598,7 @@ async function processDeploymentSchedule() {
 }
 
 async function writeDraftSettings(data) {
-  if (!supabase) throw new Error("Supabase not configured.");
+  const supabase = await getSupabaseOrThrow();
   const draftId = await ensureSingleton("draft");
   const payload = filterAllowed(data || {});
   const upd = await supabase
@@ -759,6 +768,7 @@ function diffSettings(before = {}, after = {}) {
 // Ensure we have exactly one usable row and return its UUID id.
 // Picks the oldest row; if id is bad/empty/"null", repair it with randomUUID().
 async function ensureSingleton(stage) {
+  const supabase = await getSupabaseOrThrow();
   const table = TBL(stage);
 
   // Oldest row determines the singleton
@@ -804,6 +814,7 @@ async function ensureSingleton(stage) {
 // GET /api/settings?stage=live|draft (default live)
 router.get("/", async (req, res) => {
   try {
+    const { supabase } = await getSupabaseContext();
     if (!supabase) {
       const localSettings = await loadLocalSettings();
       return res.json(stripMetaFields(localSettings));
@@ -830,7 +841,8 @@ router.get("/", async (req, res) => {
 // PUT /api/settings?stage=live|draft (default draft) – admin only
 router.put("/", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     await processDeploymentSchedule();
     const stage = req.query.stage === "live" ? "live" : "draft";
     const table = TBL(stage);
@@ -865,7 +877,8 @@ router.put("/", requireAdmin, async (req, res) => {
 // POST /api/settings/pull-live – copy live → draft
 router.post("/pull-live", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     await processDeploymentSchedule();
 
     const liveSel = await supabase
@@ -904,7 +917,8 @@ router.post("/pull-live", requireAdmin, async (req, res) => {
 // POST /api/settings/publish – copy draft → live
 router.post("/publish", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     await processDeploymentSchedule();
 
     const actor = (req.user?.email || "unknown").toLowerCase();
@@ -990,7 +1004,8 @@ router.post("/publish", requireAdmin, async (req, res) => {
 
 router.get("/lock", requireAdmin, async (_req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
 
     const sel = await supabase.from("settings_lock").select("*").eq("id", 1).maybeSingle();
     if (sel.error && sel.error.code !== "PGRST116") throw sel.error;
@@ -1031,7 +1046,8 @@ router.get("/lock", requireAdmin, async (_req, res) => {
 
 router.get("/lock/options", requireAdmin, async (_req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
 
     const [drafts, published, defaultSnapshot] = await Promise.all([
       listVersionsInternal({ kind: VERSION_KIND_DRAFT, stage: "draft", limit: 40 }),
@@ -1055,7 +1071,8 @@ router.get("/lock/options", requireAdmin, async (_req, res) => {
 
 router.post("/lock/acquire", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
 
     const ttlSeconds = Number(req.body?.ttlSeconds) || 300;
     const now = new Date();
@@ -1210,7 +1227,8 @@ router.post("/lock/acquire", requireAdmin, async (req, res) => {
 
 router.post("/lock/release", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
 
     const email = (req.user?.email || "unknown").toLowerCase();
     const sel = await supabase.from("settings_lock").select("*").eq("id", 1).maybeSingle();
@@ -1303,7 +1321,8 @@ router.post("/lock/release", requireAdmin, async (req, res) => {
 
 router.get("/versions", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     const limit = clampLimit(req.query.limit, 20);
     const stageFilter = req.query.stage === "live" ? "live" : req.query.stage === "draft" ? "draft" : undefined;
     const kindFilter = req.query.kind ? String(req.query.kind) : undefined;
@@ -1323,7 +1342,8 @@ router.get("/versions", requireAdmin, async (req, res) => {
 
 router.post("/versions", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     const stage = req.body?.stage === "live" ? "live" : "draft";
     const label = typeof req.body?.label === "string" && req.body.label.trim().length > 0 ? req.body.label.trim() : null;
     const note = typeof req.body?.note === "string" && req.body.note.trim().length > 0 ? req.body.note.trim() : null;
@@ -1377,7 +1397,8 @@ router.post("/versions", requireAdmin, async (req, res) => {
 
 router.patch("/versions/:id", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     const versionId = req.params.id;
     if (!versionId) return res.status(400).json({ error: "Missing version id" });
 
@@ -1422,7 +1443,8 @@ router.patch("/versions/:id", requireAdmin, async (req, res) => {
 
 router.post("/versions/:id/restore", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     const versionId = req.params.id;
     const email = (req.user?.email || "unknown").toLowerCase();
 
@@ -1464,7 +1486,8 @@ router.post("/versions/:id/restore", requireAdmin, async (req, res) => {
 
 router.delete("/versions/:id", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     const versionId = req.params.id;
     const email = (req.user?.email || "unknown").toLowerCase();
 
@@ -1497,7 +1520,8 @@ router.delete("/versions/:id", requireAdmin, async (req, res) => {
 
 router.get("/deployments", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     await processDeploymentSchedule();
     const includePast = String(req.query.includePast).toLowerCase() === "true";
     const deployments = await listDeployments({ includePast });
@@ -1530,7 +1554,8 @@ router.get("/deployments", requireAdmin, async (req, res) => {
 
 router.post("/deployments", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     const email = (req.user?.email || "unknown").toLowerCase();
     const snapshotId = req.body?.snapshotId ? String(req.body.snapshotId) : null;
     if (!snapshotId) return res.status(400).json({ error: "snapshotId is required" });
@@ -1614,7 +1639,8 @@ router.post("/deployments", requireAdmin, async (req, res) => {
 
 router.post("/deployments/:id/cancel", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     const email = (req.user?.email || "unknown").toLowerCase();
     const deploymentId = req.params.id;
     if (!deploymentId) return res.status(400).json({ error: "Missing deployment id" });
@@ -1672,7 +1698,8 @@ router.post("/deployments/:id/cancel", requireAdmin, async (req, res) => {
 
 router.post("/deployments/:id/override", requireAdmin, async (req, res) => {
   try {
-    if (!ensureSupabaseWritable(res)) return;
+    const supabase = await ensureSupabaseWritable(res);
+    if (!supabase) return;
     const email = (req.user?.email || "unknown").toLowerCase();
     const deploymentId = req.params.id;
     if (!deploymentId) return res.status(400).json({ error: "Missing deployment id" });
@@ -1720,6 +1747,7 @@ router.post("/deployments/:id/override", requireAdmin, async (req, res) => {
 // GET /api/settings/preview – read draft row for /?stage=draft
 router.get("/preview", async (_req, res) => {
   try {
+    const { supabase } = await getSupabaseContext();
     if (!supabase) {
       const localSettings = await loadLocalSettings();
       return res.json(stripMetaFields(localSettings));

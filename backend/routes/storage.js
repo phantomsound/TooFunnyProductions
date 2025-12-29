@@ -5,7 +5,6 @@
    URL reference updates inside settings_draft/settings_public.
    ========================================================================= */
 import { Router } from "express";
-import { createClient } from "@supabase/supabase-js";
 import multer from "multer";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
@@ -13,12 +12,9 @@ import { extname } from "node:path";
 import { Readable } from "node:stream";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
+import { getSupabaseServiceClient } from "../lib/supabaseClient.js";
 
 const router = Router();
-const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
-const supabase =
-  SUPABASE_URL && SUPABASE_SERVICE_KEY ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) : null;
-
 const hasNativeFetch = typeof fetch === "function";
 
 function requestWithNode(url, method) {
@@ -86,12 +82,13 @@ const upload = multer({ storage: multer.memoryStorage() });
 const BUCKET = "media";
 
 // Build public URL from path
-function ensureSupabase(res) {
+async function ensureSupabase(res) {
+  const supabase = await getSupabaseServiceClient();
   if (!supabase) {
     res.status(500).json({ error: "Supabase not configured." });
-    return false;
+    return null;
   }
-  return true;
+  return supabase;
 }
 
 function sanitizeProxyPath(input) {
@@ -227,7 +224,8 @@ async function consumeAsyncIterable(iterable) {
 }
 
 router.get("/proxy", async (req, res) => {
-  if (!ensureSupabase(res)) return;
+  const supabase = await ensureSupabase(res);
+  if (!supabase) return;
 
   const bucket = typeof req.query.bucket === "string" ? req.query.bucket.trim() : "";
   const rawPath = typeof req.query.path === "string" ? req.query.path.trim() : "";
@@ -325,52 +323,49 @@ router.get("/proxy", async (req, res) => {
       errors.push({ source: "public", message: "Public URL not available" });
     }
 
-    if (supabase) {
-      try {
-        const direct = await supabase.storage.from(bucket).download(path);
-        if (!direct.error && direct.data) {
-          attempts.push({ source: "direct", status: 200 });
-          const contentType =
-            (typeof direct.data.type === "string" && direct.data.type) || inferContentType(path);
-          res.setHeader("Content-Type", contentType);
-          res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
+    try {
+      const direct = await supabase.storage.from(bucket).download(path);
+      if (!direct.error && direct.data) {
+        attempts.push({ source: "direct", status: 200 });
+        const contentType = (typeof direct.data.type === "string" && direct.data.type) || inferContentType(path);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
 
-          if (method === "HEAD" && typeof direct.data.size === "number") {
-            res.setHeader("Content-Length", String(direct.data.size));
-            res.status(200).end();
-            return;
-          }
-
-          const { buffer, size } = await bufferFromDownloadData(direct.data);
-          if (buffer) {
-            if (size) {
-              res.setHeader("Content-Length", String(size));
-            }
-            if (method === "HEAD") {
-              res.status(200).end();
-            } else {
-              res.status(200).send(buffer);
-            }
-            return;
-          }
-
-          errors.push({ source: "direct", message: "Direct download produced empty payload" });
-        } else if (direct.error) {
-          attempts.push({
-            source: "direct",
-            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
-          });
-          errors.push({
-            source: "direct",
-            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
-            message: direct.error.message || "Direct download failed",
-          });
-        } else {
-          errors.push({ source: "direct", message: "Direct download returned empty response" });
+        if (method === "HEAD" && typeof direct.data.size === "number") {
+          res.setHeader("Content-Length", String(direct.data.size));
+          res.status(200).end();
+          return;
         }
-      } catch (error) {
-        errors.push({ source: "direct", message: error?.message || String(error) });
+
+        const { buffer, size } = await bufferFromDownloadData(direct.data);
+        if (buffer) {
+          if (size) {
+            res.setHeader("Content-Length", String(size));
+          }
+          if (method === "HEAD") {
+            res.status(200).end();
+          } else {
+            res.status(200).send(buffer);
+          }
+          return;
+        }
+
+        errors.push({ source: "direct", message: "Direct download produced empty payload" });
+      } else if (direct.error) {
+        attempts.push({
+          source: "direct",
+          status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+        });
+        errors.push({
+          source: "direct",
+          status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+          message: direct.error.message || "Direct download failed",
+        });
+      } else {
+        errors.push({ source: "direct", message: "Direct download returned empty response" });
       }
+    } catch (error) {
+      errors.push({ source: "direct", message: error?.message || String(error) });
     }
 
     const statusFromErrors = errors.find((entry) => typeof entry.status === "number")?.status;
@@ -395,7 +390,7 @@ router.get("/proxy", async (req, res) => {
   }
 });
 
-function publicUrl(path) {
+function publicUrl(supabase, path) {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
@@ -518,7 +513,7 @@ function replaceUrls(value, context) {
 }
 
 // Replace stored references (including nested JSON + proxy URLs) in a settings table row
-async function replaceUrlInTable(table, { fromPath, toPath, oldPublicUrl, newPublicUrl }) {
+async function replaceUrlInTable(supabase, table, { fromPath, toPath, oldPublicUrl, newPublicUrl }) {
   if (!supabase) return 0;
   const sel = await supabase.from(table).select("*").limit(1).maybeSingle();
   if (sel.error) throw sel.error;
@@ -545,7 +540,8 @@ async function replaceUrlInTable(table, { fromPath, toPath, oldPublicUrl, newPub
 
 // --- LIST --------------------------------------------------------------
 router.get("/list", requireAdmin, async (req, res) => {
-  if (!ensureSupabase(res)) return;
+  const supabase = await ensureSupabase(res);
+  if (!supabase) return;
   try {
     const { prefix = "", limit = 1000, sort = "updated_at", direction = "desc", q } = req.query;
     const listOpts = {
@@ -565,7 +561,7 @@ router.get("/list", requireAdmin, async (req, res) => {
         created_at: f.created_at ?? null,
         updated_at: f.updated_at ?? null,
         mime_type: f.metadata?.mimetype ?? null,
-        url: publicUrl((prefix ? `${prefix}/` : "") + f.name),
+        url: publicUrl(supabase, (prefix ? `${prefix}/` : "") + f.name),
         isDir: !f.metadata && !f.created_at && !f.updated_at,
       }))
       .filter((item) => item.name !== "uploads" && item.name !== "incoming")
@@ -602,7 +598,8 @@ router.get("/list", requireAdmin, async (req, res) => {
 
 // --- INSPECT ----------------------------------------------------------
 router.get("/inspect", requireAdmin, async (req, res) => {
-  if (!ensureSupabase(res)) return;
+  const supabase = await ensureSupabase(res);
+  if (!supabase) return;
   const rawPath = typeof req.query.path === "string" ? req.query.path : "";
   const path = rawPath.trim();
   if (!path) {
@@ -620,7 +617,7 @@ router.get("/inspect", requireAdmin, async (req, res) => {
     if (error && error.code !== "PGRST116") throw error;
 
     const object = data ?? null;
-    const url = publicUrl(path);
+    const url = publicUrl(supabase, path);
 
     let publicUrlStatus = null;
     try {
@@ -652,7 +649,8 @@ router.get("/inspect", requireAdmin, async (req, res) => {
 
 // --- UPLOAD ------------------------------------------------------------
 router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => {
-  if (!ensureSupabase(res)) return;
+  const supabase = await ensureSupabase(res);
+  if (!supabase) return;
   try {
     const file = req.file;
     if (!file) return res.status(400).json({ error: "No file" });
@@ -664,7 +662,7 @@ router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => 
     });
     if (error) throw error;
 
-    const url = publicUrl(data.path);
+    const url = publicUrl(supabase, data.path);
     try {
       await logAdminAction(req.user?.email || "unknown", "media.upload", {
         path: data.path,
@@ -683,12 +681,13 @@ router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => 
 
 // --- DELETE ------------------------------------------------------------
 router.post("/delete", requireAdmin, async (req, res) => {
-  if (!ensureSupabase(res)) return;
+  const supabase = await ensureSupabase(res);
+  if (!supabase) return;
   try {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: "path required" });
 
-    const oldUrl = publicUrl(path);
+    const oldUrl = publicUrl(supabase, path);
     const del = await supabase.storage.from(BUCKET).remove([path]);
     if (del.error) throw del.error;
 
@@ -705,7 +704,8 @@ router.post("/delete", requireAdmin, async (req, res) => {
 
 // --- RENAME (move) -----------------------------------------------------
 router.post("/rename", requireAdmin, async (req, res) => {
-  if (!ensureSupabase(res)) return;
+  const supabase = await ensureSupabase(res);
+  if (!supabase) return;
   try {
     const { fromPath, toName } = req.body;
     if (!fromPath || !toName) return res.status(400).json({ error: "fromPath and toName required" });
@@ -720,13 +720,13 @@ router.post("/rename", requireAdmin, async (req, res) => {
     const del = await supabase.storage.from(BUCKET).remove([fromPath]);
     if (del.error) throw del.error;
 
-    const oldUrl = publicUrl(fromPath);
-    const newUrl = publicUrl(toPath);
+    const oldUrl = publicUrl(supabase, fromPath);
+    const newUrl = publicUrl(supabase, toPath);
 
     // Update references in both settings tables where values equal oldUrl
     const replacement = { fromPath, toPath, oldPublicUrl: oldUrl, newPublicUrl: newUrl };
-    const draftUpdates = await replaceUrlInTable("settings_draft", replacement);
-    const liveUpdates = await replaceUrlInTable("settings_public", replacement);
+    const draftUpdates = await replaceUrlInTable(supabase, "settings_draft", replacement);
+    const liveUpdates = await replaceUrlInTable(supabase, "settings_public", replacement);
     const totalUpdated = (draftUpdates || 0) + (liveUpdates || 0);
 
     try {

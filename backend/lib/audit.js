@@ -1,20 +1,13 @@
 // backend/lib/audit.js
-import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseServiceClient } from "./supabaseClient.js";
 
-dotenv.config(); // ensure .env is loaded even if server.js forgot
-
-let _sb = null;
-function getServiceClient() {
-  if (_sb) return _sb;
-
-  const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+async function getServiceClient() {
+  const client = await getSupabaseServiceClient();
+  if (!client) {
     console.error("❌ Audit logger: missing SUPABASE_URL or SUPABASE_SERVICE_KEY");
     return null;
   }
-  _sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  return _sb;
+  return client;
 }
 
 /**
@@ -22,7 +15,7 @@ function getServiceClient() {
  */
 export async function logAdminAction(actorEmail, action, meta = null) {
   try {
-    const sb = getServiceClient();
+    const sb = await getServiceClient();
     if (!sb) return; // don't throw on servers without secrets
     const payload = {
       actor_email: actorEmail,
@@ -48,7 +41,7 @@ export async function logAdminAction(actorEmail, action, meta = null) {
  * Fetch audit log rows for the admin dashboard.
  */
 export async function listAdminActions({ limit = 100, actor, action, search, direction } = {}) {
-  const sb = getServiceClient();
+  const sb = await getServiceClient();
   if (!sb) {
     throw new Error("Supabase service client not configured");
   }
@@ -94,6 +87,6 @@ export async function listAdminActions({ limit = 100, actor, action, search, dir
   }));
 }
 
-export function getAuditClient() {
+export async function getAuditClient() {
   return getServiceClient();
 }
