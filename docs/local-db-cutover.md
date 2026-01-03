@@ -1,12 +1,26 @@
 # Local PostgreSQL cutover guide (dev)
 
-This checklist walks every part of the stack so the app runs purely against your local PostgreSQL instance (`toofunny` on `127.0.0.1:5432`) instead of the hosted Supabase project.
+This checklist walks every part of the stack so the app runs purely against your local PostgreSQL instance (`toofunny` on `127.0.0.1:5432`) instead of the hosted Supabase project. Use the **Full local Supabase/PostgREST stack** path if you want admin mode + storage to behave like the hosted project. Use the **Postgres-only fallback** path only if you intentionally want file-backed fallbacks and no Supabase/PostgREST API.
 
-## 1) Environment variables
+## 1) Choose your local mode
+
+### Option A: Full local Supabase/PostgREST stack (recommended)
+Use this when you want admin mode, audit logs, settings, and storage to behave like the hosted Supabase project.
+
 - Backend: use `DATABASE_URL` or the discrete `DB_*` variables that point at `postgresql://postgres:<PASSWORD>@127.0.0.1:5432/toofunny?sslmode=disable`.
-- Frontend: **leave Supabase envs empty**. The browser should never talk directly to Supabase; it goes through the backend.
-- Supabase-specific keys (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) should be omitted/blank for local development.
-- Quick check: `backend/.env.example` already shows the local Postgres defaults with blank Supabase values; copy it to `backend/.env` and only fill in DB creds + secrets. `frontend/.env.example` only contains `VITE_API_URL` plus the two Supabase placeholders—keep those placeholders empty so Vite only calls the backend.
+- Backend: set `SUPABASE_URL` to your local PostgREST endpoint (Supabase CLI defaults to `http://127.0.0.1:54321`).
+- Backend: set `SUPABASE_SERVICE_KEY` to the **local** service-role JWT issued by the local stack.
+- Frontend: set `VITE_SUPABASE_URL` to the same local PostgREST endpoint and `VITE_SUPABASE_ANON_KEY` to the local anon key.
+- If the backend is running on another machine, use the LAN host instead of `127.0.0.1` (e.g., `http://192.168.1.211:54321`).
+
+### Option B: Postgres-only fallback (no PostgREST)
+Use this only if you want file-backed fallbacks and do not want admin mode to call PostgREST.
+
+- Backend: use `DATABASE_URL` or the discrete `DB_*` variables that point at `postgresql://postgres:<PASSWORD>@127.0.0.1:5432/toofunny?sslmode=disable`.
+- Leave `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` blank in `backend/.env`.
+- Leave `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` blank in `frontend/.env`.
+
+Quick check: `backend/.env.example` already shows the local Postgres defaults. Copy it to `backend/.env` and fill in DB creds + secrets, then decide whether you want to populate the Supabase values based on Option A vs Option B. `frontend/.env.example` only contains `VITE_API_URL` plus the two Supabase placeholders.
 
 ## 2) Database content
 - Ensure your local instance already has the schema/data restored from Supabase (you mentioned it is). If you ever need to reseed, use the SQL files under `backend/docs/schema/` and `backend/docs/data/`.
@@ -38,15 +52,17 @@ This checklist walks every part of the stack so the app runs purely against your
 
 ## 3) Backend configuration
 - Copy `backend/.env.example` to `backend/.env` and fill in the DB credentials + `SESSION_SECRET`.
-- Remove/leave blank any Supabase variables in `.env` so the backend does not attempt to use the hosted project.
+- For **Option A**, set `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` to your **local** PostgREST endpoint + service-role key.
+- For **Option B**, leave Supabase variables blank so the backend uses file-backed fallbacks.
 - Restart the backend after updating envs (`npm install` if dependencies changed, then `npm run dev` or `npm start` from `backend/`).
 - Your merge/restart script is enough; just make sure it reloads after `.env` changes so the new `DATABASE_URL` is picked up.
 
 ## 4) Frontend configuration
 - Copy `frontend/.env.example` to `frontend/.env`.
-- Keep `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` empty. The frontend uses the backend API (e.g., `/api/settings`, `/api/contact`) and should not hold DB credentials.
+- For **Option A**, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to the local Supabase/PostgREST values.
+- For **Option B**, keep `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` empty. The frontend uses the backend API (e.g., `/api/settings`, `/api/contact`) and should not hold DB credentials.
 - Run `npm install` in `frontend/` if you haven’t already, then `npm run dev` to start Vite on port 5173.
-- Only `VITE_API_URL` needs a value for local dev (`http://localhost:5000`). Leaving the Supabase fields blank is intentional and expected.
+- Only `VITE_API_URL` needs a value for local dev (`http://localhost:5000`) when using Option B.
 
 ## 5) Manual verification checklist
 - **Settings**: Visit the site and confirm the homepage/about/services content loads. The backend should read from your local `settings_*` tables; if Supabase vars are blank, it will fall back to the local JSON files under `backend/data/`.
@@ -68,6 +84,7 @@ If the Admin → Database workspace shows **Configured but unreachable**, work t
 - **Ensure env vars point locally**: In `backend/.env`, set `SUPABASE_URL` to your local PostgREST endpoint (e.g., `http://127.0.0.1:54321` or whatever port your stack exposes) and keep `SUPABASE_SERVICE_KEY` to the local service-role key. Restart the backend after edits.
 - **Mind the port mismatch**: PostgREST listens on `54321` while PostgreSQL speaks on `5432`. Point `SUPABASE_URL` at `54321` and keep your `DATABASE_URL`/`DB_PORT` on `5432` so the backend talks the right protocol to each service.
 - **Probe the endpoint directly**: From the backend host, run `curl -i <SUPABASE_URL>` and confirm you get an HTTP response instead of a connection error. If the port is wrong or the service isn’t running, the admin card will stay red.
+- **Use the helper script**: Run `powershell -ExecutionPolicy Bypass -File .\\scripts\\check-local-supabase.ps1` to verify the env values and reachability without modifying your files.
 - **Service key matches the endpoint**: A mismatched key returns 401/403 from PostgREST and appears as “Supabase/PostgREST error” in the warning list. Regenerate the local service-role key if needed and update `SUPABASE_SERVICE_KEY`.
 - **Local hostnames auto-label as MikoDB**: If the badge still says **Supabase**, you’re probably still pointing at the hosted domain. Swap the URL to the local host to keep reads/writes inside your local database.
 - **Fallback mode**: With Supabase envs blank, the backend falls back to JSON files for settings/audit/contact data. That’s fine for smoke tests but won’t exercise your migrated Postgres schema—keep the envs populated with the local values to validate the cutover.
