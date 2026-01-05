@@ -20,6 +20,7 @@ import { getDatabaseStatus, resetDatabaseStatusCache } from "../lib/databaseStat
 import { getEditableDatabaseConfig, saveDatabaseConfig } from "../lib/databaseConfig.js";
 import { resetSupabaseServiceClient } from "../lib/supabaseClient.js";
 import { getSqlScriptById, listSqlScripts } from "../lib/sqlScripts.js";
+import { getStorageUsage } from "../lib/storageUsage.js";
 
 const router = Router();
 
@@ -134,6 +135,16 @@ router.get("/database/status", requireAdmin, async (_req, res) => {
   } catch (err) {
     console.error("GET /api/admin/database/status error:", err);
     res.status(500).json({ error: "Failed to load database status" });
+  }
+});
+
+router.get("/database/storage-usage", requireAdmin, async (_req, res) => {
+  try {
+    const usage = await getStorageUsage();
+    res.json(usage);
+  } catch (err) {
+    console.error("GET /api/admin/database/storage-usage error:", err);
+    res.status(500).json({ error: "Failed to load storage usage" });
   }
 });
 
