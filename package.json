@@ -17,5 +17,8 @@
     "doctor": "node scripts/doctor.js",
     "migrate:supabase": "node scripts/migrate-supabase.js",
     "db:sync-validate": "node scripts/db-agent.js"
+  },
+  "devDependencies": {
+    "supabase": "^2.70.5"
   }
 }
