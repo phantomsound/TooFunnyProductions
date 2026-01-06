@@ -22,6 +22,16 @@ type DatabaseConfig = {
   pgadminUrl: string;
 };
 
+type StorageUsage = {
+  available: boolean;
+  message?: string;
+  totalBytes: number;
+  databaseBytes: number | null;
+  databaseMessage?: string | null;
+  buckets: { bucketId: string; bytes: number }[];
+  categories: { label: string; bytes: number }[];
+};
+
 type SqlScript = {
   id: string;
   filename: string;
@@ -45,10 +55,15 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
   const [notes, setNotes] = React.useState("");
   const [notesLoaded, setNotesLoaded] = React.useState(false);
   const [config, setConfig] = React.useState<DatabaseConfig | null>(null);
-  const [savingConfig, setSavingConfig] = React.useState(false);
   const [scripts, setScripts] = React.useState<SqlScript[]>([]);
   const [scriptsError, setScriptsError] = React.useState<string | null>(null);
   const [scriptsLoading, setScriptsLoading] = React.useState(false);
+  const [scriptPreviews, setScriptPreviews] = React.useState<Record<string, string>>({});
+  const [scriptLoading, setScriptLoading] = React.useState<Record<string, boolean>>({});
+  const [scriptOpen, setScriptOpen] = React.useState<Record<string, boolean>>({});
+  const [storageUsage, setStorageUsage] = React.useState<StorageUsage | null>(null);
+  const [storageLoading, setStorageLoading] = React.useState(false);
+  const [storageError, setStorageError] = React.useState<string | null>(null);
   const [isDesktop, setIsDesktop] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     return window.matchMedia("(min-width: 1024px)").matches;
@@ -69,6 +84,18 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
     return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" }).format(parsed);
   }, []);
 
+  const formatBytes = React.useCallback((value: number) => {
+    if (!value) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let size = value;
+    let idx = 0;
+    while (size >= 1024 && idx < units.length - 1) {
+      size /= 1024;
+      idx += 1;
+    }
+    return `${size.toFixed(size < 10 ? 1 : 0)} ${units[idx]}`;
+  }, []);
+
   const loadConfig = React.useCallback(async () => {
     setConfigError(null);
     try {
@@ -79,6 +106,22 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
     } catch (err) {
       setConfigError((err as Error)?.message || "Failed to load database config");
       setConfig(null);
+    }
+  }, []);
+
+  const loadStorageUsage = React.useCallback(async () => {
+    setStorageError(null);
+    setStorageLoading(true);
+    try {
+      const response = await fetch(api("/api/admin/database/storage-usage"), { credentials: "include" });
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      const payload = (await response.json()) as StorageUsage;
+      setStorageUsage(payload);
+    } catch (err) {
+      setStorageUsage(null);
+      setStorageError((err as Error)?.message || "Failed to load storage usage");
+    } finally {
+      setStorageLoading(false);
     }
   }, []);
 
@@ -118,7 +161,8 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
     load();
     loadConfig();
     loadScripts();
-  }, [load, loadConfig, loadScripts]);
+    loadStorageUsage();
+  }, [load, loadConfig, loadScripts, loadStorageUsage]);
 
   const modeBadge = status ? MODE_LABEL[status.mode] : MODE_LABEL.unknown;
   const needsSupabaseConfig = status && (!status.supabaseUrlPresent || !status.serviceKeyPresent);
@@ -160,31 +204,6 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
     }
   };
 
-  const handleConfigChange = (key: keyof DatabaseConfig, value: string) => {
-    setConfig((prev) => (prev ? { ...prev, [key]: value } : prev));
-  };
-
-  const saveConfig = async () => {
-    if (!config) return;
-    setSavingConfig(true);
-    setConfigError(null);
-    try {
-      const response = await fetch(api("/api/admin/database/config"), {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
-      });
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-      await response.json();
-      await load();
-    } catch (err) {
-      setConfigError((err as Error)?.message || "Failed to save database config");
-    } finally {
-      setSavingConfig(false);
-    }
-  };
-
   const pgadminTarget = (config?.pgadminUrl || "http://127.0.0.1:5050/browser/").trim();
 
   const launchPgAdmin = () => {
@@ -204,6 +223,31 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
       </div>
     );
   }
+
+  const totalStorage = storageUsage?.totalBytes ?? 0;
+  const databaseBytes = storageUsage?.databaseBytes ?? null;
+  const databaseMessage = storageUsage?.databaseMessage ?? null;
+  const usageBuckets = storageUsage?.buckets ?? [];
+  const usageCategories = storageUsage?.categories ?? [];
+
+  const toggleScriptPreview = async (id: string) => {
+    setScriptOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+    if (scriptPreviews[id] || scriptLoading[id]) return;
+
+    setScriptLoading((prev) => ({ ...prev, [id]: true }));
+    try {
+      const response = await fetch(api(`/api/admin/database/sql-scripts/${encodeURIComponent(id)}`), {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      const content = await response.text();
+      setScriptPreviews((prev) => ({ ...prev, [id]: content }));
+    } catch (err) {
+      setScriptPreviews((prev) => ({ ...prev, [id]: "Failed to load SQL preview." }));
+    } finally {
+      setScriptLoading((prev) => ({ ...prev, [id]: false }));
+    }
+  };
 
   return (
     <div className="space-y-6 text-neutral-100">
@@ -299,83 +343,41 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
       <section className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-5 shadow-sm">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-yellow-200">Edit database configuration</h3>
+            <h3 className="text-xl font-semibold text-yellow-200">Database settings (view only)</h3>
             <p className="mt-1 text-sm text-neutral-300">
-              Update the friendly name, PostgREST URL, and service role key directly from this workspace, then refresh to
-              verify connectivity.
+              View the database connection details the admin workspace is using. Updates are managed in the backend
+              configuration so everyone stays pointed at the same database.
             </p>
           </div>
-          <div className="text-xs text-neutral-500">Refresh still available above for quick re-checks.</div>
+          <div className="text-xs text-neutral-500">Refresh above to confirm the live connection status.</div>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500" htmlFor="db-friendly-name">
-              Friendly name
-            </label>
-            <input
-              id="db-friendly-name"
-              type="text"
-              value={config?.friendlyName ?? ""}
-              onChange={(e) => handleConfigChange("friendlyName", e.target.value)}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 shadow-inner focus:border-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-              placeholder="MikoDB"
-            />
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
+            <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">Friendly name</div>
+            <div className="mt-2 text-sm font-semibold text-neutral-100">{config?.friendlyName || "Unconfigured"}</div>
           </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500" htmlFor="db-supabase-url">
-              PostgREST URL (SUPABASE_URL)
-            </label>
-            <input
-              id="db-supabase-url"
-              type="text"
-              value={config?.supabaseUrl ?? ""}
-              onChange={(e) => handleConfigChange("supabaseUrl", e.target.value)}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 shadow-inner focus:border-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-              placeholder="http://127.0.0.1:54321"
-              spellCheck={false}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500" htmlFor="pgadmin-url">
-              pgAdmin 4 URL (optional)
-            </label>
-            <input
-              id="pgadmin-url"
-              type="text"
-              value={config?.pgadminUrl ?? ""}
-              onChange={(e) => handleConfigChange("pgadminUrl", e.target.value)}
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 shadow-inner focus:border-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-              placeholder="http://127.0.0.1:5050/browser/"
-              spellCheck={false}
-            />
-            <p className="text-xs text-neutral-500">Used to open pgAdmin from the workspace.</p>
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500" htmlFor="db-service-key">
-              Service role key (SUPABASE_SERVICE_KEY)
-            </label>
-            <textarea
-              id="db-service-key"
-              value={config?.serviceKey ?? ""}
-              onChange={(e) => handleConfigChange("serviceKey", e.target.value)}
-              className="h-24 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 shadow-inner focus:border-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-              placeholder="Paste the service_role JWT from your PostgREST stack"
-            />
-            <div className="flex items-center justify-end gap-3 text-xs text-neutral-500">
-              <span>Values save to backend/data so the workspace can reload them later.</span>
-              <button
-                type="button"
-                onClick={saveConfig}
-                disabled={savingConfig || !config}
-                className="rounded-lg border border-neutral-700 bg-neutral-900 px-3.5 py-2 text-sm font-semibold text-neutral-100 shadow-sm transition hover:-translate-y-[1px] hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {savingConfig ? "Saving…" : "Save config"}
-              </button>
+          <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4 md:col-span-2">
+            <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">PostgREST URL</div>
+            <div className="mt-2 break-all rounded bg-neutral-900 px-3 py-2 text-xs text-neutral-200">
+              {config?.supabaseUrl || status?.url || "—"}
             </div>
+          </div>
+          <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4 md:col-span-2">
+            <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">pgAdmin URL</div>
+            <div className="mt-2 break-all rounded bg-neutral-900 px-3 py-2 text-xs text-neutral-200">
+              {config?.pgadminUrl || "http://127.0.0.1:5050/browser/"}
+            </div>
+            <p className="mt-2 text-xs text-neutral-500">Used to open pgAdmin from the workspace.</p>
+          </div>
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={launchPgAdmin}
+              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3.5 py-2 text-sm font-semibold text-neutral-100 shadow-sm transition hover:-translate-y-[1px] hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900"
+            >
+              Open pgAdmin 4
+            </button>
           </div>
         </div>
       </section>
@@ -385,7 +387,7 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
           <h3 className="text-lg font-semibold text-amber-100">PostgREST/Supabase setup needed</h3>
           <p className="mt-2 text-amber-100/90">
             The admin database workspace stays unconfigured until the backend can reach your local PostgREST gateway.
-            Confirm the following values and save them above so the backend can retry connectivity:
+            Confirm the following values in the backend configuration so the workspace can retry connectivity:
           </p>
             <ul className="mt-3 space-y-2 list-disc pl-5">
               <li>
@@ -396,7 +398,7 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
                 <span className="font-semibold">SUPABASE_SERVICE_KEY</span> → your local service-role JWT from the PostgREST/Supabase
                 stack.
               </li>
-              <li>Save the values above and hit Refresh to verify connectivity.</li>
+              <li>Update the backend values and hit Refresh to verify connectivity.</li>
             </ul>
           <p className="mt-3 text-amber-100/80">
             Want to skip this for now? Leave both values blank and the backend will use its file-backed fallbacks until you’re
@@ -429,6 +431,82 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
           </div>
 
           <div className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-sm backdrop-blur">
+            <h3 className="text-xl font-semibold text-yellow-200">Storage usage</h3>
+            <p className="mt-2 text-sm text-neutral-300">
+              Track how much storage is used across buckets and what types of files are taking up space.
+            </p>
+            {storageLoading ? (
+              <div className="mt-4 text-sm text-neutral-400">Loading storage usage…</div>
+            ) : storageError ? (
+              <div className="mt-4 rounded border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-100">
+                {storageError}
+              </div>
+            ) : storageUsage && storageUsage.available ? (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4 text-sm text-neutral-200">
+                  <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">Total usage</div>
+                  <div className="mt-1 text-lg font-semibold text-yellow-200">{formatBytes(totalStorage)}</div>
+                </div>
+                <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4 text-sm text-neutral-200">
+                  <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">Database size</div>
+                  <div className="mt-1 text-lg font-semibold text-yellow-200">
+                    {databaseBytes !== null ? formatBytes(databaseBytes) : "Not available yet"}
+                  </div>
+                  {databaseBytes !== null ? null : (
+                    <p className="mt-1 text-xs text-neutral-400">
+                      {databaseMessage || "Run the database size SQL helper to enable this metric."}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">By file type</div>
+                  {usageCategories.length === 0 ? (
+                    <div className="text-sm text-neutral-400">No storage entries yet.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {usageCategories.map((item) => {
+                        const percent = totalStorage ? Math.round((item.bytes / totalStorage) * 100) : 0;
+                        return (
+                          <div key={item.label} className="space-y-2">
+                            <div className="flex items-center justify-between text-sm text-neutral-200">
+                              <span>{item.label}</span>
+                              <span className="text-xs text-neutral-400">
+                                {formatBytes(item.bytes)} · {percent}%
+                              </span>
+                            </div>
+                            <div className="h-2 rounded-full bg-neutral-800">
+                              <div
+                                className="h-2 rounded-full bg-yellow-400"
+                                style={{ width: `${Math.max(percent, 3)}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">By bucket</div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {usageBuckets.map((bucket) => (
+                      <div
+                        key={bucket.bucketId}
+                        className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-3 text-sm text-neutral-200"
+                      >
+                        <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">{bucket.bucketId}</div>
+                        <div className="mt-1 font-semibold text-neutral-100">{formatBytes(bucket.bytes)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 text-sm text-neutral-400">{storageUsage?.message || "Storage usage unavailable."}</div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-sm backdrop-blur">
             <h3 className="text-xl font-semibold text-yellow-200">Workspace notes</h3>
             <p className="mt-2 text-sm text-neutral-300">
               Keep admin-only notes here without touching the page configuration system. Edits stay local to your browser.
@@ -450,7 +528,7 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
         </div>
 
         <div className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-sm backdrop-blur">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="space-y-1">
               <h3 className="text-xl font-semibold text-yellow-200">SQL scripts</h3>
               <p className="text-sm text-neutral-300">
@@ -481,10 +559,10 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
             <div className="mt-3 rounded border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-100">{scriptsError}</div>
           ) : null}
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-1">
-              {scriptsLoading && !scripts.length ? (
-                <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-4 text-sm text-neutral-300">Loading scripts…</div>
-              ) : null}
+          <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-1">
+            {scriptsLoading && !scripts.length ? (
+              <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-4 text-sm text-neutral-300">Loading scripts…</div>
+            ) : null}
 
             {!scriptsLoading && scripts.length === 0 ? (
               <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-4 text-sm text-neutral-300">
@@ -492,41 +570,59 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
               </div>
             ) : null}
 
-              {scripts.map((script) => (
-                <div
-                  key={script.id}
-                  className="flex flex-col gap-3 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 text-sm text-neutral-100 shadow-inner shadow-black/20"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1">
-                      <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">{script.label}</div>
-                      <div className="break-words text-base font-semibold text-yellow-200">{script.filename}</div>
-                    </div>
-                    <span className="whitespace-nowrap rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
-                      {formatDate(script.dateWritten)}
-                    </span>
+            {scripts.map((script) => (
+              <div
+                key={script.id}
+                className="flex flex-col gap-3 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 text-sm text-neutral-100 shadow-inner shadow-black/20"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">{script.label}</div>
+                    <div className="break-words text-base font-semibold text-yellow-200">{script.filename}</div>
                   </div>
-                  <p className="text-xs leading-relaxed text-neutral-300">{script.helper}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <a
-                      href={api(`/api/admin/database/sql-scripts/${encodeURIComponent(script.id)}`)}
-                      className="inline-flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 shadow-sm transition hover:-translate-y-[1px] hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900"
-                      download
-                    >
-                      Download SQL
-                    </a>
-                    <button
-                      type="button"
-                      onClick={launchPgAdmin}
-                      className="inline-flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 shadow-sm transition hover:-translate-y-[1px] hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900"
-                    >
-                      Open in pgAdmin 4
-                    </button>
-                  </div>
+                  <span className="whitespace-nowrap rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
+                    {formatDate(script.dateWritten)}
+                  </span>
                 </div>
-              ))}
-            </div>
+                <p className="text-xs leading-relaxed text-neutral-300">{script.helper}</p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={api(`/api/admin/database/sql-scripts/${encodeURIComponent(script.id)}`)}
+                    className="inline-flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 shadow-sm transition hover:-translate-y-[1px] hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                    download
+                  >
+                    Download SQL
+                  </a>
+                  <button
+                    type="button"
+                    onClick={launchPgAdmin}
+                    className="inline-flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 shadow-sm transition hover:-translate-y-[1px] hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                  >
+                    Open in pgAdmin 4
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleScriptPreview(script.id)}
+                    className="inline-flex items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-100 shadow-sm transition hover:-translate-y-[1px] hover:border-yellow-300 hover:text-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 focus:ring-offset-neutral-900"
+                  >
+                    {scriptOpen[script.id] ? "Hide SQL" : "Preview SQL"}
+                  </button>
+                </div>
+                {scriptOpen[script.id] ? (
+                  <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3 text-xs text-neutral-100">
+                    {scriptLoading[script.id] ? (
+                      <div className="text-neutral-400">Loading SQL preview…</div>
+                    ) : (
+                      <pre className="max-h-48 overflow-auto whitespace-pre-wrap leading-relaxed">
+                        {scriptPreviews[script.id] || "No preview available."}
+                      </pre>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            ))}
           </div>
+        </div>
       </section>
     </div>
   );

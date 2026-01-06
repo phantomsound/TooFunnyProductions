@@ -50,7 +50,7 @@ export default function AdminContactResponses() {
   const setPendingContactResponses = outletContext?.setPendingContactResponses;
 
   const [search, setSearch] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("all");
+  const [statusFilter, setStatusFilter] = React.useState("open");
   const [sort, setSort] = React.useState<keyof typeof SORT_LABEL>("newest");
   const [limit, setLimit] = React.useState("50");
   const [refreshKey, setRefreshKey] = React.useState(0);
@@ -58,6 +58,7 @@ export default function AdminContactResponses() {
   const [editingNotesId, setEditingNotesId] = React.useState<string | null>(null);
   const [notesDraft, setNotesDraft] = React.useState("");
   const [savingId, setSavingId] = React.useState<string | null>(null);
+  const [resendingId, setResendingId] = React.useState<string | null>(null);
   const [exporting, setExporting] = React.useState(false);
   const [showPendingList, setShowPendingList] = React.useState(false);
   const pendingListRef = React.useRef<HTMLDivElement | null>(null);
@@ -117,7 +118,7 @@ export default function AdminContactResponses() {
 
   const clearFilters = () => {
     setSearch("");
-    setStatusFilter("all");
+    setStatusFilter("open");
     setSort("newest");
     setLimit("50");
   };
@@ -197,6 +198,25 @@ export default function AdminContactResponses() {
       setError(err instanceof Error ? err.message : "Failed to save notes");
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const resendEmail = async (row: ContactResponse) => {
+    setResendingId(row.id);
+    setError(null);
+    try {
+      const response = await fetch(api(`/api/admin/contact-responses/${row.id}/resend`), {
+        method: "POST",
+        credentials: "include",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || `Failed to resend (${response.status})`);
+      const updated: ContactResponse = payload.item;
+      setRows((prev) => prev.map((item) => (item.id === row.id ? updated : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend contact email");
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -338,7 +358,7 @@ export default function AdminContactResponses() {
             onClick={clearFilters}
             className="rounded border border-amber-500 bg-amber-100 px-3 py-2 text-sm font-medium text-amber-800 shadow-sm transition hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={
-              search === "" && statusFilter === "all" && sort === "newest" && limit === "50"
+              search === "" && statusFilter === "open" && sort === "newest" && limit === "50"
             }
           >
             Reset
@@ -363,8 +383,8 @@ export default function AdminContactResponses() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="all">All submissions</option>
             <option value="open">Awaiting response</option>
+            <option value="all">All submissions</option>
             <option value="responded">Marked responded</option>
           </select>
         </label>
@@ -521,19 +541,29 @@ export default function AdminContactResponses() {
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => toggleResponded(row)}
-                      className="rounded border px-2 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={savingId === row.id}
-                      style={{
-                        borderColor: row.responded ? "#f97316" : "#059669",
-                        backgroundColor: row.responded ? "#fff7ed" : "#ecfdf5",
-                        color: row.responded ? "#c2410c" : "#047857",
-                      }}
-                    >
-                      {row.responded ? "Mark unresponded" : "Mark responded"}
-                    </button>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleResponded(row)}
+                        className="rounded border px-2 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={savingId === row.id}
+                        style={{
+                          borderColor: row.responded ? "#f97316" : "#059669",
+                          backgroundColor: row.responded ? "#fff7ed" : "#ecfdf5",
+                          color: row.responded ? "#c2410c" : "#047857",
+                        }}
+                      >
+                        {row.responded ? "Mark unresponded" : "Mark responded"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => resendEmail(row)}
+                        className="rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={resendingId === row.id}
+                      >
+                        {resendingId === row.id ? "Resending…" : "Resend email"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

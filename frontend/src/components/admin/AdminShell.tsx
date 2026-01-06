@@ -9,6 +9,7 @@ import { api } from "../../lib/api";
 import { useSettings } from "../../lib/SettingsContext";
 import AdminUserBar from "./AdminUserBar";
 import AdminMessagingCenter from "./messaging/AdminMessagingCenter";
+import { useAdminDatabaseVisibility } from "../../hooks/useAdminDatabaseVisibility";
 
 const normalizeQuickLinks = (value: unknown) => {
   if (!Array.isArray(value)) return [];
@@ -32,7 +33,6 @@ const formatQuickLinkHref = (input: string) => {
 
 const navLinks = [
   { to: "/admin/general", label: "🎛 General Settings" },
-  { to: "/admin/database", label: "🗄 Admin Database" },
   { to: "/admin/page-configurations", label: "🗂 Page Configurations" },
   { to: "/admin/media", label: "🎬 Media Manager" },
   { to: "/admin/contact-responses", label: "✉️ Contact Responses" },
@@ -42,6 +42,7 @@ const navLinks = [
 export default function AdminShell() {
   const { settings } = useSettings();
   const quickLinks = React.useMemo(() => normalizeQuickLinks(settings?.admin_quick_links), [settings?.admin_quick_links]);
+  const [databaseVisible] = useAdminDatabaseVisibility();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [pendingContactResponses, setPendingContactResponses] = React.useState(0);
 
@@ -92,6 +93,14 @@ export default function AdminShell() {
     </NavLink>
   );
 
+  const links = React.useMemo(() => {
+    const base = [...navLinks];
+    if (databaseVisible) {
+      base.splice(1, 0, { to: "/admin/database", label: "🗄 Admin Database" });
+    }
+    return base;
+  }, [databaseVisible]);
+
   const renderQuickLinks = (listClassName = "px-4") =>
     quickLinks.length > 0 ? (
       <div className="mt-4 border-t border-neutral-800 pt-4">
@@ -121,7 +130,7 @@ export default function AdminShell() {
           <div className="border-b border-neutral-800 bg-gradient-to-r from-neutral-900 to-neutral-950 p-5 text-xl font-semibold text-yellow-300">
             Admin
           </div>
-          <nav className="px-3 py-3 space-y-1.5">{navLinks.map(renderNavLink)}</nav>
+          <nav className="px-3 py-3 space-y-1.5">{links.map(renderNavLink)}</nav>
           {renderQuickLinks()}
         </aside>
 
@@ -164,7 +173,7 @@ export default function AdminShell() {
               id="admin-mobile-nav"
               className="border-b border-neutral-800 bg-neutral-900 px-4 py-3 lg:hidden"
             >
-              <nav className="space-y-1">{navLinks.map(renderNavLink)}</nav>
+              <nav className="space-y-1">{links.map(renderNavLink)}</nav>
               {renderQuickLinks("px-0")}
             </div>
           ) : null}
