@@ -3,6 +3,22 @@ import { getSupabaseServiceContext } from "./supabaseClient.js";
 
 const FALLBACK_LABEL = "Other";
 
+const readQuotaBytes = () => {
+  const rawBytes = process.env.STORAGE_QUOTA_BYTES;
+  if (rawBytes && rawBytes.trim()) {
+    const parsed = Number(rawBytes);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+
+  const rawGb = process.env.STORAGE_QUOTA_GB;
+  if (rawGb && rawGb.trim()) {
+    const parsed = Number(rawGb);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed * 1024 * 1024 * 1024;
+  }
+
+  return null;
+};
+
 const normalizeSize = (value) => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim()) {
@@ -29,6 +45,7 @@ const categorizeMime = (mime, name) => {
 };
 
 export async function getStorageUsage() {
+  const quotaBytes = readQuotaBytes();
   const { client } = await getSupabaseServiceContext();
   if (!client) {
     return {
@@ -37,6 +54,7 @@ export async function getStorageUsage() {
       totalBytes: 0,
       databaseBytes: null,
       databaseMessage: "Supabase client unavailable.",
+      quotaBytes,
       buckets: [],
       categories: [],
     };
@@ -89,6 +107,7 @@ export async function getStorageUsage() {
       totalBytes,
       databaseBytes,
       databaseMessage,
+      quotaBytes,
       buckets,
       categories,
     };
@@ -100,6 +119,7 @@ export async function getStorageUsage() {
       totalBytes: 0,
       databaseBytes: null,
       databaseMessage: err?.message || "Storage usage unavailable.",
+      quotaBytes,
       buckets: [],
       categories: [],
     };

@@ -11,6 +11,13 @@ type ReferenceStatus =
   | { status: "loaded"; references: ReferenceInfo[] }
   | { status: "error"; error: string };
 
+type StorageUsage = {
+  available: boolean;
+  message?: string;
+  totalBytes: number;
+  quotaBytes?: number | null;
+};
+
 const STAGE_ORDER: Stage[] = ["draft", "live"];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -158,6 +165,9 @@ export default function AdminMediaManager() {
   const [checkingPath, setCheckingPath] = React.useState<string | null>(null);
   const [referencesByPath, setReferencesByPath] = React.useState<Record<string, ReferenceStatus>>({});
   const [expandedPaths, setExpandedPaths] = React.useState<Record<string, boolean>>({});
+  const [storageUsage, setStorageUsage] = React.useState<StorageUsage | null>(null);
+  const [storageLoading, setStorageLoading] = React.useState(false);
+  const [storageError, setStorageError] = React.useState<string | null>(null);
 
   const [search, setSearch] = React.useState("");
   const [activeSortId, setActiveSortId] = React.useState(SORT_OPTIONS[0].id);
@@ -175,11 +185,31 @@ export default function AdminMediaManager() {
     [items]
   );
 
+  const loadStorageUsage = React.useCallback(async () => {
+    setStorageError(null);
+    setStorageLoading(true);
+    try {
+      const response = await fetch(api("/api/admin/database/storage-usage"), { credentials: "include" });
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      const payload = (await response.json()) as StorageUsage;
+      setStorageUsage(payload);
+    } catch (err) {
+      setStorageUsage(null);
+      setStorageError((err as Error)?.message || "Failed to load storage usage");
+    } finally {
+      setStorageLoading(false);
+    }
+  }, []);
+
   React.useEffect(() => {
     if (activeSettings) {
       settingsCache.current[activeStage as Stage] = activeSettings as Record<string, unknown>;
     }
   }, [activeSettings, activeStage]);
+
+  React.useEffect(() => {
+    loadStorageUsage();
+  }, [loadStorageUsage]);
 
   const ensureStageSettings = React.useCallback(
     async (stage: Stage): Promise<Record<string, unknown>> => {
@@ -593,7 +623,19 @@ export default function AdminMediaManager() {
             <div className="rounded-full border border-neutral-700 px-3 py-1">
               {items.length} file{items.length === 1 ? "" : "s"}
             </div>
-            <div className="rounded-full border border-neutral-700 px-3 py-1">Total size: {humanSize(totalSize)}</div>
+            <div className="rounded-full border border-neutral-700 px-3 py-1">
+              Used storage: {humanSize(storageUsage?.available ? storageUsage.totalBytes : totalSize)}
+            </div>
+            {storageUsage?.quotaBytes ? (
+              <div className="rounded-full border border-neutral-700 px-3 py-1">
+                Remaining: {humanSize(Math.max(storageUsage.quotaBytes - storageUsage.totalBytes, 0))}
+              </div>
+            ) : null}
+            {storageLoading ? (
+              <div className="rounded-full border border-neutral-700 px-3 py-1">Checking storage…</div>
+            ) : storageError ? (
+              <div className="rounded-full border border-red-500/40 px-3 py-1 text-red-300">Storage lookup failed</div>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
