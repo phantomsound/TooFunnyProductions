@@ -12,7 +12,7 @@ import { extname } from "node:path";
 import { Readable } from "node:stream";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
-import { getSupabaseServiceClient } from "../lib/supabaseClient.js";
+import { getSupabaseServiceClient, getSupabaseServiceContext } from "../lib/supabaseClient.js";
 
 const router = Router();
 const hasNativeFetch = typeof fetch === "function";
@@ -80,6 +80,18 @@ async function fetchUpstream(url, method) {
 const upload = multer({ storage: multer.memoryStorage() });
 
 const BUCKET = "media";
+
+function buildPublicUrl(baseUrl, bucket, path) {
+  if (!baseUrl) return null;
+  try {
+    const trimmedPath = path.replace(/^\/+/, "");
+    const base = new URL(baseUrl.trim());
+    const encoded = encodeURIComponent(trimmedPath).replace(/%2F/g, "/");
+    return `${base.origin}/storage/v1/object/public/${bucket}/${encoded}`;
+  } catch {
+    return null;
+  }
+}
 
 // Build public URL from path
 async function ensureSupabase(res) {
@@ -224,8 +236,8 @@ async function consumeAsyncIterable(iterable) {
 }
 
 router.get("/proxy", async (req, res) => {
-  const supabase = await ensureSupabase(res);
-  if (!supabase) return;
+  const context = await getSupabaseServiceContext();
+  const supabase = context.client;
 
   const bucket = typeof req.query.bucket === "string" ? req.query.bucket.trim() : "";
   const rawPath = typeof req.query.path === "string" ? req.query.path.trim() : "";
@@ -297,75 +309,87 @@ router.get("/proxy", async (req, res) => {
       return false;
     };
 
-    const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
-    if (!signed.error) {
-      const signedUrl = signed.data?.signedUrl;
-      if (signedUrl && (await fetchFromUrl("signed", signedUrl))) {
+    if (supabase) {
+      const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+      if (!signed.error) {
+        const signedUrl = signed.data?.signedUrl;
+        if (signedUrl && (await fetchFromUrl("signed", signedUrl))) {
+          return;
+        }
+        if (!signedUrl) {
+          errors.push({ source: "signed", message: "Signed URL missing" });
+        }
+      } else {
+        errors.push({
+          source: "signed",
+          status: typeof signed.error.status === "number" ? signed.error.status : undefined,
+          message: signed.error.message || "Failed to generate signed media URL",
+        });
+      }
+
+      const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
+      const publicCandidate = publicData?.publicUrl;
+      if (publicCandidate && (await fetchFromUrl("public", publicCandidate))) {
         return;
       }
-      if (!signedUrl) {
-        errors.push({ source: "signed", message: "Signed URL missing" });
+      if (!publicCandidate) {
+        errors.push({ source: "public", message: "Public URL not available" });
+      }
+
+      try {
+        const direct = await supabase.storage.from(bucket).download(path);
+        if (!direct.error && direct.data) {
+          attempts.push({ source: "direct", status: 200 });
+          const contentType = (typeof direct.data.type === "string" && direct.data.type) || inferContentType(path);
+          res.setHeader("Content-Type", contentType);
+          res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
+
+          if (method === "HEAD" && typeof direct.data.size === "number") {
+            res.setHeader("Content-Length", String(direct.data.size));
+            res.status(200).end();
+            return;
+          }
+
+          const { buffer, size } = await bufferFromDownloadData(direct.data);
+          if (buffer) {
+            if (size) {
+              res.setHeader("Content-Length", String(size));
+            }
+            if (method === "HEAD") {
+              res.status(200).end();
+            } else {
+              res.status(200).send(buffer);
+            }
+            return;
+          }
+
+          errors.push({ source: "direct", message: "Direct download produced empty payload" });
+        } else if (direct.error) {
+          attempts.push({
+            source: "direct",
+            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+          });
+          errors.push({
+            source: "direct",
+            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+            message: direct.error.message || "Direct download failed",
+          });
+        } else {
+          errors.push({ source: "direct", message: "Direct download returned empty response" });
+        }
+      } catch (error) {
+        errors.push({ source: "direct", message: error?.message || String(error) });
       }
     } else {
-      errors.push({
-        source: "signed",
-        status: typeof signed.error.status === "number" ? signed.error.status : undefined,
-        message: signed.error.message || "Failed to generate signed media URL",
-      });
+      errors.push({ source: "supabase", message: "Supabase client not configured" });
     }
 
-    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
-    const publicCandidate = publicData?.publicUrl;
-    if (publicCandidate && (await fetchFromUrl("public", publicCandidate))) {
+    const publicFallback = buildPublicUrl(context.supabaseUrl, bucket, path);
+    if (publicFallback && (await fetchFromUrl("public-fallback", publicFallback))) {
       return;
     }
-    if (!publicCandidate) {
-      errors.push({ source: "public", message: "Public URL not available" });
-    }
-
-    try {
-      const direct = await supabase.storage.from(bucket).download(path);
-      if (!direct.error && direct.data) {
-        attempts.push({ source: "direct", status: 200 });
-        const contentType = (typeof direct.data.type === "string" && direct.data.type) || inferContentType(path);
-        res.setHeader("Content-Type", contentType);
-        res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
-
-        if (method === "HEAD" && typeof direct.data.size === "number") {
-          res.setHeader("Content-Length", String(direct.data.size));
-          res.status(200).end();
-          return;
-        }
-
-        const { buffer, size } = await bufferFromDownloadData(direct.data);
-        if (buffer) {
-          if (size) {
-            res.setHeader("Content-Length", String(size));
-          }
-          if (method === "HEAD") {
-            res.status(200).end();
-          } else {
-            res.status(200).send(buffer);
-          }
-          return;
-        }
-
-        errors.push({ source: "direct", message: "Direct download produced empty payload" });
-      } else if (direct.error) {
-        attempts.push({
-          source: "direct",
-          status: typeof direct.error.status === "number" ? direct.error.status : undefined,
-        });
-        errors.push({
-          source: "direct",
-          status: typeof direct.error.status === "number" ? direct.error.status : undefined,
-          message: direct.error.message || "Direct download failed",
-        });
-      } else {
-        errors.push({ source: "direct", message: "Direct download returned empty response" });
-      }
-    } catch (error) {
-      errors.push({ source: "direct", message: error?.message || String(error) });
+    if (!publicFallback) {
+      errors.push({ source: "public-fallback", message: "Supabase URL missing for public fetch" });
     }
 
     const statusFromErrors = errors.find((entry) => typeof entry.status === "number")?.status;
