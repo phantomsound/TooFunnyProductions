@@ -170,6 +170,11 @@ export default function AdminMediaManager() {
   const { settings: activeSettings, stage: activeStage } = useSettings();
   const settingsCache = React.useRef<Partial<Record<Stage, Record<string, unknown>>>>({});
 
+  const totalSize = React.useMemo(
+    () => (items || []).reduce((sum, item) => sum + (typeof item?.size === "number" ? item.size : 0), 0),
+    [items]
+  );
+
   React.useEffect(() => {
     if (activeSettings) {
       settingsCache.current[activeStage as Stage] = activeSettings as Record<string, unknown>;
@@ -584,6 +589,12 @@ export default function AdminMediaManager() {
             Upload, rename, and organize assets stored in the Supabase media bucket. Folders are hidden so everything is
             flat and searchable.
           </p>
+          <div className="mt-3 flex flex-wrap gap-3 text-xs text-neutral-400">
+            <div className="rounded-full border border-neutral-700 px-3 py-1">
+              {items.length} file{items.length === 1 ? "" : "s"}
+            </div>
+            <div className="rounded-full border border-neutral-700 px-3 py-1">Total size: {humanSize(totalSize)}</div>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <label className="cursor-pointer rounded bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
