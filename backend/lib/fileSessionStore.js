@@ -21,7 +21,14 @@ export class FileSessionStore extends session.Store {
       await this.ensureDir();
       const filePath = this.getFilePath(sid);
       const raw = await fs.readFile(filePath, "utf8");
-      const record = JSON.parse(raw);
+      let record = null;
+      try {
+        record = JSON.parse(raw);
+      } catch (error) {
+        console.warn("[session-store] Failed to parse session file; resetting.", error?.message || error);
+        await this.destroy(sid);
+        return callback(null, null);
+      }
       if (this.isExpired(record)) {
         await this.destroy(sid);
         return callback(null, null);

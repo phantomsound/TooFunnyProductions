@@ -1,11 +1,11 @@
 import { Router } from "express";
-import nodemailer from "nodemailer";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { noteDeliveryStatus, recordContactResponse } from "../lib/contactResponses.js";
 import { getSupabaseServiceClient } from "../lib/supabaseClient.js";
+import { sendContactEmail, getSmtpConfig } from "../lib/contactEmail.js";
 
 const router = Router();
 
@@ -123,11 +123,7 @@ router.post("/", async (req, res) => {
   }
 
   // If SMTP envs are not set, just log and return 200 for dev convenience
-  const {
-    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
-  } = process.env;
-
-  if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
+  if (!getSmtpConfig()) {
     console.log("📨 (dev) contact message:", { name, from, message, to: toAddress });
     if (savedRecord) {
       try {
@@ -140,20 +136,7 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: Number(SMTP_PORT),
-      secure: Number(SMTP_PORT) === 465,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-    });
-
-    await transporter.sendMail({
-      from: `"Too Funny Website" <${SMTP_USER}>`,
-      to: toAddress,
-      subject: `Contact form: ${name}`,
-      replyTo: from,
-      text: message,
-    });
+    await sendContactEmail({ to: toAddress, from, name, message });
 
     if (savedRecord) {
       try {

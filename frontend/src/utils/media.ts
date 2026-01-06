@@ -7,6 +7,7 @@ const SUPABASE_STORAGE_PATTERNS = [
   /\/storage\/v1\/render\/image\/sign\/([^/]+)\/(.+)$/i,
 ];
 const LEGACY_PROXY_PATH_REGEX = /\/api\/storage\/objects\/public\/([^/]+)\/(.+)$/i;
+const PROXY_PATH_REGEX = /\/api\/storage\/proxy(?:\\?|$)/i;
 const ALLOWED_BUCKETS = new Set(["media"]);
 
 const envSupabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
@@ -51,8 +52,6 @@ function parseSupabaseMediaUrl(input: string): { bucket: string; path: string } 
     return { bucket, path };
   }
 
-  if (!isRelative && !looksLikeSupabaseHost(parsed.host)) return null;
-
   for (const pattern of SUPABASE_STORAGE_PATTERNS) {
     const match = parsed.pathname.match(pattern);
     if (!match) continue;
@@ -63,7 +62,42 @@ function parseSupabaseMediaUrl(input: string): { bucket: string; path: string } 
     return { bucket, path };
   }
 
+  if (!isRelative && !looksLikeSupabaseHost(parsed.host)) return null;
+
   return null;
+}
+
+function parseProxyMediaUrl(input: string): { bucket: string; path: string } | null {
+  if (!input) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(input);
+  } catch {
+    try {
+      parsed = new URL(input, "http://placeholder.local");
+    } catch {
+      return null;
+    }
+  }
+
+  if (!PROXY_PATH_REGEX.test(parsed.pathname)) return null;
+  const bucket = parsed.searchParams.get("bucket") || "";
+  const path = parsed.searchParams.get("path") || "";
+  if (!ALLOWED_BUCKETS.has(bucket)) return null;
+  if (!path || path.includes("..")) return null;
+  return { bucket, path };
+}
+
+function buildPublicUrl(bucket: string, path: string) {
+  if (!envSupabaseUrl) return null;
+  try {
+    const base = new URL(envSupabaseUrl.trim());
+    const trimmedPath = path.replace(/^\/+/, "");
+    return `${base.origin}/storage/v1/object/public/${bucket}/${encodeURIComponent(trimmedPath).replace(/%2F/g, "/")}`;
+  } catch {
+    return null;
+  }
 }
 
 export function resolveMediaUrl(raw: unknown): string {
@@ -71,8 +105,18 @@ export function resolveMediaUrl(raw: unknown): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
 
+  const proxy = parseProxyMediaUrl(trimmed);
+  if (proxy) {
+    const publicUrl = buildPublicUrl(proxy.bucket, proxy.path);
+    if (publicUrl) return publicUrl;
+    return trimmed;
+  }
+
   const supabase = parseSupabaseMediaUrl(trimmed);
   if (!supabase) return trimmed;
+
+  const publicUrl = buildPublicUrl(supabase.bucket, supabase.path);
+  if (publicUrl) return publicUrl;
 
   const params = new URLSearchParams({
     bucket: supabase.bucket,
