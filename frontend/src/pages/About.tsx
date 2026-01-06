@@ -2,49 +2,12 @@ import React from "react";
 import PageContainer from "../components/PageContainer";
 import { useSettings } from "../lib/SettingsContext";
 import { resolveMediaUrl } from "../utils/media";
+import { resolvePeopleFromSettings } from "../utils/people";
 
-type TeamSocialLink = {
-  label: string;
-  url: string;
-};
-
-const MAX_TEAM_SOCIAL_LINKS = 10;
-
-const toSocialLinks = (value: unknown): TeamSocialLink[] => {
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => {
-        if (!entry || typeof entry !== "object") return null;
-        const obj = entry as Record<string, unknown>;
-        const url = typeof obj.url === "string" ? obj.url.trim() : "";
-        if (!url) return null;
-        const label = typeof obj.label === "string" ? obj.label.trim() : "";
-        return { label, url };
-      })
-      .filter((link): link is TeamSocialLink => Boolean(link))
-      .slice(0, MAX_TEAM_SOCIAL_LINKS);
-  }
-
-  if (value && typeof value === "object") {
-    return Object.entries(value as Record<string, unknown>)
-      .map(([rawLabel, rawUrl]) => {
-        if (typeof rawUrl !== "string") return null;
-        const url = rawUrl.trim();
-        if (!url) return null;
-        const label = typeof rawLabel === "string" ? rawLabel.trim() || rawLabel : String(rawLabel);
-        return { label, url };
-      })
-      .filter((link): link is TeamSocialLink => Boolean(link))
-      .slice(0, MAX_TEAM_SOCIAL_LINKS);
-  }
-
-  return [];
-};
-
-const formatSocialLabel = (link: TeamSocialLink): string => {
-  const trimmed = link.label?.trim();
+const formatSocialLabel = (label: string, url: string): string => {
+  const trimmed = label?.trim();
   if (trimmed) return trimmed;
-  const cleaned = link.url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+  const cleaned = url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
   return cleaned || "Link";
 };
 
@@ -66,7 +29,7 @@ export default function About() {
       ? settings.about_team_intro
       : "Meet the collaborators bringing the chaos to life.";
 
-  const team = Array.isArray(settings?.about_team) ? settings.about_team : [];
+  const team = resolvePeopleFromSettings(settings);
 
   return (
     <PageContainer className="text-theme-base">
@@ -93,7 +56,9 @@ export default function About() {
         {team.map((m: any, i: number) => {
           const photoUrl = resolveMediaUrl(m?.photo_url);
           const hasPhoto = Boolean(photoUrl);
-          const socialLinks = toSocialLinks(m?.socials);
+          const socialLinks = Array.isArray(m?.socials)
+            ? m.socials.filter((link: any) => link?.url && typeof link.url === "string")
+            : [];
 
           return (
             <div key={i} className="rounded-lg border border-theme-surface bg-theme-surface p-4">
@@ -111,7 +76,7 @@ export default function About() {
               {socialLinks.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-3 text-sm">
                   {socialLinks.map((link, linkIndex) => {
-                    const label = formatSocialLabel(link);
+                    const label = formatSocialLabel(link.label, link.url);
                     return (
                       <a
                         key={`${link.url}-${linkIndex}`}
