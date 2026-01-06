@@ -103,6 +103,20 @@ const describeReference = (path: PathSegment[], settings: Record<string, unknown
           : `Team member ${memberIndex + 1}`;
       return `About page → ${name} photo`;
     }
+    case "people_profiles": {
+      const memberIndex = typeof rest[0] === "number" ? rest[0] : -1;
+      const members = asArray<any>(settings["people_profiles"]);
+      const member = memberIndex >= 0 ? members[memberIndex] : null;
+      const name =
+        member && typeof member?.name === "string" && member.name.trim()
+          ? member.name.trim()
+          : `Person ${memberIndex + 1}`;
+      const usage: string[] = [];
+      if (member?.show_on_home) usage.push("Home carousel");
+      if (member?.show_on_media) usage.push("Media carousel");
+      const suffix = usage.length > 0 ? ` (${usage.join(", ")})` : "";
+      return `About page → ${name} photo${suffix}`;
+    }
     case "merch_items": {
       const itemIndex = typeof rest[0] === "number" ? rest[0] : -1;
       const items = asArray<any>(settings["merch_items"]);
@@ -136,6 +150,8 @@ const USAGE_FILTERS = [
   { id: "all", label: "All files" },
   { id: "used", label: "Used files" },
   { id: "unused", label: "Unused files" },
+  { id: "people-home", label: "Home carousel" },
+  { id: "people-media", label: "Media carousel" },
 ] as const;
 
 const humanSize = (n) => {
@@ -431,6 +447,23 @@ export default function AdminMediaManager() {
       const referenceCount = state.references?.length ?? 0;
       if (usageFilter === "used") {
         return referenceCount > 0;
+      }
+
+      if (usageFilter === "unused") {
+        return referenceCount === 0;
+      }
+
+      const hasHomeCarousel = state.references?.some((reference) =>
+        reference.description.includes("Home carousel")
+      );
+      const hasMediaCarousel = state.references?.some((reference) =>
+        reference.description.includes("Media carousel")
+      );
+      if (usageFilter === "people-home") {
+        return Boolean(hasHomeCarousel);
+      }
+      if (usageFilter === "people-media") {
+        return Boolean(hasMediaCarousel);
       }
 
       return referenceCount === 0;

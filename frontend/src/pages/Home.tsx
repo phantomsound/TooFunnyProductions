@@ -7,9 +7,11 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import PageContainer from "../components/PageContainer";
+import PeopleCarousel from "../components/PeopleCarousel";
 import { useSettings } from "../lib/SettingsContext";
 import { api } from "../lib/api";
 import { resolveMediaUrl } from "../utils/media";
+import { resolvePeopleFromSettings } from "../utils/people";
 import { blendColors, normalizeHex, pickTextColor } from "../lib/color";
 
 type SizeOption = "small" | "medium" | "large";
@@ -306,6 +308,8 @@ export default function Home() {
     return ((settings as any).events_upcoming as any[]).filter(Boolean).slice(0, 3);
   }, [settings]);
   const hasEvents = upcoming.length > 0;
+  const people = useMemo(() => resolvePeopleFromSettings(settings), [settings]);
+  const homePeople = useMemo(() => people.filter((person) => person.show_on_home), [people]);
 
   return (
     <main className="bg-theme-background text-theme-base">
@@ -413,6 +417,13 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <PeopleCarousel
+          title="Meet the Crew"
+          description="Get to know the people behind the laughs."
+          people={homePeople}
+          className="mt-16 sm:mt-[4.5rem]"
+        />
 
         <section className="mt-16 grid gap-8 sm:mt-[4.5rem] sm:gap-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
           <div className="min-w-0 w-full rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg sm:p-7 md:p-8">

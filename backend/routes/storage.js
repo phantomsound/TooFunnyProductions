@@ -6,13 +6,16 @@
    ========================================================================= */
 import { Router } from "express";
 import multer from "multer";
+import { createReadStream } from "node:fs";
+import { mkdir, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { extname } from "node:path";
+import { dirname, extname, join } from "node:path";
 import { Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
 import { requireAdmin } from "../auth.js";
 import { logAdminAction } from "../lib/audit.js";
-import { getSupabaseServiceClient } from "../lib/supabaseClient.js";
+import { getSupabaseServiceClient, getSupabaseServiceContext } from "../lib/supabaseClient.js";
 
 const router = Router();
 const hasNativeFetch = typeof fetch === "function";
@@ -80,6 +83,45 @@ async function fetchUpstream(url, method) {
 const upload = multer({ storage: multer.memoryStorage() });
 
 const BUCKET = "media";
+const STORAGE_MODE_ENV = (process.env.MEDIA_STORAGE_MODE || "").trim().toLowerCase();
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const LOCAL_MEDIA_ROOT = process.env.MEDIA_STORAGE_DIR
+  ? process.env.MEDIA_STORAGE_DIR
+  : join(__dirname, "..", "data", "media");
+
+const resolveStorageMode = (context) => {
+  if (STORAGE_MODE_ENV === "local") return "local";
+  if (STORAGE_MODE_ENV === "supabase") return "supabase";
+  if (context?.supabaseIsLocal) return "local";
+  return "supabase";
+};
+
+async function ensureLocalMediaRoot() {
+  await mkdir(LOCAL_MEDIA_ROOT, { recursive: true });
+}
+
+const sanitizeFilename = (input) => {
+  if (typeof input !== "string") return "";
+  return input.replace(/[\\/]/g, "_").replace(/\s+/g, " ").trim();
+};
+
+const resolveLocalMediaPath = (rawPath) => {
+  const safePath = sanitizeProxyPath(rawPath);
+  if (!safePath) return null;
+  return join(LOCAL_MEDIA_ROOT, safePath);
+};
+
+function buildPublicUrl(baseUrl, bucket, path) {
+  if (!baseUrl) return null;
+  try {
+    const trimmedPath = path.replace(/^\/+/, "");
+    const base = new URL(baseUrl.trim());
+    const encoded = encodeURIComponent(trimmedPath).replace(/%2F/g, "/");
+    return `${base.origin}/storage/v1/object/public/${bucket}/${encoded}`;
+  } catch {
+    return null;
+  }
+}
 
 // Build public URL from path
 async function ensureSupabase(res) {
@@ -224,8 +266,9 @@ async function consumeAsyncIterable(iterable) {
 }
 
 router.get("/proxy", async (req, res) => {
-  const supabase = await ensureSupabase(res);
-  if (!supabase) return;
+  const context = await getSupabaseServiceContext();
+  const supabase = context.client;
+  const storageMode = resolveStorageMode(context);
 
   const bucket = typeof req.query.bucket === "string" ? req.query.bucket.trim() : "";
   const rawPath = typeof req.query.path === "string" ? req.query.path.trim() : "";
@@ -247,6 +290,30 @@ router.get("/proxy", async (req, res) => {
     const method = req.method === "HEAD" ? "HEAD" : "GET";
     const attempts = [];
     const errors = [];
+
+    if (storageMode === "local") {
+      const localPath = resolveLocalMediaPath(path);
+      if (!localPath) {
+        return res.status(400).json({ error: "Invalid path" });
+      }
+
+      try {
+        const fileStat = await stat(localPath);
+        const contentType = inferContentType(path);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
+        res.setHeader("Content-Length", String(fileStat.size));
+        if (method === "HEAD") {
+          return res.status(200).end();
+        }
+        const stream = createReadStream(localPath);
+        stream.on("error", () => res.status(404).end());
+        return stream.pipe(res.status(200));
+      } catch (error) {
+        console.warn("Local media proxy failed", error?.message || error);
+        return res.status(404).json({ error: "Media not found" });
+      }
+    }
 
     const relayResponse = (label, upstream) => {
       if (!upstream || !upstream.ok) {
@@ -297,75 +364,87 @@ router.get("/proxy", async (req, res) => {
       return false;
     };
 
-    const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
-    if (!signed.error) {
-      const signedUrl = signed.data?.signedUrl;
-      if (signedUrl && (await fetchFromUrl("signed", signedUrl))) {
+    if (supabase) {
+      const signed = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+      if (!signed.error) {
+        const signedUrl = signed.data?.signedUrl;
+        if (signedUrl && (await fetchFromUrl("signed", signedUrl))) {
+          return;
+        }
+        if (!signedUrl) {
+          errors.push({ source: "signed", message: "Signed URL missing" });
+        }
+      } else {
+        errors.push({
+          source: "signed",
+          status: typeof signed.error.status === "number" ? signed.error.status : undefined,
+          message: signed.error.message || "Failed to generate signed media URL",
+        });
+      }
+
+      const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
+      const publicCandidate = publicData?.publicUrl;
+      if (publicCandidate && (await fetchFromUrl("public", publicCandidate))) {
         return;
       }
-      if (!signedUrl) {
-        errors.push({ source: "signed", message: "Signed URL missing" });
+      if (!publicCandidate) {
+        errors.push({ source: "public", message: "Public URL not available" });
+      }
+
+      try {
+        const direct = await supabase.storage.from(bucket).download(path);
+        if (!direct.error && direct.data) {
+          attempts.push({ source: "direct", status: 200 });
+          const contentType = (typeof direct.data.type === "string" && direct.data.type) || inferContentType(path);
+          res.setHeader("Content-Type", contentType);
+          res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
+
+          if (method === "HEAD" && typeof direct.data.size === "number") {
+            res.setHeader("Content-Length", String(direct.data.size));
+            res.status(200).end();
+            return;
+          }
+
+          const { buffer, size } = await bufferFromDownloadData(direct.data);
+          if (buffer) {
+            if (size) {
+              res.setHeader("Content-Length", String(size));
+            }
+            if (method === "HEAD") {
+              res.status(200).end();
+            } else {
+              res.status(200).send(buffer);
+            }
+            return;
+          }
+
+          errors.push({ source: "direct", message: "Direct download produced empty payload" });
+        } else if (direct.error) {
+          attempts.push({
+            source: "direct",
+            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+          });
+          errors.push({
+            source: "direct",
+            status: typeof direct.error.status === "number" ? direct.error.status : undefined,
+            message: direct.error.message || "Direct download failed",
+          });
+        } else {
+          errors.push({ source: "direct", message: "Direct download returned empty response" });
+        }
+      } catch (error) {
+        errors.push({ source: "direct", message: error?.message || String(error) });
       }
     } else {
-      errors.push({
-        source: "signed",
-        status: typeof signed.error.status === "number" ? signed.error.status : undefined,
-        message: signed.error.message || "Failed to generate signed media URL",
-      });
+      errors.push({ source: "supabase", message: "Supabase client not configured" });
     }
 
-    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
-    const publicCandidate = publicData?.publicUrl;
-    if (publicCandidate && (await fetchFromUrl("public", publicCandidate))) {
+    const publicFallback = buildPublicUrl(context.supabaseUrl, bucket, path);
+    if (publicFallback && (await fetchFromUrl("public-fallback", publicFallback))) {
       return;
     }
-    if (!publicCandidate) {
-      errors.push({ source: "public", message: "Public URL not available" });
-    }
-
-    try {
-      const direct = await supabase.storage.from(bucket).download(path);
-      if (!direct.error && direct.data) {
-        attempts.push({ source: "direct", status: 200 });
-        const contentType = (typeof direct.data.type === "string" && direct.data.type) || inferContentType(path);
-        res.setHeader("Content-Type", contentType);
-        res.setHeader("Cache-Control", "public, max-age=1800, s-maxage=1800");
-
-        if (method === "HEAD" && typeof direct.data.size === "number") {
-          res.setHeader("Content-Length", String(direct.data.size));
-          res.status(200).end();
-          return;
-        }
-
-        const { buffer, size } = await bufferFromDownloadData(direct.data);
-        if (buffer) {
-          if (size) {
-            res.setHeader("Content-Length", String(size));
-          }
-          if (method === "HEAD") {
-            res.status(200).end();
-          } else {
-            res.status(200).send(buffer);
-          }
-          return;
-        }
-
-        errors.push({ source: "direct", message: "Direct download produced empty payload" });
-      } else if (direct.error) {
-        attempts.push({
-          source: "direct",
-          status: typeof direct.error.status === "number" ? direct.error.status : undefined,
-        });
-        errors.push({
-          source: "direct",
-          status: typeof direct.error.status === "number" ? direct.error.status : undefined,
-          message: direct.error.message || "Direct download failed",
-        });
-      } else {
-        errors.push({ source: "direct", message: "Direct download returned empty response" });
-      }
-    } catch (error) {
-      errors.push({ source: "direct", message: error?.message || String(error) });
+    if (!publicFallback) {
+      errors.push({ source: "public-fallback", message: "Supabase URL missing for public fetch" });
     }
 
     const statusFromErrors = errors.find((entry) => typeof entry.status === "number")?.status;
@@ -395,6 +474,14 @@ function publicUrl(supabase, path) {
 }
 
 const PROXY_PATHNAME = "/api/storage/proxy";
+
+function buildProxyUrl(req, path) {
+  const host = req.get("host");
+  const proto = req.protocol || "http";
+  const params = new URLSearchParams({ bucket: BUCKET, path });
+  if (!host) return `${PROXY_PATHNAME}?${params.toString()}`;
+  return `${proto}://${host}${PROXY_PATHNAME}?${params.toString()}`;
+}
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -540,14 +627,81 @@ async function replaceUrlInTable(supabase, table, { fromPath, toPath, oldPublicU
 
 // --- LIST --------------------------------------------------------------
 router.get("/list", requireAdmin, async (req, res) => {
-  const supabase = await ensureSupabase(res);
-  if (!supabase) return;
+  const context = await getSupabaseServiceContext();
+  const storageMode = resolveStorageMode(context);
+  const supabase = storageMode === "supabase" ? await ensureSupabase(res) : null;
+  if (storageMode === "supabase" && !supabase) return;
   try {
     const { prefix = "", limit = 1000, sort = "updated_at", direction = "desc", q } = req.query;
+    const search = typeof q === "string" ? q.trim().toLowerCase() : "";
+
+    if (storageMode === "local") {
+      await ensureLocalMediaRoot();
+      const normalizedPrefix = sanitizeProxyPath(String(prefix || ""));
+      const prefixRoot = normalizedPrefix ? resolveLocalMediaPath(normalizedPrefix) : LOCAL_MEDIA_ROOT;
+      if (!prefixRoot) {
+        return res.status(400).json({ error: "Invalid prefix" });
+      }
+
+      let entries = [];
+      try {
+        const dirEntries = await readdir(prefixRoot, { withFileTypes: true });
+        const files = dirEntries.filter((entry) => entry.isFile());
+        const limitedFiles = files.slice(0, Number(limit) || 1000);
+        entries = await Promise.all(
+          limitedFiles.map(async (entry) => {
+            const filePath = join(prefixRoot, entry.name);
+            const fileStat = await stat(filePath);
+            const path = normalizedPrefix ? `${normalizedPrefix}/${entry.name}` : entry.name;
+            return {
+              name: entry.name,
+              path,
+              size: fileStat.size,
+              created_at: fileStat.birthtime?.toISOString?.() || null,
+              updated_at: fileStat.mtime?.toISOString?.() || null,
+              mime_type: inferContentType(entry.name),
+              url: buildProxyUrl(req, path),
+              isDir: false,
+            };
+          })
+        );
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+
+      if (search) {
+        entries = entries.filter((item) => item.name.toLowerCase().includes(search));
+      }
+
+      const sortKey = typeof sort === "string" ? sort : "updated_at";
+      const dir = String(direction).toLowerCase() === "asc" ? 1 : -1;
+
+      const sorted = entries.sort((a, b) => {
+        const fallbackA = new Date(a.updated_at || a.created_at || 0).getTime();
+        const fallbackB = new Date(b.updated_at || b.created_at || 0).getTime();
+
+        switch (sortKey) {
+          case "name":
+            return dir * a.name.localeCompare(b.name);
+          case "size":
+            return dir * ((a.size || 0) - (b.size || 0));
+          case "created_at":
+            return dir *
+              (new Date(a.created_at || a.updated_at || 0).getTime() -
+                new Date(b.created_at || b.updated_at || 0).getTime());
+          case "updated_at":
+          default:
+            return dir * (fallbackA - fallbackB);
+        }
+      });
+
+      return res.json({ items: sorted });
+    }
+
     const listOpts = {
       limit: Number(limit) || 1000,
       offset: 0,
-      search: q ? String(q) : undefined,
+      search: search || undefined,
     };
 
     const { data, error } = await supabase.storage.from(BUCKET).list(prefix || "", listOpts);
@@ -598,8 +752,10 @@ router.get("/list", requireAdmin, async (req, res) => {
 
 // --- INSPECT ----------------------------------------------------------
 router.get("/inspect", requireAdmin, async (req, res) => {
-  const supabase = await ensureSupabase(res);
-  if (!supabase) return;
+  const context = await getSupabaseServiceContext();
+  const storageMode = resolveStorageMode(context);
+  const supabase = storageMode === "supabase" ? await ensureSupabase(res) : null;
+  if (storageMode === "supabase" && !supabase) return;
   const rawPath = typeof req.query.path === "string" ? req.query.path : "";
   const path = rawPath.trim();
   if (!path) {
@@ -607,6 +763,42 @@ router.get("/inspect", requireAdmin, async (req, res) => {
   }
 
   try {
+    if (storageMode === "local") {
+      const localPath = resolveLocalMediaPath(path);
+      if (!localPath) {
+        return res.status(400).json({ error: "Invalid path" });
+      }
+      try {
+        const fileStat = await stat(localPath);
+        return res.json({
+          path,
+          exists: true,
+          object: {
+            name: path,
+            size: fileStat.size,
+            updated_at: fileStat.mtime?.toISOString?.() || null,
+            created_at: fileStat.birthtime?.toISOString?.() || null,
+            metadata: { mimetype: inferContentType(path) },
+          },
+          publicUrl: buildProxyUrl(req, path),
+          publicUrlStatus: 200,
+          signedUrl: null,
+        });
+      } catch (error) {
+        if (error?.code === "ENOENT") {
+          return res.json({
+            path,
+            exists: false,
+            object: null,
+            publicUrl: buildProxyUrl(req, path),
+            publicUrlStatus: 404,
+            signedUrl: null,
+          });
+        }
+        throw error;
+      }
+    }
+
     const { data, error } = await supabase
       .from("storage.objects")
       .select("id,name,bucket_id,created_at,updated_at,last_accessed_at,metadata")
@@ -649,30 +841,44 @@ router.get("/inspect", requireAdmin, async (req, res) => {
 
 // --- UPLOAD ------------------------------------------------------------
 router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => {
-  const supabase = await ensureSupabase(res);
-  if (!supabase) return;
+  const context = await getSupabaseServiceContext();
+  const storageMode = resolveStorageMode(context);
+  const supabase = storageMode === "supabase" ? await ensureSupabase(res) : null;
+  if (storageMode === "supabase" && !supabase) return;
   try {
     const file = req.file;
     if (!file) return res.status(400).json({ error: "No file" });
 
-    const filePath = `${Date.now()}_${file.originalname}`;
-    const { data, error } = await supabase.storage.from(BUCKET).upload(filePath, file.buffer, {
-      contentType: file.mimetype,
-      upsert: false,
-    });
-    if (error) throw error;
+    const fileName = sanitizeFilename(file.originalname) || "upload";
+    const filePath = `${Date.now()}_${fileName}`;
+    let url = "";
+    let storedPath = filePath;
 
-    const url = publicUrl(supabase, data.path);
+    if (storageMode === "local") {
+      await ensureLocalMediaRoot();
+      const localPath = resolveLocalMediaPath(filePath);
+      if (!localPath) return res.status(400).json({ error: "Invalid file path" });
+      await writeFile(localPath, file.buffer);
+      url = buildProxyUrl(req, filePath);
+    } else {
+      const { data, error } = await supabase.storage.from(BUCKET).upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+      if (error) throw error;
+      storedPath = data.path;
+      url = publicUrl(supabase, data.path);
+    }
     try {
       await logAdminAction(req.user?.email || "unknown", "media.upload", {
-        path: data.path,
+        path: storedPath,
         originalName: file.originalname,
         size: file.size,
         mimetype: file.mimetype,
         url,
       });
     } catch {}
-    res.json({ path: data.path, url });
+    res.json({ path: storedPath, url });
   } catch (err) {
     console.error("POST /api/storage/upload error:", err);
     res.status(500).json({ error: "Failed to upload" });
@@ -681,15 +887,25 @@ router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => 
 
 // --- DELETE ------------------------------------------------------------
 router.post("/delete", requireAdmin, async (req, res) => {
-  const supabase = await ensureSupabase(res);
-  if (!supabase) return;
+  const context = await getSupabaseServiceContext();
+  const storageMode = resolveStorageMode(context);
+  const supabase = storageMode === "supabase" ? await ensureSupabase(res) : null;
+  if (storageMode === "supabase" && !supabase) return;
   try {
     const { path } = req.body;
     if (!path) return res.status(400).json({ error: "path required" });
 
-    const oldUrl = publicUrl(supabase, path);
-    const del = await supabase.storage.from(BUCKET).remove([path]);
-    if (del.error) throw del.error;
+    let oldUrl = "";
+    if (storageMode === "local") {
+      const localPath = resolveLocalMediaPath(path);
+      if (!localPath) return res.status(400).json({ error: "Invalid path" });
+      await unlink(localPath);
+      oldUrl = buildProxyUrl(req, path);
+    } else {
+      oldUrl = publicUrl(supabase, path);
+      const del = await supabase.storage.from(BUCKET).remove([path]);
+      if (del.error) throw del.error;
+    }
 
     try {
       await logAdminAction(req.user?.email || "unknown", "media.delete", { path, oldUrl });
@@ -704,6 +920,8 @@ router.post("/delete", requireAdmin, async (req, res) => {
 
 // --- RENAME (move) -----------------------------------------------------
 router.post("/rename", requireAdmin, async (req, res) => {
+  const context = await getSupabaseServiceContext();
+  const storageMode = resolveStorageMode(context);
   const supabase = await ensureSupabase(res);
   if (!supabase) return;
   try {
@@ -711,17 +929,31 @@ router.post("/rename", requireAdmin, async (req, res) => {
     if (!fromPath || !toName) return res.status(400).json({ error: "fromPath and toName required" });
 
     const folder = fromPath.includes("/") ? fromPath.split("/").slice(0, -1).join("/") : "";
-    const toPath = (folder ? `${folder}/` : "") + toName;
+    const sanitizedName = sanitizeFilename(toName);
+    if (!sanitizedName) return res.status(400).json({ error: "toName invalid" });
+    const toPath = (folder ? `${folder}/` : "") + sanitizedName;
 
-    // Use copy+remove for widest compatibility
-    const copy = await supabase.storage.from(BUCKET).copy(fromPath, toPath);
-    if (copy.error) throw copy.error;
+    let oldUrl = "";
+    let newUrl = "";
+    if (storageMode === "local") {
+      const localFrom = resolveLocalMediaPath(fromPath);
+      const localTo = resolveLocalMediaPath(toPath);
+      if (!localFrom || !localTo) return res.status(400).json({ error: "Invalid path" });
+      await ensureLocalMediaRoot();
+      await rename(localFrom, localTo);
+      oldUrl = buildProxyUrl(req, fromPath);
+      newUrl = buildProxyUrl(req, toPath);
+    } else {
+      // Use copy+remove for widest compatibility
+      const copy = await supabase.storage.from(BUCKET).copy(fromPath, toPath);
+      if (copy.error) throw copy.error;
 
-    const del = await supabase.storage.from(BUCKET).remove([fromPath]);
-    if (del.error) throw del.error;
+      const del = await supabase.storage.from(BUCKET).remove([fromPath]);
+      if (del.error) throw del.error;
 
-    const oldUrl = publicUrl(supabase, fromPath);
-    const newUrl = publicUrl(supabase, toPath);
+      oldUrl = publicUrl(supabase, fromPath);
+      newUrl = publicUrl(supabase, toPath);
+    }
 
     // Update references in both settings tables where values equal oldUrl
     const replacement = { fromPath, toPath, oldPublicUrl: oldUrl, newPublicUrl: newUrl };

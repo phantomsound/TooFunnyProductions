@@ -6,6 +6,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import AdminSettingsHome from "./AdminSettingsHome";
 import AdminSettingsAbout from "./AdminSettingsAbout";
+import AdminSettingsPeople from "./AdminSettingsPeople";
 import AdminSettingsEvents from "./AdminSettingsEvents";
 import AdminSettingsMedia from "./AdminSettingsMedia";
 import AdminSettingsMerch from "./AdminSettingsMerch";
@@ -15,7 +16,7 @@ import AdminPublishConfirm from "./AdminPublishConfirm";
 import AdminLockAcquireModal from "./AdminLockAcquireModal";
 import { useSettings, type AcquireSelection } from "../../lib/SettingsContext";
 
-const TABS = ["home", "about", "events", "media", "merch", "contact"] as const;
+const TABS = ["home", "about", "people", "events", "media", "merch", "contact"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function AdminSettings() {
@@ -72,6 +73,8 @@ export default function AdminSettings() {
         return <AdminSettingsHome />;
       case "about":
         return <AdminSettingsAbout />;
+      case "people":
+        return <AdminSettingsPeople />;
       case "events":
         return <AdminSettingsEvents />;
       case "media":
