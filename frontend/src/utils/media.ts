@@ -12,12 +12,20 @@ const ALLOWED_BUCKETS = new Set(["media"]);
 
 const envSupabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
 let supabaseHost: string | null = null;
+let supabaseIsLocal = false;
 if (typeof envSupabaseUrl === "string" && envSupabaseUrl.trim()) {
   try {
     const parsed = new URL(envSupabaseUrl.trim());
     supabaseHost = parsed.host.toLowerCase();
+    const hostname = parsed.hostname.toLowerCase();
+    supabaseIsLocal =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0" ||
+      hostname === "::1";
   } catch {
     supabaseHost = null;
+    supabaseIsLocal = false;
   }
 }
 
@@ -90,7 +98,7 @@ function parseProxyMediaUrl(input: string): { bucket: string; path: string } | n
 }
 
 function buildPublicUrl(bucket: string, path: string) {
-  if (!envSupabaseUrl) return null;
+  if (!envSupabaseUrl || supabaseIsLocal) return null;
   try {
     const base = new URL(envSupabaseUrl.trim());
     const trimmedPath = path.replace(/^\/+/, "");
