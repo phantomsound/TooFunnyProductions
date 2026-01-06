@@ -51,8 +51,6 @@ function parseSupabaseMediaUrl(input: string): { bucket: string; path: string } 
     return { bucket, path };
   }
 
-  if (!isRelative && !looksLikeSupabaseHost(parsed.host)) return null;
-
   for (const pattern of SUPABASE_STORAGE_PATTERNS) {
     const match = parsed.pathname.match(pattern);
     if (!match) continue;
@@ -62,6 +60,8 @@ function parseSupabaseMediaUrl(input: string): { bucket: string; path: string } 
     if (!path || path.includes("..")) return null;
     return { bucket, path };
   }
+
+  if (!isRelative && !looksLikeSupabaseHost(parsed.host)) return null;
 
   return null;
 }

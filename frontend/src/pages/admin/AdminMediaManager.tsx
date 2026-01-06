@@ -184,6 +184,9 @@ export default function AdminMediaManager() {
     () => (items || []).reduce((sum, item) => sum + (typeof item?.size === "number" ? item.size : 0), 0),
     [items]
   );
+  const usedBytes = storageUsage?.available ? storageUsage.totalBytes : totalSize;
+  const quotaBytes = storageUsage?.quotaBytes ?? null;
+  const usagePercent = quotaBytes ? Math.min(100, Math.max(0, Math.round((usedBytes / quotaBytes) * 100))) : null;
 
   const loadStorageUsage = React.useCallback(async () => {
     setStorageError(null);
@@ -624,11 +627,11 @@ export default function AdminMediaManager() {
               {items.length} file{items.length === 1 ? "" : "s"}
             </div>
             <div className="rounded-full border border-neutral-700 px-3 py-1">
-              Used storage: {humanSize(storageUsage?.available ? storageUsage.totalBytes : totalSize)}
+              Used storage: {humanSize(usedBytes)}
             </div>
             {storageUsage?.quotaBytes ? (
               <div className="rounded-full border border-neutral-700 px-3 py-1">
-                Remaining: {humanSize(Math.max(storageUsage.quotaBytes - storageUsage.totalBytes, 0))}
+                Remaining: {humanSize(Math.max(storageUsage.quotaBytes - usedBytes, 0))}
               </div>
             ) : null}
             {storageLoading ? (
@@ -637,6 +640,24 @@ export default function AdminMediaManager() {
               <div className="rounded-full border border-red-500/40 px-3 py-1 text-red-300">Storage lookup failed</div>
             ) : null}
           </div>
+          {quotaBytes ? (
+            <div className="mt-3 max-w-xl">
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-neutral-500">
+                <span>Storage usage</span>
+                <span>{usagePercent}%</span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-neutral-800">
+                <div
+                  className="h-2 rounded-full bg-yellow-400 transition-all"
+                  style={{ width: `${Math.max(2, usagePercent || 0)}%` }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs text-neutral-500">
+                <span>{humanSize(usedBytes)} used</span>
+                <span>{humanSize(quotaBytes)} total</span>
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <label className="cursor-pointer rounded bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300">

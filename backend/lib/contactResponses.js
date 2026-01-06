@@ -244,6 +244,29 @@ export async function listContactResponses({ search, responded, limit = 50, offs
   return { items: paged, total: filtered.length };
 }
 
+export async function getContactResponseById(id) {
+  if (!id) return null;
+  const sb = await getServiceClient();
+  if (sb) {
+    try {
+      const { data, error } = await sb
+        .from("contact_responses")
+        .select(
+          "id, created_at, updated_at, name, email, message, responded, responded_at, responded_by, notes, delivery_status, delivery_error, meta"
+        )
+        .eq("id", id)
+        .maybeSingle();
+      if (!error && data) return normalizeRecord(data);
+    } catch (err) {
+      console.warn("⚠️ Supabase contact response fetch threw:", err?.message || err);
+    }
+  }
+
+  const records = await readLocalStore();
+  const match = records.find((row) => row.id === id);
+  return match ? normalizeRecord(match) : null;
+}
+
 export async function exportContactResponses(options = {}) {
   const { items } = await listContactResponses({ ...options, limit: 5000, offset: 0 });
   const header = [

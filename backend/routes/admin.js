@@ -13,6 +13,7 @@ import {
 } from "../lib/allowlist.js";
 import {
   exportContactResponses,
+  getContactResponseById,
   listContactResponses,
   updateContactResponse,
 } from "../lib/contactResponses.js";
@@ -21,6 +22,7 @@ import { getEditableDatabaseConfig, saveDatabaseConfig } from "../lib/databaseCo
 import { resetSupabaseServiceClient } from "../lib/supabaseClient.js";
 import { getSqlScriptById, listSqlScripts } from "../lib/sqlScripts.js";
 import { getStorageUsage } from "../lib/storageUsage.js";
+import { sendContactEmail, getSmtpConfig } from "../lib/contactEmail.js";
 
 const router = Router();
 
@@ -125,6 +127,47 @@ router.patch("/contact-responses/:id", requireAdmin, async (req, res) => {
       return res.status(404).json({ error: "Not found" });
     }
     res.status(500).json({ error: "Failed to update contact response" });
+  }
+});
+
+router.post("/contact-responses/:id/resend", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "Missing contact response id" });
+
+    const record = await getContactResponseById(id);
+    if (!record) return res.status(404).json({ error: "Not found" });
+
+    if (!getSmtpConfig()) {
+      return res.status(400).json({ error: "SMTP not configured." });
+    }
+
+    const toAddress = record.meta?.to || process.env.CONTACT_TO || "info@toofunnyproductions.com";
+    await sendContactEmail({
+      to: toAddress,
+      from: record.email,
+      name: record.name || "Website visitor",
+      message: record.message,
+    });
+
+    const updated = await updateContactResponse(id, {
+      delivery_status: "sent",
+      delivery_error: null,
+    });
+
+    try {
+      await logAdminAction(req.user?.email || "unknown", "contact_response_resend", {
+        id,
+        to: toAddress,
+      });
+    } catch (err) {
+      console.warn("Failed to log contact response resend", err?.message || err);
+    }
+
+    res.json({ item: updated });
+  } catch (err) {
+    console.error("POST /api/admin/contact-responses/:id/resend error:", err);
+    res.status(500).json({ error: "Failed to resend contact response" });
   }
 });
 
