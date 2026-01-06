@@ -29,8 +29,11 @@ import AdminContactResponses from "./pages/admin/AdminContactResponses";
 import AdminAudit from "./pages/admin/AdminAudit";
 import AdminGeneralSettingsPage from "./pages/admin/AdminGeneralSettingsPage";
 import AdminDatabaseWorkspace from "./pages/admin/AdminDatabaseWorkspace";
+import { useAdminDatabaseVisibility } from "./hooks/useAdminDatabaseVisibility";
 
 export default function App() {
+  const [databaseVisible] = useAdminDatabaseVisibility();
+
   return (
     <BrowserRouter>
       {/* Put SettingsProvider at the very top so everything can use useSettings() */}
@@ -62,7 +65,10 @@ export default function App() {
                   >
                     <Route index element={<AdminGeneralSettingsPage />} />
                     <Route path="general" element={<AdminGeneralSettingsPage />} />
-                    <Route path="database" element={<AdminDatabaseWorkspace />} />
+                    <Route
+                      path="database"
+                      element={databaseVisible ? <AdminDatabaseWorkspace /> : <Navigate to="/admin/general" replace />}
+                    />
                     <Route path="page-configurations" element={<AdminSettings />} />
                     <Route path="settings" element={<Navigate to="/admin/page-configurations" replace />} />
                     <Route path="media" element={<AdminMediaManager />} />

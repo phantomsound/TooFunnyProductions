@@ -35,12 +35,28 @@ export async function getStorageUsage() {
       available: false,
       message: "Supabase storage is not configured.",
       totalBytes: 0,
+      databaseBytes: null,
+      databaseMessage: "Supabase client unavailable.",
       buckets: [],
       categories: [],
     };
   }
 
   try {
+    let databaseBytes = null;
+    let databaseMessage = null;
+
+    try {
+      const { data: databaseSize, error: databaseError } = await client.rpc("get_database_size");
+      if (databaseError) {
+        databaseMessage = "Database size function missing. Run the database size SQL helper to enable this.";
+      } else if (typeof databaseSize === "number") {
+        databaseBytes = databaseSize;
+      }
+    } catch (err) {
+      databaseMessage = "Database size function missing. Run the database size SQL helper to enable this.";
+    }
+
     const { data, error } = await client.from("storage.objects").select("bucket_id,name,metadata");
     if (error) throw error;
 
@@ -71,6 +87,8 @@ export async function getStorageUsage() {
     return {
       available: true,
       totalBytes,
+      databaseBytes,
+      databaseMessage,
       buckets,
       categories,
     };
@@ -80,6 +98,8 @@ export async function getStorageUsage() {
       available: false,
       message: err?.message || "Storage usage unavailable.",
       totalBytes: 0,
+      databaseBytes: null,
+      databaseMessage: err?.message || "Storage usage unavailable.",
       buckets: [],
       categories: [],
     };

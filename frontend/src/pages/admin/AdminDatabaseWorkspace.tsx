@@ -26,6 +26,8 @@ type StorageUsage = {
   available: boolean;
   message?: string;
   totalBytes: number;
+  databaseBytes: number | null;
+  databaseMessage?: string | null;
   buckets: { bucketId: string; bytes: number }[];
   categories: { label: string; bytes: number }[];
 };
@@ -223,6 +225,8 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
   }
 
   const totalStorage = storageUsage?.totalBytes ?? 0;
+  const databaseBytes = storageUsage?.databaseBytes ?? null;
+  const databaseMessage = storageUsage?.databaseMessage ?? null;
   const usageBuckets = storageUsage?.buckets ?? [];
   const usageCategories = storageUsage?.categories ?? [];
 
@@ -442,6 +446,17 @@ export default function AdminDatabaseWorkspace(): JSX.Element {
                 <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4 text-sm text-neutral-200">
                   <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">Total usage</div>
                   <div className="mt-1 text-lg font-semibold text-yellow-200">{formatBytes(totalStorage)}</div>
+                </div>
+                <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4 text-sm text-neutral-200">
+                  <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">Database size</div>
+                  <div className="mt-1 text-lg font-semibold text-yellow-200">
+                    {databaseBytes !== null ? formatBytes(databaseBytes) : "Not available yet"}
+                  </div>
+                  {databaseBytes !== null ? null : (
+                    <p className="mt-1 text-xs text-neutral-400">
+                      {databaseMessage || "Run the database size SQL helper to enable this metric."}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-3">
                   <div className="text-xs uppercase tracking-[0.16em] text-neutral-500">By file type</div>
