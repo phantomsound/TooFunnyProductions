@@ -92,6 +92,7 @@ const LOCAL_MEDIA_ROOT = process.env.MEDIA_STORAGE_DIR
 const resolveStorageMode = (context) => {
   if (STORAGE_MODE_ENV === "local") return "local";
   if (STORAGE_MODE_ENV === "supabase") return "supabase";
+  if (!context?.client) return "local";
   if (context?.supabaseIsLocal) return "local";
   return "supabase";
 };
@@ -110,18 +111,6 @@ const resolveLocalMediaPath = (rawPath) => {
   if (!safePath) return null;
   return join(LOCAL_MEDIA_ROOT, safePath);
 };
-
-function buildPublicUrl(baseUrl, bucket, path) {
-  if (!baseUrl) return null;
-  try {
-    const trimmedPath = path.replace(/^\/+/, "");
-    const base = new URL(baseUrl.trim());
-    const encoded = encodeURIComponent(trimmedPath).replace(/%2F/g, "/");
-    return `${base.origin}/storage/v1/object/public/${bucket}/${encoded}`;
-  } catch {
-    return null;
-  }
-}
 
 function buildPublicUrl(baseUrl, bucket, path) {
   if (!baseUrl) return null;
@@ -934,8 +923,8 @@ router.post("/delete", requireAdmin, async (req, res) => {
 router.post("/rename", requireAdmin, async (req, res) => {
   const context = await getSupabaseServiceContext();
   const storageMode = resolveStorageMode(context);
-  const supabase = await ensureSupabase(res);
-  if (!supabase) return;
+  const supabase = storageMode === "supabase" ? await ensureSupabase(res) : context.client;
+  if (storageMode === "supabase" && !supabase) return;
   try {
     const { fromPath, toName } = req.body;
     if (!fromPath || !toName) return res.status(400).json({ error: "fromPath and toName required" });
@@ -968,10 +957,13 @@ router.post("/rename", requireAdmin, async (req, res) => {
     }
 
     // Update references in both settings tables where values equal oldUrl
-    const replacement = { fromPath, toPath, oldPublicUrl: oldUrl, newPublicUrl: newUrl };
-    const draftUpdates = await replaceUrlInTable(supabase, "settings_draft", replacement);
-    const liveUpdates = await replaceUrlInTable(supabase, "settings_public", replacement);
-    const totalUpdated = (draftUpdates || 0) + (liveUpdates || 0);
+    let totalUpdated = 0;
+    if (supabase) {
+      const replacement = { fromPath, toPath, oldPublicUrl: oldUrl, newPublicUrl: newUrl };
+      const draftUpdates = await replaceUrlInTable(supabase, "settings_draft", replacement);
+      const liveUpdates = await replaceUrlInTable(supabase, "settings_public", replacement);
+      totalUpdated = (draftUpdates || 0) + (liveUpdates || 0);
+    }
 
     try {
       await logAdminAction(req.user?.email || "unknown", "media.rename", {
