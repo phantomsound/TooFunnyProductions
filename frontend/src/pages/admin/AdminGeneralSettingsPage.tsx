@@ -6,6 +6,7 @@ import AdminAllowlistManager from "./AdminAllowlistManager";
 import AdminSettingsGeneral from "./AdminSettingsGeneral";
 import AdminLockAcquireModal from "./AdminLockAcquireModal";
 import AdminPublishConfirm from "./AdminPublishConfirm";
+import { useAdminDatabaseVisibility } from "../../hooks/useAdminDatabaseVisibility";
 
 export default function AdminGeneralSettingsPage(): JSX.Element {
   const {
@@ -30,6 +31,7 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [showAcquireModal, setShowAcquireModal] = useState(false);
+  const [databaseVisible, setDatabaseVisible] = useAdminDatabaseVisibility();
   const previewUrl = useMemo(() => `${window.location.origin}/?stage=draft`, []);
 
   const lockOwner = lock?.holder_email || null;
@@ -173,6 +175,29 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900/80 p-6 shadow-lg backdrop-blur">
         <AdminSettingsGeneral />
+      </section>
+
+      <section className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-sm backdrop-blur">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-yellow-200">Admin tools visibility</h3>
+            <p className="mt-1 text-sm text-neutral-300">
+              Toggle whether the Admin Database workspace appears in the sidebar. This only affects your browser and can be
+              switched back on at any time.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDatabaseVisible(!databaseVisible)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              databaseVisible
+                ? "bg-yellow-400 text-black hover:bg-yellow-300"
+                : "border border-neutral-700 bg-neutral-900 text-neutral-200 hover:border-yellow-300 hover:text-yellow-200"
+            }`}
+          >
+            {databaseVisible ? "Hide Admin Database" : "Show Admin Database"}
+          </button>
+        </div>
       </section>
 
       <AdminAllowlistManager />
