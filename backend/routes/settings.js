@@ -650,6 +650,7 @@ const ALLOWED = new Set([
   "about_mission_body",
   "about_team_intro",
   "about_team",         // jsonb []
+  "people_profiles",    // jsonb []
 
   "events_title",
   "events_intro",

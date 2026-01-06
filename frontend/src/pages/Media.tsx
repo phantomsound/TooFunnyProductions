@@ -1,7 +1,9 @@
 import React, { useMemo } from "react";
 import PageContainer from "../components/PageContainer";
+import PeopleCarousel from "../components/PeopleCarousel";
 import { useSettings } from "../lib/SettingsContext";
 import { resolveMediaUrl } from "../utils/media";
+import { resolvePeopleFromSettings } from "../utils/people";
 
 const isArchiveTitle = (value: unknown): boolean =>
   typeof value === "string" && value.trim().toLowerCase() === "archive";
@@ -16,6 +18,9 @@ export default function Media() {
       ? settings.media_intro
       : "Watch our latest sketches, clips, and behind-the-scenes footage.";
 
+  const people = useMemo(() => resolvePeopleFromSettings(settings), [settings]);
+  const mediaPeople = useMemo(() => people.filter((person) => person.show_on_media), [people]);
+
   const visibleSections = useMemo(
     () => sections.filter((section: any) => section && !isArchiveTitle(section.title)),
     [sections]
@@ -25,6 +30,13 @@ export default function Media() {
     <PageContainer className="text-theme-base">
       <h1 className="mb-3 text-3xl font-bold text-theme-accent">{title}</h1>
       <p className="mb-8 whitespace-pre-wrap break-words text-theme-muted">{intro}</p>
+
+      <PeopleCarousel
+        title="Featured Team"
+        description="Spotlight the performers and creators behind our latest media."
+        people={mediaPeople}
+        className="mt-6"
+      />
 
       {visibleSections.map((s: any, idx: number) => (
         <div key={idx} className="mb-10">

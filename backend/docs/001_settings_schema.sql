@@ -183,6 +183,9 @@ alter table settings_public add column if not exists about_team_intro text;
 alter table settings_draft  add column if not exists about_team jsonb default '[]'::jsonb;
 alter table settings_public add column if not exists about_team jsonb default '[]'::jsonb;
 
+alter table settings_draft  add column if not exists people_profiles jsonb default '[]'::jsonb;
+alter table settings_public add column if not exists people_profiles jsonb default '[]'::jsonb;
+
 -- =====================================================================
 -- 7. Events page content
 -- =====================================================================
