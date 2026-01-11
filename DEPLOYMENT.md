@@ -33,6 +33,8 @@ VITE_SUPABASE_ANON_KEY=<local-anon-key>
 
 The frontend talks to Supabase directly for auth helpers and realtime updates, so its anon key and URL must match the backend project. Keep them aligned with the backend during the migration, then switch both layers to the local PostgREST endpoint once validation proves the local PostgreSQL database is authoritative.
 
+> **Important:** Vite injects `VITE_*` values at build time. For production builds, set `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` in the environment (or `frontend/.env.production`) before running `npm run build`, then rebuild whenever those values change so the generated `frontend/dist` bundle is updated.
+
 ### Cut over to local PostgreSQL as the source of truth
 
 Consult `docs/local-postgres-source-of-truth.md` for the local connection strings, app snippets, and backup/restore helper script once Supabase data has been migrated locally.
