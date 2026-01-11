@@ -885,7 +885,7 @@ router.put("/", requireAdmin, async (req, res) => {
     res.json({ success: true, data: upd.data });
   } catch (err) {
     console.error("PUT /api/settings error:", err);
-    res.status(500).json({ error: "Failed to update settings" });
+    res.status(500).json({ error: formatSupabaseError(err, "Failed to update settings") });
   }
 });
 
