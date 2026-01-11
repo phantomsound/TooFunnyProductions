@@ -7,6 +7,7 @@ import { Link, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import { useSettings } from "../lib/SettingsContext";
 import { resolveMediaUrl } from "../utils/media";
+import { resolveLiveStreamInfo } from "../utils/liveStream";
 
 export default function Navbar() {
   const { search, pathname } = useLocation();
@@ -14,6 +15,7 @@ export default function Navbar() {
   const stageSuffix = sp.get("stage") === "draft" ? "?stage=draft" : "";
   const { settings } = useSettings();
   const { user } = useAuth();
+  const liveStream = resolveLiveStreamInfo(settings);
 
   const logoUrlRaw =
     typeof settings?.logo_url === "string" && settings.logo_url.trim().length > 0
@@ -99,6 +101,21 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          {liveStream.show && liveStream.href ? (
+            <a
+              href={liveStream.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`hidden items-center gap-2 rounded-full border px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.3em] transition sm:inline-flex ${
+                liveStream.state === "starting"
+                  ? "border-yellow-300/60 text-yellow-200"
+                  : "border-red-500/70 text-red-200"
+              }`}
+            >
+              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${liveStream.state === "starting" ? "bg-yellow-400" : "bg-red-500"} tf-live-pulse`} />
+              <span>{liveStream.label}</span>
+            </a>
+          ) : null}
           {user ? (
             <span className="hidden sm:inline-flex items-center gap-2 rounded-full border border-theme-surface bg-theme-surface/60 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-theme-accent">
               Admin Mode
@@ -129,6 +146,21 @@ export default function Navbar() {
       {isMobileMenuOpen ? (
         <div className="border-t border-theme-surface bg-theme-header text-theme-header md:hidden">
           <div className="mx-auto flex w-full max-w-screen-xl flex-col px-4 py-2">
+            {liveStream.show && liveStream.href ? (
+              <a
+                href={liveStream.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`mb-2 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] ${
+                  liveStream.state === "starting"
+                    ? "border-yellow-300/60 text-yellow-200"
+                    : "border-red-500/70 text-red-200"
+                }`}
+              >
+                <span className={`inline-flex h-2 w-2 rounded-full ${liveStream.state === "starting" ? "bg-yellow-400" : "bg-red-500"} tf-live-pulse`} />
+                <span>{liveStream.label}</span>
+              </a>
+            ) : null}
             {navLinks.map((link) => (
               <Link
                 key={link.label}

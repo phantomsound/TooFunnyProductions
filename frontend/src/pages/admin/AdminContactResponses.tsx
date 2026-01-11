@@ -1,6 +1,7 @@
 import React from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../../lib/api";
+import { useToast } from "../../components/ToastProvider";
 
 type ContactResponse = {
   id: string;
@@ -41,6 +42,7 @@ type AdminOutletContext = {
 };
 
 export default function AdminContactResponses() {
+  const toast = useToast();
   const [rows, setRows] = React.useState<ContactResponse[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
@@ -99,13 +101,16 @@ export default function AdminContactResponses() {
       setRows(payload.items || []);
       setTotal(payload.total || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load contact responses");
+      const message =
+        err instanceof Error ? err.message : "Unable to load contact responses. Refresh and try again.";
+      setError(message);
+      toast({ kind: "error", text: message });
       setRows([]);
       setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [buildQuery, refreshKey]);
+  }, [buildQuery, refreshKey, toast]);
 
   React.useEffect(() => {
     const handle = setTimeout(() => {
@@ -162,8 +167,15 @@ export default function AdminContactResponses() {
       const payload = await response.json();
       const updated: ContactResponse = payload.item;
       setRows((prev) => prev.map((item) => (item.id === row.id ? updated : item)));
+      toast({
+        kind: "success",
+        text: updated.responded ? "Marked as responded. Log any follow-up notes if needed." : "Marked as open.",
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update response");
+      const message =
+        err instanceof Error ? err.message : "Update failed. Check your connection and try again.";
+      setError(message);
+      toast({ kind: "error", text: message });
     } finally {
       setSavingId(null);
     }
@@ -194,8 +206,11 @@ export default function AdminContactResponses() {
       const updated: ContactResponse = payload.item;
       setRows((prev) => prev.map((item) => (item.id === row.id ? updated : item)));
       cancelEditing();
+      toast({ kind: "success", text: "Notes saved. This response stays in the audit trail." });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save notes");
+      const message = err instanceof Error ? err.message : "Notes did not save. Try again.";
+      setError(message);
+      toast({ kind: "error", text: message });
     } finally {
       setSavingId(null);
     }
@@ -213,8 +228,14 @@ export default function AdminContactResponses() {
       if (!response.ok) throw new Error(payload?.error || `Failed to resend (${response.status})`);
       const updated: ContactResponse = payload.item;
       setRows((prev) => prev.map((item) => (item.id === row.id ? updated : item)));
+      toast({
+        kind: "success",
+        text: "Resend queued. Check the delivery status column for confirmation.",
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to resend contact email");
+      const message = err instanceof Error ? err.message : "Resend failed. Verify SMTP settings and try again.";
+      setError(message);
+      toast({ kind: "error", text: message });
     } finally {
       setResendingId(null);
     }
@@ -236,8 +257,11 @@ export default function AdminContactResponses() {
       link.download = `contact-responses-${new Date().toISOString().slice(0, 10)}.csv`;
       link.click();
       window.URL.revokeObjectURL(url);
+      toast({ kind: "success", text: "Export ready. The CSV has been downloaded to your device." });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to export contact responses");
+      const message = err instanceof Error ? err.message : "Export failed. Try again in a moment.";
+      setError(message);
+      toast({ kind: "error", text: message });
     } finally {
       setExporting(false);
     }

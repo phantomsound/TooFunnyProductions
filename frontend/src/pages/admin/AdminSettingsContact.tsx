@@ -180,7 +180,7 @@ export default function AdminSettingsContact(): JSX.Element {
 
       <section className="grid gap-4 md:grid-cols-2">
         <label className="text-sm font-semibold">
-          Contact email
+          Response destination email
           <input
             className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-black"
             value={local.contactemail}
@@ -188,6 +188,9 @@ export default function AdminSettingsContact(): JSX.Element {
             disabled={disabled}
             placeholder="team@toofunnyproductions.com"
           />
+          <span className="mt-1 block text-xs text-gray-600">
+            Contact form submissions will be delivered to this address. Set it to your preferred routing inbox.
+          </span>
         </label>
         <label className="text-sm font-semibold">
           Contact phone
@@ -303,4 +306,3 @@ export default function AdminSettingsContact(): JSX.Element {
     </div>
   );
 }
-

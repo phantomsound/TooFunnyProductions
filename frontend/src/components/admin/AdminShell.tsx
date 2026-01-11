@@ -32,11 +32,11 @@ const formatQuickLinkHref = (input: string) => {
 };
 
 const navLinks = [
-  { to: "/admin/general", label: "🎛 General Settings" },
-  { to: "/admin/page-configurations", label: "🗂 Page Configurations" },
-  { to: "/admin/media", label: "🎬 Media Manager" },
-  { to: "/admin/contact-responses", label: "✉️ Contact Responses" },
-  { to: "/admin/audit", label: "🧾 Audit Log" },
+  { to: "/admin/general", label: "General Settings" },
+  { to: "/admin/page-configurations", label: "Page Configurations" },
+  { to: "/admin/media", label: "Media Manager" },
+  { to: "/admin/contact-responses", label: "Contact Responses" },
+  { to: "/admin/audit", label: "Audit Log" },
 ];
 
 export default function AdminShell() {
@@ -84,7 +84,10 @@ export default function AdminShell() {
         (isActive ? "border-yellow-300/60 bg-neutral-800 text-yellow-200 shadow-sm" : "text-neutral-200")
       }
     >
-      <span className="truncate">{link.label}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="inline-flex h-2 w-2 rounded-full bg-yellow-300 shadow-[0_0_8px_rgba(253,224,71,0.6)]" />
+        <span className="truncate">{link.label}</span>
+      </span>
       {link.to === "/admin/contact-responses" && pendingContactResponses > 0 ? (
         <span className="tf-notice-pulse ml-2 inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-orange-500 px-2 text-[11px] font-semibold uppercase tracking-wide text-white shadow">
           {pendingContactResponses > 99 ? "99+" : pendingContactResponses}
@@ -96,7 +99,7 @@ export default function AdminShell() {
   const links = React.useMemo(() => {
     const base = [...navLinks];
     if (databaseVisible) {
-      base.splice(1, 0, { to: "/admin/database", label: "🗄 Admin Database" });
+      base.splice(1, 0, { to: "/admin/database", label: "Admin Database" });
     }
     return base;
   }, [databaseVisible]);

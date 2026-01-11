@@ -178,6 +178,25 @@ label {
   animation: tf-notification-pulse 2.2s ease-in-out infinite;
 }
 
+@keyframes tf-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    transform: scale(1.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    transform: scale(1);
+  }
+}
+
+.tf-live-pulse {
+  animation: tf-live-pulse 3s ease-in-out infinite;
+}
+
 .hover\:text-theme-accent:hover {
   color: var(--tf-accent);
 }

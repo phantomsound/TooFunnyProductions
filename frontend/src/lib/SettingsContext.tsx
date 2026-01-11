@@ -8,6 +8,7 @@ import { useLocation } from "react-router-dom";
 import { api } from "./api";
 import { useAuth } from "../hooks/useAuth";
 import { blendColors, normalizeHex, pickTextColor } from "./color";
+import { useToast } from "../components/ToastProvider";
 
 const isEventLike = (value: unknown): value is { nativeEvent?: unknown; preventDefault?: () => void } => {
   if (!value || typeof value !== "object") return false;
@@ -207,7 +208,7 @@ type Ctx = {
   isDirty: boolean;
   saving: boolean;
   publishing: boolean;
-  save: (payload?: Partial<Settings>) => Promise<void>; // saves draft only (no-op if stage=live)
+  save: (payload?: Partial<Settings>, options?: { notify?: boolean }) => Promise<void>; // saves draft only (no-op if stage=live)
   pullLive: () => Promise<void>;     // copies live -> draft and loads it
   publish: (options?: PublishOptions) => Promise<void>;      // copies draft -> live and reloads live
   reload: () => Promise<void>;       // reload current stage from server
@@ -226,9 +227,17 @@ const SettingsContext = createContext<Ctx | undefined>(undefined);
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { user } = useAuth();
+  const toast = useToast();
   const myEmail = user?.email ? user.email.toLowerCase() : null;
   const { pathname, search } = location;
   const isAdminRoute = pathname.startsWith("/admin");
+
+  const notify = useCallback(
+    (kind: "success" | "error" | "info", text: string) => {
+      toast({ kind, text });
+    },
+    [toast]
+  );
 
   const [stage, setStage] = useState<Stage>("live");
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -378,8 +387,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const save = useCallback(
-    async (incoming?: Partial<Settings>) => {
+    async (incoming?: Partial<Settings>, options: { notify?: boolean } = {}) => {
       if (stage !== "draft" || lockedByOther) return;
+      const shouldNotify = options.notify !== false;
 
       const payload = isEventLike(incoming) ? undefined : incoming;
       const base = sanitizeSettings(settings);
@@ -405,11 +415,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         const clean = sanitizeSettings(data);
         setSettings(clean);
         setInitial(clean);
+        if (shouldNotify) {
+          notify("success", "Draft saved. Publish when you are ready to push changes live.");
+        }
+      } catch (error) {
+        if (shouldNotify) {
+          notify("error", "Draft save failed. Check required fields, then try again.");
+        }
+        throw error;
       } finally {
         setSaving(false);
       }
     },
-    [settings, stage, lockedByOther]
+    [settings, stage, lockedByOther, notify]
   );
 
   const refreshLock = useCallback(async () => {
@@ -544,11 +562,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setInitial(clean);
       setStage("draft");
       await load("draft");
+      notify("success", "Live settings copied into Draft. Review and edit before publishing.");
     } catch (error) {
       setStage(previousStage);
+      notify("error", "Unable to pull Live settings. Refresh the page and try again.");
       throw error;
     }
-  }, [load, stage]);
+  }, [load, stage, notify]);
 
   const publish = useCallback(async (options?: PublishOptions) => {
     if (publishing) return;
@@ -556,9 +576,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     try {
       if (stage === "draft" && !lockedByOther) {
         if (isDirty) {
-          await save();
+          await save(undefined, { notify: false });
         } else if (!settings || Object.keys(settings).length === 0) {
-          await save();
+          await save(undefined, { notify: false });
         }
       }
 
@@ -579,10 +599,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       // after publish, reload live and switch to live
       await load("live");
       setStage("live");
+      notify("success", "Draft published to Live. Your updates are now public.");
+    } catch (error) {
+      notify("error", "Publish failed. Resolve any issues, then try again.");
+      throw error;
     } finally {
       setPublishing(false);
     }
-  }, [publishing, stage, lockedByOther, isDirty, save, settings, load]);
+  }, [publishing, stage, lockedByOther, isDirty, save, settings, load, notify]);
 
   const reload = useCallback(async () => { await load(stage); }, [stage, load]);
 

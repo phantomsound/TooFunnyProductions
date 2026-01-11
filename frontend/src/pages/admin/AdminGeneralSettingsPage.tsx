@@ -168,7 +168,8 @@ export default function AdminGeneralSettingsPage(): JSX.Element {
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-sm backdrop-blur">
         <p className="text-sm text-neutral-300">
-          Looking for per-page tweaks? Jump over to <span className="font-semibold text-yellow-200">Page Configurations</span>
+          Looking for per-page tweaks? Jump over to{" "}
+          <span className="font-semibold text-yellow-200">Page Configurations</span>{" "}
           from the sidebar to adjust individual layouts once your global styles are locked in.
         </p>
       </section>

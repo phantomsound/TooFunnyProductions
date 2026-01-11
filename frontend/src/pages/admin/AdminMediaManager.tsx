@@ -2,6 +2,7 @@ import React from "react";
 import { api } from "../../lib/api";
 import { useSettings } from "../../lib/SettingsContext";
 import { resolveMediaUrl } from "../../utils/media";
+import { useToast } from "../../components/ToastProvider";
 
 type Stage = "draft" | "live";
 type PathSegment = string | number;
@@ -173,6 +174,7 @@ const isVideo = (name, mime) =>
   (mime && mime.startsWith("video/")) || /\.(mp4|webm|mov|m4v)$/i.test(name);
 
 export default function AdminMediaManager() {
+  const toast = useToast();
   const [items, setItems] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
@@ -488,12 +490,14 @@ export default function AdminMediaManager() {
       setItems(data?.items || []);
     } catch (err) {
       console.error(err);
-      setError(err?.message || "Failed to load media");
+      const message = err?.message || "Unable to load media. Refresh and try again.";
+      setError(message);
+      toast({ kind: "error", text: message });
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [activeSort.direction, activeSort.sort, search]);
+  }, [activeSort.direction, activeSort.sort, search, toast]);
 
   React.useEffect(() => {
     const handle = setTimeout(() => {
@@ -523,9 +527,12 @@ export default function AdminMediaManager() {
         }
       }
       await load();
+      toast({ kind: "success", text: "Upload complete. Files are ready to use." });
     } catch (err) {
       console.error(err);
-      setError(err?.message || "Upload failed");
+      const message = err?.message || "Upload failed. Check file size and try again.";
+      setError(message);
+      toast({ kind: "error", text: message });
     } finally {
       setUploading(false);
     }
@@ -570,9 +577,12 @@ export default function AdminMediaManager() {
       });
       if (!response.ok) throw new Error(`Delete failed: ${response.status}`);
       setItems((prev) => prev.filter((it) => it.path !== item.path));
+      toast({ kind: "success", text: "File deleted. References have been cleared." });
     } catch (err) {
       console.error(err);
-      setError(err?.message || "Delete failed");
+      const message = err?.message || "Delete failed. Try again or check for active references.";
+      setError(message);
+      toast({ kind: "error", text: message });
     }
   };
 
@@ -629,9 +639,12 @@ export default function AdminMediaManager() {
       }
       lines.push("All areas now use the renamed file.");
       window.alert(lines.join("\n"));
+      toast({ kind: "success", text: "Rename complete. Settings references updated." });
     } catch (err) {
       console.error(err);
-      setError(err?.message || "Rename failed");
+      const message = err?.message || "Rename failed. Try again with a different filename.";
+      setError(message);
+      toast({ kind: "error", text: message });
     }
   };
 
@@ -644,6 +657,7 @@ export default function AdminMediaManager() {
     }
     setCopiedPath(path);
     window.setTimeout(() => setCopiedPath((prev) => (prev === path ? null : prev)), 2000);
+    toast({ kind: "success", text: "Media link copied to your clipboard." });
   };
 
   return (

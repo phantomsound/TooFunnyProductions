@@ -88,8 +88,8 @@ export const resolvePeopleFromSettings = (settings: Record<string, unknown> | nu
         bio: asString(obj.bio),
         photo_url: asString(obj.photo_url),
         socials: sanitizeSocials(obj.socials),
-        show_on_home: false,
-        show_on_media: false,
+        show_on_home: true,
+        show_on_media: true,
         carousel_text_mode: "about",
         carousel_text: "",
       };
