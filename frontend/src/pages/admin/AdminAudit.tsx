@@ -67,14 +67,14 @@ export default function AdminAudit() {
     <div className="text-gray-900">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Audit Log</h2>
+          <h2 className="text-2xl font-bold text-yellow-300">Audit Log</h2>
           <p className="text-sm text-gray-500">Track every admin action, upload, and publish event.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={load}
-            className="rounded border border-sky-600 bg-sky-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded border border-yellow-400 bg-yellow-300 px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={loading}
           >
             {loading ? "Refreshing…" : "Refresh"}

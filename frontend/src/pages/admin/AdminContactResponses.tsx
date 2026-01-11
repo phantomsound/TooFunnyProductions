@@ -272,7 +272,7 @@ export default function AdminContactResponses() {
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-bold">Contact Responses</h2>
+            <h2 className="text-2xl font-bold text-yellow-300">Contact Responses</h2>
             {openResponses.length > 0 ? (
               <div className="relative" ref={pendingListRef}>
                 <button
@@ -364,7 +364,7 @@ export default function AdminContactResponses() {
           <button
             type="button"
             onClick={refresh}
-            className="rounded border border-sky-600 bg-sky-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded border border-yellow-400 bg-yellow-300 px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={loading}
           >
             {loading ? "Refreshing…" : "Refresh"}
@@ -475,7 +475,7 @@ export default function AdminContactResponses() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="font-medium">{row.name || "(unknown)"}</div>
-                    <div className="text-xs text-sky-700">{row.email}</div>
+                    <div className="text-xs text-yellow-400">{row.email}</div>
                   </td>
                   <td className="px-3 py-2">
                     <pre className="max-h-48 whitespace-pre-wrap break-words rounded border border-gray-100 bg-gray-50 p-2 text-xs text-gray-700">

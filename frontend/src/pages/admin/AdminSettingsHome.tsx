@@ -187,7 +187,7 @@ export default function AdminSettingsHome() {
         <div>
           <label className="block text-sm font-semibold mb-1">Hero Title</label>
           <input
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
             value={local.hero_title}
             onChange={(event) => update("hero_title", event.target.value)}
             disabled={disabled}
@@ -201,7 +201,7 @@ export default function AdminSettingsHome() {
         <div>
           <label className="block text-sm font-semibold mb-1">Hero Subtext</label>
           <textarea
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
             rows={3}
             value={local.hero_subtext}
             onChange={(event) => update("hero_subtext", event.target.value)}
@@ -475,7 +475,7 @@ export default function AdminSettingsHome() {
           </p>
           <div className="space-y-2">
             <input
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
               value={local.featured_video_url}
               onChange={(event) => update("featured_video_url", event.target.value)}
               disabled={disabled}
@@ -535,7 +535,7 @@ export default function AdminSettingsHome() {
           </p>
           <div className="space-y-2">
             <input
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
               value={local.hero_image_url}
               onChange={(event) => update("hero_image_url", event.target.value)}
               disabled={disabled}
@@ -592,7 +592,7 @@ export default function AdminSettingsHome() {
           <label className="block text-sm font-semibold">Who We Are Image</label>
           <div className="space-y-2">
             <input
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
               value={local.who_image_url}
               onChange={(event) => update("who_image_url", event.target.value)}
               disabled={disabled}
@@ -684,7 +684,7 @@ export default function AdminSettingsHome() {
               </label>
             </div>
             <input
-              className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
               value={local.who_label}
               onChange={(event) => update("who_label", event.target.value)}
               disabled={disabled || !local.who_show_label}
@@ -697,7 +697,7 @@ export default function AdminSettingsHome() {
 
           <label className="block text-sm font-semibold">Who We Are — Title</label>
           <input
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
             value={local.who_title}
             onChange={(event) => update("who_title", event.target.value)}
             disabled={disabled}
@@ -705,7 +705,7 @@ export default function AdminSettingsHome() {
           />
           <label className="block text-sm font-semibold">Call to Action Label</label>
           <input
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
             value={local.who_cta_label}
             onChange={(event) => update("who_cta_label", event.target.value)}
             disabled={disabled}
@@ -713,7 +713,7 @@ export default function AdminSettingsHome() {
           />
           <label className="block text-sm font-semibold">Call to Action Link</label>
           <input
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+            className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
             value={local.who_cta_url}
             onChange={(event) => update("who_cta_url", event.target.value)}
             disabled={disabled}
@@ -726,7 +726,7 @@ export default function AdminSettingsHome() {
         <div>
           <label className="block text-sm font-semibold">Who We Are — Body</label>
           <textarea
-            className="w-full border border-gray-300 rounded px-3 py-2 text-black min-h-[150px]"
+            className="w-full min-h-[150px] rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400"
             value={local.who_body}
             onChange={(event) => update("who_body", event.target.value)}
             disabled={disabled}
