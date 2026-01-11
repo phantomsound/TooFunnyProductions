@@ -764,6 +764,10 @@ function formatSupabaseError(err, fallback) {
     extra =
       " Check SUPABASE_URL/SUPABASE_SERVICE_KEY in backend/.env, confirm the API is reachable from the server, and verify any firewall/SSL settings.";
   }
+  if (err?.code === "PGRST204") {
+    extra +=
+      " The database schema is missing a required settings column (e.g., people_profiles). Run backend/docs/001_settings_schema.sql against your database to add the missing column(s).";
+  }
   return `${message}${code}${details}${hint}${extra}`.trim() || fallback;
 }
 
@@ -885,7 +889,7 @@ router.put("/", requireAdmin, async (req, res) => {
     res.json({ success: true, data: upd.data });
   } catch (err) {
     console.error("PUT /api/settings error:", err);
-    res.status(500).json({ error: "Failed to update settings" });
+    res.status(500).json({ error: formatSupabaseError(err, "Failed to update settings") });
   }
 });
 
