@@ -764,6 +764,10 @@ function formatSupabaseError(err, fallback) {
     extra =
       " Check SUPABASE_URL/SUPABASE_SERVICE_KEY in backend/.env, confirm the API is reachable from the server, and verify any firewall/SSL settings.";
   }
+  if (err?.code === "PGRST204") {
+    extra +=
+      " The database schema is missing a required settings column (e.g., people_profiles). Run backend/docs/001_settings_schema.sql against your database to add the missing column(s).";
+  }
   return `${message}${code}${details}${hint}${extra}`.trim() || fallback;
 }
 
