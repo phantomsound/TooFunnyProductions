@@ -31,6 +31,15 @@ export default function PeopleCarousel({ title, description, people, className }
 
   if (!people || people.length === 0) return null;
 
+  const minCarouselItems = 6;
+  const repeatCount = Math.max(1, Math.ceil(minCarouselItems / people.length));
+  const carouselEntries = Array.from({ length: repeatCount }).flatMap((_, repeatIndex) =>
+    people.map((person, index) => ({
+      person,
+      key: `${person.id || person.name || "person"}-${index}-repeat-${repeatIndex}`,
+    }))
+  );
+
   const containerClassName = `rounded-3xl border border-theme-surface bg-theme-surface p-6 shadow-lg sm:p-7 ${className ?? ""}`.trim();
 
   return (
@@ -64,7 +73,7 @@ export default function PeopleCarousel({ title, description, people, className }
         ref={scrollRef}
         className="mt-6 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4"
       >
-        {people.map((person, index) => {
+        {carouselEntries.map(({ person, key }) => {
           const photoUrl = resolveMediaUrl(person.photo_url);
           const hasPhoto = Boolean(photoUrl);
           const carouselText = resolveCarouselText(person);
@@ -72,7 +81,7 @@ export default function PeopleCarousel({ title, description, people, className }
 
           return (
             <article
-              key={person.id || `${person.name}-${index}`}
+              key={key}
               className="min-w-[250px] snap-start rounded-2xl border border-theme-surface bg-theme-background p-4 sm:min-w-[280px]"
             >
               {hasPhoto ? (

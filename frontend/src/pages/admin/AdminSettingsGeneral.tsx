@@ -37,6 +37,8 @@ interface GeneralSettings {
   footer_links: FooterLink[];
   admin_quick_links: FooterLink[];
   admin_profiles: AdminProfile[];
+  booking_calendar_label: string;
+  booking_calendar_url: string;
 
   theme_accent: string;
   theme_bg: string;
@@ -129,6 +131,11 @@ const sanitizeSettings = (raw: unknown): GeneralSettings => {
     footer_links: coerceLinks(safe.footer_links),
     admin_quick_links: coerceLinks(safe.admin_quick_links).slice(0, 4),
     admin_profiles: coerceProfiles(safe.admin_profiles),
+    booking_calendar_label: coerceText(
+      safe.booking_calendar_label,
+      "To book time on our Podcasts for Too Funny or Too T3rpd, click here:"
+    ),
+    booking_calendar_url: coerceText(safe.booking_calendar_url, "https://calendar.app.google/BHGKxQt4ecupKU4n8"),
 
     theme_accent: normalizeHex(accentColor, "#FFD700"),
     theme_bg: normalizeHex(backgroundColor, "#111111"),
@@ -364,6 +371,33 @@ export default function AdminSettingsGeneral(): JSX.Element {
       </section>
 
       <section>
+        <h3 className="mb-3 text-xl font-semibold text-yellow-200">Contact Booking Link</h3>
+        <p className="mb-3 text-sm text-neutral-300">
+          This label and link appear on the Contact Us page to send visitors to your booking calendar.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block text-sm md:col-span-2">
+            <div className="mb-1 font-semibold text-neutral-200">Booking Label</div>
+            <textarea
+              className="min-h-[70px] w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-400 focus:border-yellow-300 focus:outline-none focus:ring-0"
+              value={local.booking_calendar_label}
+              onChange={(event) => update("booking_calendar_label", event.target.value)}
+              disabled={disabled}
+            />
+          </label>
+          <label className="block text-sm md:col-span-2">
+            <div className="mb-1 font-semibold text-neutral-200">Booking Link URL</div>
+            <input
+              className="w-full rounded border border-neutral-700 !bg-neutral-900/80 px-3 py-2 !text-white placeholder:text-neutral-400 focus:border-yellow-300 focus:outline-none focus:ring-0"
+              value={local.booking_calendar_url}
+              onChange={(event) => update("booking_calendar_url", event.target.value)}
+              disabled={disabled}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section>
         <h3 className="mb-3 text-xl font-semibold text-yellow-200">Admin Quick Links</h3>
         <p className="mb-3 text-sm text-neutral-300">
           Configure up to four shortcuts that appear under <span className="font-semibold text-yellow-100">Quick Links</span> in the admin
@@ -567,4 +601,3 @@ export default function AdminSettingsGeneral(): JSX.Element {
     </div>
   );
 }
-

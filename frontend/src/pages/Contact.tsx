@@ -17,6 +17,14 @@ export default function Contact() {
   const socials = settings?.contact_socials && typeof settings.contact_socials === "object"
     ? (settings.contact_socials as Record<string, string>)
     : {};
+  const bookingLabel =
+    typeof settings?.booking_calendar_label === "string"
+      ? settings.booking_calendar_label
+      : "To book time on our Podcasts for Too Funny or Too T3rpd, click here:";
+  const bookingUrl =
+    typeof settings?.booking_calendar_url === "string"
+      ? settings.booking_calendar_url
+      : "https://calendar.app.google/BHGKxQt4ecupKU4n8";
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +149,20 @@ export default function Contact() {
                 </a>
               ))}
           </div>
+
+          {bookingUrl ? (
+            <div className="mt-6 rounded-lg border border-theme-surface bg-theme-background p-4">
+              <p className="mb-3 text-sm text-theme-muted">{bookingLabel}</p>
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="theme-accent-button inline-flex items-center justify-center rounded px-3 py-2 text-sm font-semibold"
+              >
+                Open booking calendar
+              </a>
+            </div>
+          ) : null}
         </div>
       </div>
     </PageContainer>

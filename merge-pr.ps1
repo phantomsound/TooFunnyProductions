@@ -53,10 +53,12 @@ function Assert-CleanTree {
   while ($true) {
     Write-Host "`nChoose how to proceed:" -ForegroundColor Yellow
     Write-Host "  [S] Stash changes now (will be re-applied automatically after the merge)." -ForegroundColor Yellow
-    Write-Host "  [K] Keep changes and continue without stashing (may cause checkout/merge conflicts)." -ForegroundColor Yellow
+    Write-Host "  [C] Commit changes now (requires a commit message)." -ForegroundColor Yellow
+    Write-Host "  [D] Discard ALL local changes (git reset --hard + git clean -fd)." -ForegroundColor Yellow
+    Write-Host "  [I] Ignore changes and continue without stashing (may cause checkout/merge conflicts)." -ForegroundColor Yellow
     Write-Host "  [A] Abort the merge helper so you can handle the changes yourself." -ForegroundColor Yellow
 
-    $choice = (Read-Host "Enter S, K, or A").Trim().ToUpper()
+    $choice = (Read-Host "Enter S, C, D, I, or A").Trim().ToUpper()
     switch ($choice) {
       'S' {
         $customMessage = (Read-Host "Optional stash message (press Enter to skip)").Trim()
@@ -75,7 +77,43 @@ function Assert-CleanTree {
         Write-Host "`n✅  Changes stashed as $($script:AutoStashRef). They will be restored after the merge completes." -ForegroundColor Green
         return
       }
-      'K' {
+      'C' {
+        git add -A | Out-Host
+        if (-not (git status --porcelain)) {
+          Write-Host "`nNo changes left to commit after staging. Returning to the menu." -ForegroundColor Yellow
+          continue
+        }
+
+        $commitMessage = (Read-Host "Enter commit message").Trim()
+        if (-not $commitMessage) {
+          $commitMessage = "merge-pr: save local changes $(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
+        }
+
+        git commit -m $commitMessage | Out-Host
+
+        if (git status --porcelain) {
+          Write-Host "`nSome changes are still present after committing. Review them before continuing." -ForegroundColor Yellow
+          continue
+        }
+        Write-Host "`n✅  Changes committed. Continuing with a clean working tree." -ForegroundColor Green
+        return
+      }
+      'D' {
+        $confirm = (Read-Host "Type DELETE to discard ALL local changes").Trim()
+        if ($confirm -ne "DELETE") {
+          Write-Host "`nDiscard cancelled. Returning to the menu." -ForegroundColor Yellow
+          continue
+        }
+        git reset --hard | Out-Host
+        git clean -fd | Out-Host
+        if (git status --porcelain) {
+          Write-Host "`nSome changes remain after cleanup. Returning to the menu." -ForegroundColor Yellow
+          continue
+        }
+        Write-Host "`n✅  Local changes discarded. Continuing with a clean working tree." -ForegroundColor Green
+        return
+      }
+      'I' {
         Write-Host "`nContinuing with local changes in place. If Git cannot switch branches or merge, the script will stop." -ForegroundColor Yellow
         return
       }
@@ -83,7 +121,7 @@ function Assert-CleanTree {
         throw "Merge aborted by user because local changes need attention."
       }
       default {
-        Write-Host "`nInput not recognized. Please enter S, K, or A." -ForegroundColor Yellow
+        Write-Host "`nInput not recognized. Please enter S, C, D, I, or A." -ForegroundColor Yellow
       }
     }
   }

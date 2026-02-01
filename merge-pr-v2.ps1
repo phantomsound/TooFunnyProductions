@@ -42,6 +42,7 @@ try {
   # Ignore encoding errors; fallback to default console encoding
 }
 $script:didSelfStash = $false
+$script:AutoStashRef = $null
 
 function Ensure-AtRepoRoot {
   if (-not (Test-Path ".git")) { throw "Run from repo root ('.git' required). Current: $(Get-Location)" }
@@ -68,17 +69,112 @@ function AutoUnstash-ThisScript {
 function Assert-CleanTree {
   # ignore this script being modified
   $status = git status --porcelain | Where-Object { $_ -notmatch "\smerge-pr-v2\.ps1$" }
-  if ($status) {
-    $details = $status -join "`n"
-    $tips = @(
-      'Tips:',
-      " - Keep EVERYTHING shown above: git add -A; git commit -m 'save WIP before merge'",
-      " - Keep changes: git add <path>...; git commit -m 'save WIP'",
-      ' - Discard tracked edits: git restore --staged --worktree <path>...',
-      ' - Drop untracked dumps/logs: git clean -fd -- <path-or-folder>',
-      " - Temporary stash everything: git stash push -m 'merge-pr prep'"
-    ) -join "`n"
-    throw "Working tree not clean (excluding merge-pr-v2.ps1). Stash/commit first.`n$details`n`n$tips"
+  if (-not $status) { return }
+
+  Write-Host "`n⚠️  Working tree has local changes that will block the merge script." -ForegroundColor Yellow
+  Write-Host "   Current status:" -ForegroundColor Yellow
+  git status -sb | Out-Host
+
+  $stashList = git stash list
+  if ($stashList) {
+    Write-Host "`n   Existing stash entries:" -ForegroundColor Yellow
+    git stash list | Out-Host
+  } else {
+    Write-Host "`n   No stashes are currently saved." -ForegroundColor Yellow
+  }
+
+  while ($true) {
+    Write-Host "`nChoose how to proceed:" -ForegroundColor Yellow
+    Write-Host "  [S] Stash changes now (will be re-applied automatically after the merge)." -ForegroundColor Yellow
+    Write-Host "  [C] Commit changes now (requires a commit message)." -ForegroundColor Yellow
+    Write-Host "  [D] Discard ALL local changes (git reset --hard + git clean -fd)." -ForegroundColor Yellow
+    Write-Host "  [I] Ignore changes and continue without stashing (may cause checkout/merge conflicts)." -ForegroundColor Yellow
+    Write-Host "  [A] Abort the merge helper so you can handle the changes yourself." -ForegroundColor Yellow
+
+    $choice = (Read-Host "Enter S, C, D, I, or A").Trim().ToUpper()
+    switch ($choice) {
+      'S' {
+        $customMessage = (Read-Host "Optional stash message (press Enter to skip)").Trim()
+        if (-not $customMessage) {
+          $customMessage = "merge-pr-v2 auto-stash $(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
+        }
+
+        git stash push --include-untracked -m $customMessage | Out-Host
+
+        $stashEntry = git stash list --format="%gd::%gs" | Where-Object { $_ -like "*${customMessage}*" } | Select-Object -First 1
+        if (-not $stashEntry) {
+          throw "Failed to create a stash entry automatically."
+        }
+
+        $script:AutoStashRef = ($stashEntry -split '::')[0]
+        Write-Host "`n✅  Changes stashed as $($script:AutoStashRef). They will be restored after the merge completes." -ForegroundColor Green
+        return
+      }
+      'C' {
+        git add -A | Out-Host
+        if (-not (git status --porcelain)) {
+          Write-Host "`nNo changes left to commit after staging. Returning to the menu." -ForegroundColor Yellow
+          continue
+        }
+
+        $commitMessage = (Read-Host "Enter commit message").Trim()
+        if (-not $commitMessage) {
+          $commitMessage = "merge-pr-v2: save local changes $(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
+        }
+
+        git commit -m $commitMessage | Out-Host
+
+        if (git status --porcelain) {
+          Write-Host "`nSome changes are still present after committing. Review them before continuing." -ForegroundColor Yellow
+          continue
+        }
+        Write-Host "`n✅  Changes committed. Continuing with a clean working tree." -ForegroundColor Green
+        return
+      }
+      'D' {
+        $confirm = (Read-Host "Type DELETE to discard ALL local changes").Trim()
+        if ($confirm -ne "DELETE") {
+          Write-Host "`nDiscard cancelled. Returning to the menu." -ForegroundColor Yellow
+          continue
+        }
+        git reset --hard | Out-Host
+        git clean -fd | Out-Host
+        if (git status --porcelain) {
+          Write-Host "`nSome changes remain after cleanup. Returning to the menu." -ForegroundColor Yellow
+          continue
+        }
+        Write-Host "`n✅  Local changes discarded. Continuing with a clean working tree." -ForegroundColor Green
+        return
+      }
+      'I' {
+        Write-Host "`nContinuing with local changes in place. If Git cannot switch branches or merge, the script will stop." -ForegroundColor Yellow
+        return
+      }
+      'A' {
+        throw "Merge aborted by user because local changes need attention."
+      }
+      default {
+        Write-Host "`nInput not recognized. Please enter S, C, D, I, or A." -ForegroundColor Yellow
+      }
+    }
+  }
+}
+
+function Restore-AutoStash {
+  param([switch]$OnError)
+
+  if (-not $script:AutoStashRef) { return }
+
+  $reason = if ($OnError) { 'after an error' } else { 'after merge completion' }
+  Write-Host "`nRestoring stashed changes ($($script:AutoStashRef)) $reason..." -ForegroundColor Cyan
+
+  try {
+    git stash pop $script:AutoStashRef | Out-Host
+    $script:AutoStashRef = $null
+  }
+  catch {
+    Write-Host "`n⚠️  Failed to auto-apply $($script:AutoStashRef). Please apply it manually when ready:" -ForegroundColor Yellow
+    Write-Host "   git stash pop $($script:AutoStashRef)" -ForegroundColor Yellow
   }
 }
 
@@ -194,11 +290,14 @@ try {
   git switch main | Out-Host
   if (-not $DryRun) { Build-And-Doctor }
 
+  Restore-AutoStash
+
   Write-Host "`n[Done] main is up to date and builds clean." -ForegroundColor Green
   Write-Host "   You can run: npm run dev" -ForegroundColor DarkGray
   if (-not $DryRun) { Show-PostMergeTips }
 }
 catch {
+  Restore-AutoStash -OnError
   Write-Host "`n[Error] $($_.Exception.Message)" -ForegroundColor Red
   Write-Host "   If an editor opened, press Esc then :wq Enter to continue."
   exit 1
